@@ -56,4 +56,9 @@ public class User extends BaseEntity {
     public String getRoleKey() {
         return this.role.name();
     }
+
+    public void updateNameAndProfileImage(String nickname, String profileImage) {
+        this.nickname = nickname;
+        this.profileImage = profileImage;
+    }
 }
