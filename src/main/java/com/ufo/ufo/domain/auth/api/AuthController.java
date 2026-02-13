@@ -2,6 +2,7 @@ package com.ufo.ufo.domain.auth.api;
 
 import com.ufo.ufo.domain.auth.application.AuthService;
 import com.ufo.ufo.domain.auth.dto.response.TokenResponse;
+import com.ufo.ufo.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,7 +18,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/token/refresh")
-    public ResponseEntity<TokenResponse> refreshToken(@CookieValue("refreshToken") String refreshToken) {
-        return ResponseEntity.ok(authService.reissue(refreshToken));
+    public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(@CookieValue("refresh_token") String refreshToken) {
+        return ResponseEntity.ok(ApiResponse.success(authService.reissue(refreshToken)));
     }
 }
