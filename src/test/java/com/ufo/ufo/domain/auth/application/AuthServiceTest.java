@@ -13,8 +13,8 @@ import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.exception.InvalidTokenException;
 import com.ufo.ufo.global.exception.UserNotFoundException;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
-import com.ufo.ufo.global.security.types.Provider;
 import com.ufo.ufo.global.security.types.Role;
+import com.ufo.ufo.support.fixture.UserFixture;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.util.Optional;
@@ -53,7 +53,7 @@ class AuthServiceTest {
     void reissue_WithValidRefreshToken_ReturnsTokenResponse() {
         String refreshToken = "refresh-token";
         String email = "user@example.com";
-        User user = createUser(email, Role.ROLE_USER);
+        User user = UserFixture.createUser(email, Role.ROLE_USER);
 
         when(jwtTokenProvider.validateToken(refreshToken)).thenReturn(true);
         when(jwtTokenProvider.getAuthentication(refreshToken)).thenReturn(authentication);
@@ -113,15 +113,5 @@ class AuthServiceTest {
         authService.logout(request);
 
         verify(request).getSession(false);
-    }
-
-    private User createUser(String email, Role role) {
-        return User.builder()
-                .email(email)
-                .nickname("tester")
-                .profileImage("https://example.com/image.png")
-                .role(role)
-                .provider(Provider.GOOGLE)
-                .build();
     }
 }
