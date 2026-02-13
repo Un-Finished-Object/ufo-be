@@ -45,6 +45,16 @@ public class OAuthCookieManager {
                 .build();
     }
 
+    public ResponseCookie expireRefreshTokenCookie() {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE, "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(0)
+                .sameSite("None")
+                .build();
+    }
+
     public String extractRedirectUri(HttpServletRequest request) {
         Cookie cookie = WebUtils.getCookie(request, REDIRECT_URI_COOKIE);
         if (cookie == null || cookie.getValue() == null || cookie.getValue().isBlank()) {

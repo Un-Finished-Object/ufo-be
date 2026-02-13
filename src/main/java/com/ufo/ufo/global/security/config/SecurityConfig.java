@@ -31,7 +31,8 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/v1/auth/**", "/login/**", "/oauth2/**").permitAll()
+                        .requestMatchers("/v1/auth/login/**", "/v1/auth/oauth/**", "/v1/auth/token/refresh").permitAll()
+                        .requestMatchers("/login/**", "/oauth2/**").permitAll()
                         .requestMatchers("/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )

@@ -6,6 +6,8 @@ import com.ufo.ufo.domain.auth.dto.response.TokenResponse;
 import com.ufo.ufo.global.exception.InvalidTokenException;
 import com.ufo.ufo.global.exception.UserNotFoundException;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,5 +34,12 @@ public class AuthService {
         String newAccessToken = jwtTokenProvider.createAccessToken(email, user.getRoleKey());
 
         return new TokenResponse(newAccessToken, JwtTokenProvider.BEARER_TYPE, jwtTokenProvider.getAccessTokenExpireTime());
+    }
+
+    public void logout(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
     }
 }
