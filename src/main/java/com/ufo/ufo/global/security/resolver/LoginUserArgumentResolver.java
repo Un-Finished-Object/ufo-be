@@ -2,6 +2,8 @@ package com.ufo.ufo.global.security.resolver;
 
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.global.exception.UnauthorizedUserException;
+import com.ufo.ufo.global.exception.UserNotFoundException;
 import com.ufo.ufo.global.security.annotation.LoginUser;
 import com.ufo.ufo.global.security.oauth.CustomOAuth2User;
 import lombok.RequiredArgsConstructor;
@@ -48,11 +50,11 @@ public class LoginUserArgumentResolver implements HandlerMethodArgumentResolver 
         String email = resolveEmailFromPrincipal(principal);
 
         if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("인증 사용자 이메일을 확인할 수 없습니다.");
+            throw new UnauthorizedUserException();
         }
 
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(UserNotFoundException::new);
     }
 
     private @Nullable String resolveEmailFromPrincipal(Object principal) {

@@ -2,6 +2,7 @@ package com.ufo.ufo.global.security.types;
 
 import java.util.Arrays;
 import lombok.RequiredArgsConstructor;
+import com.ufo.ufo.global.exception.UnsupportedProviderException;
 
 @RequiredArgsConstructor
 public enum Provider {
@@ -15,6 +16,6 @@ public enum Provider {
         return Arrays.stream(values())
                 .filter(provider -> provider.registrationId.equalsIgnoreCase(registrationId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("지원하지 않는 소셜 로그인입니다: " + registrationId));
+                .orElseThrow(() -> new UnsupportedProviderException(registrationId));
     }
 }
