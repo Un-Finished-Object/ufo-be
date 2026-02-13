@@ -18,8 +18,8 @@ public class CustomOAuth2User implements OAuth2User {
     private final Map<String, Object> attributes;
 
     @Override
-    public Map<String, Object> getAttribute(String name) {
-        return attributes;
+    public Object getAttribute(String name) {
+        return attributes.get(name);
     }
 
     @Override
