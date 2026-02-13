@@ -1,6 +1,5 @@
 package com.ufo.ufo.domain.user.api;
 
-import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
@@ -14,8 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("v1/users")
 @RequiredArgsConstructor
 public class UserController {
-
-    private final UserService userService;
 
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getMyInfo(@LoginUser User user) {
