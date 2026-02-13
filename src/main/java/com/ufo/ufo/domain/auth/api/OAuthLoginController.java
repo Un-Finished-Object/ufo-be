@@ -1,6 +1,7 @@
 package com.ufo.ufo.domain.auth.api;
 
 import com.ufo.ufo.global.security.oauth.OAuthCookieManager;
+import com.ufo.ufo.global.security.types.Provider;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -27,9 +28,11 @@ public class OAuthLoginController {
             @RequestParam("redirect_uri") String redirectUri,
             HttpServletRequest request
     ) {
+        Provider providerType = Provider.from(provider);
+
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.SET_COOKIE, oauthCookieManager.createRedirectUriCookie(redirectUri, request.isSecure()).toString())
-                .header(HttpHeaders.LOCATION, OAUTH2_AUTHORIZATION_BASE_URI + provider.toLowerCase())
+                .header(HttpHeaders.LOCATION, OAUTH2_AUTHORIZATION_BASE_URI + providerType.getRegistrationId())
                 .build();
     }
 }
