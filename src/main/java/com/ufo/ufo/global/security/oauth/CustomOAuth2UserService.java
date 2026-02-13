@@ -30,8 +30,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         OAuth2Response oAuth2Response = switch (provider) {
             case KAKAO -> new KakaoResponse(oAuth2User.getAttributes());
-            case GOOGLE -> new GoogleResponse(oAuth2User.getAttributes()); // ✅ 이제 사용 가능
-            case NAVER -> new NaverResponse(oAuth2User.getAttributes());   // ✅ 이제 사용 가능
+            case GOOGLE -> new GoogleResponse(oAuth2User.getAttributes());
+            case NAVER -> new NaverResponse(oAuth2User.getAttributes());
         };
 
         User user = saveOrUpdate(oAuth2Response);
