@@ -31,6 +31,6 @@ public class AuthService {
 
         String newAccessToken = jwtTokenProvider.createAccessToken(email, user.getRoleKey());
 
-        return new TokenResponse(newAccessToken, "Bearer ", jwtTokenProvider.getAccessTokenExpireTime());
+        return new TokenResponse(newAccessToken, JwtTokenProvider.BEARER_TYPE, jwtTokenProvider.getAccessTokenExpireTime());
     }
 }
