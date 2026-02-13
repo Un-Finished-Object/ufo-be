@@ -12,26 +12,22 @@ public record NaverResponse(Map<String, Object> attributes) implements OAuth2Res
 
     @Override
     public String getProviderId() {
-        Map<String, Object> response = getResponse();
-        return (String) response.get("id");
+        return (String) getResponse().get("id");
     }
 
     @Override
     public String getEmail() {
-        Map<String, Object> response = getResponse();
-        return (String) response.get("email");
+        return (String) getResponse().get("email");
     }
 
     @Override
     public String getName() {
-        Map<String, Object> response = getResponse();
-        return (String) response.get("name");
+        return (String) getResponse().get("name");
     }
 
     @Override
     public String getProfileImage() {
-        Map<String, Object> response = getResponse();
-        return (String) response.get("profile_image");
+        return (String) getResponse().get("profile_image");
     }
 
     private Map<String, Object> getResponse() {

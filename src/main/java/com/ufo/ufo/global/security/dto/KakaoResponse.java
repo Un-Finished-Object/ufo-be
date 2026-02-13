@@ -17,19 +17,24 @@ public record KakaoResponse(Map<String, Object> attributes) implements OAuth2Res
 
     @Override
     public String getEmail() {
-        Map<String, Object> account = (Map<String, Object>) attributes.get("kakao_account");
-        return (String) account.get("email");
+        return (String) getAccount().get("email");
     }
 
     @Override
     public String getName() {
-        Map<String, Object> profile = (Map<String, Object>) ((Map<String, Object>) attributes.get("kakao_account")).get("profile");
-        return (String) profile.get("nickname");
+        return (String) getProfile().get("nickname");
     }
 
     @Override
     public String getProfileImage() {
-        Map<String, Object> profile = (Map<String, Object>) ((Map<String, Object>) attributes.get("kakao_account")).get("profile");
-        return (String) profile.get("profile_image_url");
+        return (String) getProfile().get("profile_image_url");
+    }
+
+    private Map<String, Object> getAccount() {
+        return (Map<String, Object>) attributes.get("kakao_account");
+    }
+
+    private Map<String, Object> getProfile() {
+        return (Map<String, Object>) getAccount().get("profile");
     }
 }
