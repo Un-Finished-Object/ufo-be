@@ -1,9 +1,11 @@
 package com.ufo.ufo.global.security.types;
 
 import java.util.Arrays;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import com.ufo.ufo.global.exception.UnsupportedProviderException;
 
+@Getter
 @RequiredArgsConstructor
 public enum Provider {
     GOOGLE("google"),
