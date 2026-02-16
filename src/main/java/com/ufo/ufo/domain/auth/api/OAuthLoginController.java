@@ -24,7 +24,7 @@ public class OAuthLoginController {
 
     @GetMapping("/{provider}/authorize")
     public ResponseEntity<Void> authorize(
-            @PathVariable String provider,
+            @PathVariable("provider") String provider,
             @RequestParam("redirect_uri") String redirectUri,
             HttpServletRequest request
     ) {
