@@ -2,6 +2,7 @@ package com.ufo.ufo.domain.auth.api;
 
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -63,7 +64,7 @@ class AuthControllerTest {
                 .maxAge(0)
                 .path("/")
                 .build();
-        when(oAuthCookieManager.expireRefreshTokenCookie()).thenReturn(expiredCookie);
+        when(oAuthCookieManager.expireRefreshTokenCookie(anyBoolean())).thenReturn(expiredCookie);
 
         mockMvc.perform(post("/v1/auth/logout"))
                 .andExpect(status().isOk())
