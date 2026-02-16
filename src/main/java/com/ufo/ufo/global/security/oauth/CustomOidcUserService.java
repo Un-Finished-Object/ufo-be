@@ -21,7 +21,7 @@ public class CustomOidcUserService extends OidcUserService {
 
     @Override
     public OidcUser loadUser(OidcUserRequest userRequest) throws OAuth2AuthenticationException {
-        OidcUser oidcUser = super.loadUser(userRequest);
+        OidcUser oidcUser = fetchOidcUser(userRequest);
 
         String registrationId = userRequest.getClientRegistration().getRegistrationId();
         Provider provider = Provider.from(registrationId);
@@ -41,5 +41,9 @@ public class CustomOidcUserService extends OidcUserService {
                 oidcUser.getIdToken(),
                 oidcUser.getUserInfo()
         );
+    }
+
+    protected OidcUser fetchOidcUser(OidcUserRequest userRequest) {
+        return super.loadUser(userRequest);
     }
 }
