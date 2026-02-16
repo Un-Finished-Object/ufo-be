@@ -40,7 +40,11 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String targetUrl = oAuthCookieManager.extractRedirectUri(request);
 
         response.addHeader(HttpHeaders.SET_COOKIE,
-                oAuthCookieManager.createRefreshTokenCookie(refreshToken, jwtTokenProvider.getRefreshTokenExpireTime() / 1000).toString());
+                oAuthCookieManager.createRefreshTokenCookie(
+                        refreshToken,
+                        jwtTokenProvider.getRefreshTokenExpireTime() / 1000,
+                        request.isSecure()
+                ).toString());
         response.addHeader(HttpHeaders.SET_COOKIE,
                 oAuthCookieManager.expireRedirectUriCookie(request.isSecure()).toString());
 

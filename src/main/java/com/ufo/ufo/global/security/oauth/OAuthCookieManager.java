@@ -35,23 +35,25 @@ public class OAuthCookieManager {
                 .build();
     }
 
-    public ResponseCookie createRefreshTokenCookie(String refreshToken, long maxAgeSeconds) {
+    public ResponseCookie createRefreshTokenCookie(String refreshToken, long maxAgeSeconds, boolean secure) {
+        String sameSite = secure ? "None" : "Lax";
         return ResponseCookie.from(REFRESH_TOKEN_COOKIE, refreshToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(secure)
                 .path("/")
                 .maxAge(maxAgeSeconds)
-                .sameSite("None")
+                .sameSite(sameSite)
                 .build();
     }
 
-    public ResponseCookie expireRefreshTokenCookie() {
+    public ResponseCookie expireRefreshTokenCookie(boolean secure) {
+        String sameSite = secure ? "None" : "Lax";
         return ResponseCookie.from(REFRESH_TOKEN_COOKIE, "")
                 .httpOnly(true)
-                .secure(true)
+                .secure(secure)
                 .path("/")
                 .maxAge(0)
-                .sameSite("None")
+                .sameSite(sameSite)
                 .build();
     }
 

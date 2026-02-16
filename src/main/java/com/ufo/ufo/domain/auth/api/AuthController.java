@@ -31,7 +31,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> logout(HttpServletRequest request) {
         authService.logout(request);
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, oauthCookieManager.expireRefreshTokenCookie().toString())
+                .header(HttpHeaders.SET_COOKIE, oauthCookieManager.expireRefreshTokenCookie(request.isSecure()).toString())
                 .body(ApiResponse.success(Map.of()));
     }
 }
