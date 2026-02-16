@@ -1,3 +1,13 @@
 spring:
-  application:
-    name: UFO-BE
+  config:
+    import: "classpath:application-secret.yml"
+  sql:
+    init:
+      mode: always
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
