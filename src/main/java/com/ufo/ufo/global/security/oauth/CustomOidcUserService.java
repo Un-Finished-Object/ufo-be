@@ -7,33 +7,39 @@ import com.ufo.ufo.global.security.dto.NaverResponse;
 import com.ufo.ufo.global.security.dto.OAuth2Response;
 import com.ufo.ufo.global.security.types.Provider;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
-import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class CustomOAuth2UserService extends DefaultOAuth2UserService {
+public class CustomOidcUserService extends OidcUserService {
 
     private final OAuthUserUpsertService oauthUserUpsertService;
 
     @Override
-    public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
-        OAuth2User oAuth2User = super.loadUser(userRequest);
+    public OidcUser loadUser(OidcUserRequest userRequest) throws OAuth2AuthenticationException {
+        OidcUser oidcUser = super.loadUser(userRequest);
 
         String registrationId = userRequest.getClientRegistration().getRegistrationId();
         Provider provider = Provider.from(registrationId);
 
         OAuth2Response oAuth2Response = switch (provider) {
-            case KAKAO -> new KakaoResponse(oAuth2User.getAttributes());
-            case GOOGLE -> new GoogleResponse(oAuth2User.getAttributes());
-            case NAVER -> new NaverResponse(oAuth2User.getAttributes());
+            case GOOGLE -> new GoogleResponse(oidcUser.getAttributes());
+            case KAKAO -> new KakaoResponse(oidcUser.getAttributes());
+            case NAVER -> new NaverResponse(oidcUser.getAttributes());
         };
 
         User user = oauthUserUpsertService.saveOrUpdate(oAuth2Response);
 
-        return new CustomOAuth2User(user.getEmail(), user.getRoleKey(), oAuth2User.getAttributes());
+        return new CustomOAuth2User(
+                user.getEmail(),
+                user.getRoleKey(),
+                oidcUser.getAttributes(),
+                oidcUser.getIdToken(),
+                oidcUser.getUserInfo()
+        );
     }
 }

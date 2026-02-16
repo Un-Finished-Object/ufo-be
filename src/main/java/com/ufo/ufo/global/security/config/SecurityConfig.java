@@ -3,6 +3,7 @@ package com.ufo.ufo.global.security.config;
 import com.ufo.ufo.global.security.filter.JwtAuthenticationFilter;
 import com.ufo.ufo.global.security.handler.OAuth2SuccessHandler;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
+import com.ufo.ufo.global.security.oauth.CustomOidcUserService;
 import com.ufo.ufo.global.security.oauth.CustomOAuth2UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final CustomOAuth2UserService customOAuth2UserService;
+    private final CustomOidcUserService customOidcUserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final JwtTokenProvider jwtTokenProvider;
 
@@ -39,7 +41,9 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .redirectionEndpoint(redirection ->
                                 redirection.baseUri("/v1/auth/oauth/*/callback"))
-                        .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService)
+                                .oidcUserService(customOidcUserService))
                         .successHandler(oAuth2SuccessHandler))
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider),
                         UsernamePasswordAuthenticationFilter.class)

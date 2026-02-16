@@ -44,7 +44,8 @@ public class LoginUserArgumentResolver implements HandlerMethodArgumentResolver 
         Object principal = authentication.getPrincipal();
 
         if (principal instanceof CustomOAuth2User customOAuth2User) {
-            return customOAuth2User.getUser();
+            return userRepository.findByEmail(customOAuth2User.getEmail())
+                    .orElseThrow(UserNotFoundException::new);
         }
 
         String email = resolveEmailFromPrincipal(principal);

@@ -3,9 +3,6 @@ package com.ufo.ufo.global.security.handler;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import com.ufo.ufo.global.security.oauth.CustomOAuth2User;
 import com.ufo.ufo.global.security.oauth.OAuthCookieManager;
-import com.ufo.ufo.domain.user.domain.User;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -25,13 +22,12 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final OAuthCookieManager oAuthCookieManager;
 
     @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, FilterChain chain,
-                                        Authentication authentication) throws IOException, ServletException {
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
+                                        Authentication authentication) throws IOException {
         CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
 
-        User user = oAuth2User.getUser();
-        String email = user.getEmail();
-        String role = user.getRoleKey();
+        String email = oAuth2User.getEmail();
+        String role = oAuth2User.getRoleKey();
 
         String refreshToken = jwtTokenProvider.createRefreshToken(email);
 
