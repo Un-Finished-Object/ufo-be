@@ -16,6 +16,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.LastModifiedDate;
 
 @Entity
 @Getter
@@ -42,15 +43,27 @@ public class User extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private Provider provider;
 
+    @Column(nullable = false)
+    private Integer ballBalance;
+
+    @Column(unique = true)
+    private String referralCode;
+
+    @LastModifiedDate
+    private LocalDateTime updatedAt;
+
     private LocalDateTime deletedAt;
 
     @Builder
-    public User(String email, String nickname, String profileImage, Role role, Provider provider) {
+    public User(String email, String nickname, String profileImage, Role role, Provider provider,
+                Integer ballBalance, String referralCode) {
         this.email = email;
         this.nickname = nickname;
         this.profileImage = profileImage;
         this.role = role;
         this.provider = provider;
+        this.ballBalance = (ballBalance == null) ? 0 : ballBalance;
+        this.referralCode = referralCode;
     }
 
     public String getRoleKey() {
@@ -66,5 +79,13 @@ public class User extends BaseEntity {
         if (this.role == Role.ROLE_GUEST) {
             this.role = Role.ROLE_USER;
         }
+    }
+
+    public void addCredits(int amount) {
+        this.ballBalance += amount;
+    }
+
+    public void assignReferralCode(String referralCode) {
+        this.referralCode = referralCode;
     }
 }

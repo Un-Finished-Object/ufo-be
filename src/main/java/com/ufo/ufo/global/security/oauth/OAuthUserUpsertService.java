@@ -26,6 +26,7 @@ public class OAuthUserUpsertService {
                     .profileImage(response.getProfileImage())
                     .role(Role.ROLE_GUEST)
                     .provider(response.getProvider())
+                    .ballBalance(0)
                     .build();
         } else {
             user.updateNameAndProfileImage(response.getName(), response.getProfileImage());
