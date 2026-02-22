@@ -61,4 +61,10 @@ public class User extends BaseEntity {
         this.nickname = nickname;
         this.profileImage = profileImage;
     }
+
+    public void promoteToUserIfGuest() {
+        if (this.role == Role.ROLE_GUEST) {
+            this.role = Role.ROLE_USER;
+        }
+    }
 }

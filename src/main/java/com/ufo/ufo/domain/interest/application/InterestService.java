@@ -6,6 +6,7 @@ import com.ufo.ufo.domain.interest.domain.UserInterest;
 import com.ufo.ufo.domain.interest.dto.request.UpdateMyInterestsRequest;
 import com.ufo.ufo.domain.interest.dto.response.InterestKeywordsResponse;
 import com.ufo.ufo.domain.interest.dto.response.MyInterestsResponse;
+import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.exception.InvalidInterestKeywordException;
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class InterestService {
 
     private final UserInterestRepository userInterestRepository;
+    private final UserService userService;
 
     public InterestKeywordsResponse getInterestKeywords() {
         return new InterestKeywordsResponse(InterestKeyword.names());
@@ -36,8 +38,15 @@ public class InterestService {
 
     @Transactional
     public MyInterestsResponse updateMyInterests(User user, UpdateMyInterestsRequest request) {
+        User loginUser = userService.getUserById(user.getId());
         List<String> normalizedKeywords = normalizeAndValidate(request.keywords());
 
+        replaceUserInterests(loginUser, normalizedKeywords);
+        promoteUserIfGuest(loginUser);
+        return new MyInterestsResponse(normalizedKeywords);
+    }
+
+    private void replaceUserInterests(User user, List<String> normalizedKeywords) {
         userInterestRepository.deleteAllByUser_Id(user.getId());
 
         List<UserInterest> userInterests = normalizedKeywords.stream()
@@ -47,8 +56,10 @@ public class InterestService {
                         .build())
                 .toList();
         userInterestRepository.saveAll(userInterests);
+    }
 
-        return new MyInterestsResponse(normalizedKeywords);
+    private void promoteUserIfGuest(User user) {
+        user.promoteToUserIfGuest();
     }
 
     private List<String> normalizeAndValidate(List<String> keywords) {

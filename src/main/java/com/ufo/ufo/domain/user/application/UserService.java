@@ -20,4 +20,9 @@ public class UserService {
                 .orElseThrow(UserNotFoundException::new);
         return UserResponse.from(user);
     }
+
+    public User getUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+    }
 }
