@@ -10,8 +10,10 @@ import com.ufo.ufo.domain.interest.dao.UserInterestRepository;
 import com.ufo.ufo.domain.interest.domain.UserInterest;
 import com.ufo.ufo.domain.interest.dto.request.UpdateMyInterestsRequest;
 import com.ufo.ufo.domain.interest.dto.response.MyInterestsResponse;
+import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.exception.InvalidInterestKeywordException;
+import com.ufo.ufo.global.security.types.Role;
 import com.ufo.ufo.support.fixture.UserFixture;
 import com.ufo.ufo.support.fixture.UserInterestFixture;
 import java.util.List;
@@ -29,6 +31,9 @@ class InterestServiceTest {
 
     @Mock
     private UserInterestRepository userInterestRepository;
+
+    @Mock
+    private UserService userService;
 
     @InjectMocks
     private InterestService interestService;
@@ -48,15 +53,19 @@ class InterestServiceTest {
     }
 
     @Test
-    @DisplayName("내 관심사 수정 시 키워드를 정규화하고 기존 관심사를 교체 저장해야 한다")
-    void updateMyInterests_NormalizesAndReplacesInterests() {
+    @DisplayName("내 관심사 수정 시 키워드를 정규화·교체 저장하고 게스트 권한을 회원 권한으로 승급해야 한다")
+    void updateMyInterests_NormalizesReplacesAndPromotesRole() {
         User user = UserFixture.createUserWithId(1L);
+        User loginUser = UserFixture.createUser("test@example.com", Role.ROLE_GUEST);
+        UserFixture.setId(loginUser, 1L);
         UpdateMyInterestsRequest request = new UpdateMyInterestsRequest(List.of(" 빈티지 ", "캐주얼", "빈티지", " "));
+        when(userService.getUserById(1L)).thenReturn(loginUser);
         when(userInterestRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
         MyInterestsResponse response = interestService.updateMyInterests(user, request);
 
         assertThat(response.keywords()).containsExactly("빈티지", "캐주얼");
+        assertThat(loginUser.getRole()).isEqualTo(Role.ROLE_USER);
         verify(userInterestRepository).deleteAllByUser_Id(1L);
 
         ArgumentCaptor<List<UserInterest>> captor = ArgumentCaptor.forClass(List.class);
@@ -70,6 +79,7 @@ class InterestServiceTest {
     @DisplayName("유효하지 않은 관심사 키워드가 포함되면 예외가 발생해야 한다")
     void updateMyInterests_InvalidKeyword_ThrowsApiException() {
         User user = UserFixture.createUserWithId(1L);
+        when(userService.getUserById(1L)).thenReturn(user);
         UpdateMyInterestsRequest request = new UpdateMyInterestsRequest(List.of("invalid-keyword"));
 
         assertThatThrownBy(() -> interestService.updateMyInterests(user, request))
