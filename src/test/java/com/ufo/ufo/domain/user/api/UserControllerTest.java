@@ -46,13 +46,13 @@ class UserControllerTest {
     @DisplayName("내 관심사 조회는 서비스 결과를 data에 담아 응답해야 한다")
     void getMyInterests_ReturnsServiceResponse() {
         User user = UserFixture.createUser();
-        MyInterestsResponse serviceResponse = new MyInterestsResponse(List.of("YARN", "DIY"));
+        MyInterestsResponse serviceResponse = new MyInterestsResponse(List.of("빈티지", "캐주얼"));
         when(interestService.getMyInterests(user)).thenReturn(serviceResponse);
 
         ResponseEntity<ApiResponse<MyInterestsResponse>> response = userController.getMyInterests(user);
 
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().data().keywords()).containsExactly("YARN", "DIY");
+        assertThat(response.getBody().data().keywords()).containsExactly("빈티지", "캐주얼");
         verify(interestService).getMyInterests(user);
     }
 
@@ -60,14 +60,14 @@ class UserControllerTest {
     @DisplayName("내 관심사 수정은 서비스 결과를 data에 담아 응답해야 한다")
     void updateMyInterests_ReturnsServiceResponse() {
         User user = UserFixture.createUser();
-        UpdateMyInterestsRequest request = new UpdateMyInterestsRequest(List.of("yarn"));
-        MyInterestsResponse serviceResponse = new MyInterestsResponse(List.of("YARN"));
+        UpdateMyInterestsRequest request = new UpdateMyInterestsRequest(List.of("빈티지"));
+        MyInterestsResponse serviceResponse = new MyInterestsResponse(List.of("빈티지"));
         when(interestService.updateMyInterests(user, request)).thenReturn(serviceResponse);
 
         ResponseEntity<ApiResponse<MyInterestsResponse>> response = userController.updateMyInterests(user, request);
 
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().data().keywords()).containsExactly("YARN");
+        assertThat(response.getBody().data().keywords()).containsExactly("빈티지");
         verify(interestService).updateMyInterests(user, request);
     }
 }

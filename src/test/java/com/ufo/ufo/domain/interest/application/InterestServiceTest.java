@@ -38,32 +38,32 @@ class InterestServiceTest {
     void getMyInterests_ReturnsKeywordsForUser() {
         User user = UserFixture.createUserWithId(1L);
         when(userInterestRepository.findAllByUser_Id(1L)).thenReturn(List.of(
-                UserInterestFixture.createUserInterest(user, "YARN"),
-                UserInterestFixture.createUserInterest(user, "DIY")
+                UserInterestFixture.createUserInterest(user, "빈티지"),
+                UserInterestFixture.createUserInterest(user, "캐주얼")
         ));
 
         MyInterestsResponse response = interestService.getMyInterests(user);
 
-        assertThat(response.keywords()).containsExactly("YARN", "DIY");
+        assertThat(response.keywords()).containsExactly("빈티지", "캐주얼");
     }
 
     @Test
     @DisplayName("내 관심사 수정 시 키워드를 정규화하고 기존 관심사를 교체 저장해야 한다")
     void updateMyInterests_NormalizesAndReplacesInterests() {
         User user = UserFixture.createUserWithId(1L);
-        UpdateMyInterestsRequest request = new UpdateMyInterestsRequest(List.of(" yarn ", "YARN", "diy", " "));
+        UpdateMyInterestsRequest request = new UpdateMyInterestsRequest(List.of(" 빈티지 ", "캐주얼", "빈티지", " "));
         when(userInterestRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
         MyInterestsResponse response = interestService.updateMyInterests(user, request);
 
-        assertThat(response.keywords()).containsExactly("YARN", "DIY");
+        assertThat(response.keywords()).containsExactly("빈티지", "캐주얼");
         verify(userInterestRepository).deleteAllByUser_Id(1L);
 
         ArgumentCaptor<List<UserInterest>> captor = ArgumentCaptor.forClass(List.class);
         verify(userInterestRepository).saveAll(captor.capture());
         assertThat(captor.getValue())
                 .extracting(UserInterest::getKeyword)
-                .containsExactly("YARN", "DIY");
+                .containsExactly("빈티지", "캐주얼");
     }
 
     @Test

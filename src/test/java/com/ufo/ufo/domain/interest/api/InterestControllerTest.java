@@ -36,12 +36,12 @@ class InterestControllerTest {
     @DisplayName("관심사 키워드 목록 API는 data에 키워드 배열을 반환해야 한다")
     void getInterestKeywords_ReturnsKeywords() throws Exception {
         when(interestService.getInterestKeywords())
-                .thenReturn(new InterestKeywordsResponse(List.of("YARN", "DIY")));
+                .thenReturn(new InterestKeywordsResponse(List.of("빈티지", "캐주얼")));
 
         mockMvc.perform(get("/v1/interest/keywords"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.keywords[0]").value("YARN"))
-                .andExpect(jsonPath("$.data.keywords[1]").value("DIY"))
+                .andExpect(jsonPath("$.data.keywords[0]").value("빈티지"))
+                .andExpect(jsonPath("$.data.keywords[1]").value("캐주얼"))
                 .andExpect(jsonPath("$.error").isEmpty());
     }
 }
