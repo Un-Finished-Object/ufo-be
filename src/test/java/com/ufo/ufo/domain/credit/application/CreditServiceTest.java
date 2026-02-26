@@ -5,8 +5,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.credit.dao.CreditTransactionRepository;
+import com.ufo.ufo.domain.credit.dao.UnlockRepository;
 import com.ufo.ufo.domain.credit.domain.CreditTransaction;
 import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
+import com.ufo.ufo.domain.credit.domain.Unlock;
+import com.ufo.ufo.domain.credit.domain.UnlockType;
 import com.ufo.ufo.domain.credit.dto.response.CreditRulesResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditTransactionsResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditWalletResponse;
@@ -33,6 +36,9 @@ class CreditServiceTest {
 
     @Mock
     private CreditTransactionRepository creditTransactionRepository;
+
+    @Mock
+    private UnlockRepository unlockRepository;
 
     @InjectMocks
     private CreditService creditService;
@@ -123,6 +129,43 @@ class CreditServiceTest {
         verify(creditTransactionRepository).save(captor.capture());
         assertThat(captor.getValue().getAmount()).isEqualTo(1);
         assertThat(captor.getValue().getType()).isEqualTo(CreditTransactionType.STYLE_POST);
+    }
+
+    @Test
+    @DisplayName("대체 실 정보는 도안별 최초 조회 시에만 크레딧을 차감해야 한다")
+    void spendCreditsForFirstAlternativeView_ChargesOncePerPattern() {
+        User requestUser = UserFixture.createUserWithId(1L);
+        User loginUser = UserFixture.createUserWithId(1L);
+        when(userService.getUserById(1L)).thenReturn(loginUser);
+        when(unlockRepository.existsByUser_IdAndPatternIdAndType(1L, 100L, UnlockType.YARN_INFO)).thenReturn(false);
+
+        creditService.spendCreditsForFirstAlternativeView(requestUser, 100L);
+
+        assertThat(loginUser.getBallBalance()).isEqualTo(-5);
+        ArgumentCaptor<CreditTransaction> txCaptor = ArgumentCaptor.forClass(CreditTransaction.class);
+        verify(creditTransactionRepository).save(txCaptor.capture());
+        assertThat(txCaptor.getValue().getAmount()).isEqualTo(-5);
+        assertThat(txCaptor.getValue().getType()).isEqualTo(CreditTransactionType.ALT_YARN_VIEW);
+
+        ArgumentCaptor<Unlock> unlockCaptor = ArgumentCaptor.forClass(Unlock.class);
+        verify(unlockRepository).save(unlockCaptor.capture());
+        assertThat(unlockCaptor.getValue().getPatternId()).isEqualTo(100L);
+        assertThat(unlockCaptor.getValue().getType()).isEqualTo(UnlockType.YARN_INFO);
+    }
+
+    @Test
+    @DisplayName("이미 해금된 도안의 대체 실 조회는 크레딧을 차감하지 않아야 한다")
+    void spendCreditsForFirstAlternativeView_SkipsWhenAlreadyUnlocked() {
+        User requestUser = UserFixture.createUserWithId(1L);
+        User loginUser = UserFixture.createUserWithId(1L);
+        when(userService.getUserById(1L)).thenReturn(loginUser);
+        when(unlockRepository.existsByUser_IdAndPatternIdAndType(1L, 100L, UnlockType.YARN_INFO)).thenReturn(true);
+
+        creditService.spendCreditsForFirstAlternativeView(requestUser, 100L);
+
+        assertThat(loginUser.getBallBalance()).isEqualTo(0);
+        org.mockito.Mockito.verifyNoInteractions(creditTransactionRepository);
+        org.mockito.Mockito.verify(unlockRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
     }
 
     private void setTransactionId(CreditTransaction transaction, Long id) {
