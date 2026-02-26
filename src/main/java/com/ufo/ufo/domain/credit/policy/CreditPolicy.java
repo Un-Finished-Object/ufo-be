@@ -7,6 +7,7 @@ public final class CreditPolicy {
 
     public static final int DAILY_MAX_EARN_BALLS = 20;
     public static final int ATTENDANCE_DAILY_BALLS = 1;
+    public static final int ALT_YARN_VIEW_COST_BALLS = 5;
 
     private CreditPolicy() {
     }
@@ -25,7 +26,7 @@ public final class CreditPolicy {
     public static List<CreditRulesResponse.Rule> spendRules() {
         return List.of(
                 new CreditRulesResponse.Rule("CHATROOM_ENTRY", -5, "특정 도안 채팅방 영구 해금", false),
-                new CreditRulesResponse.Rule("ALT_YARN_VIEW", -5, "특정 도안 대체 실 정보 블러 제거", false),
+                new CreditRulesResponse.Rule("ALT_YARN_VIEW", -ALT_YARN_VIEW_COST_BALLS, "특정 도안 대체 실 정보 블러 제거", false),
                 new CreditRulesResponse.Rule("BUNDLE_PURCHASE", -8, "채팅방+대체 실 동시 해금 (2볼 할인)", false)
         );
     }

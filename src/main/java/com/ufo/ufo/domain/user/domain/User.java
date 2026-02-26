@@ -81,6 +81,10 @@ public class User extends BaseEntity {
         }
     }
 
+    public boolean isGuest() {
+        return this.role == Role.ROLE_GUEST;
+    }
+
     public void addCredits(int amount) {
         this.ballBalance += amount;
     }

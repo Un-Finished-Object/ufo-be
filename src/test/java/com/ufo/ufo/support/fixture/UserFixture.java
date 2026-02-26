@@ -3,6 +3,7 @@ package com.ufo.ufo.support.fixture;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.security.types.Provider;
 import com.ufo.ufo.global.security.types.Role;
+import java.lang.reflect.Field;
 
 public final class UserFixture {
 
@@ -31,7 +32,7 @@ public final class UserFixture {
 
     public static void setId(User user, Long id) {
         try {
-            java.lang.reflect.Field idField = User.class.getDeclaredField("id");
+            Field idField = User.class.getDeclaredField("id");
             idField.setAccessible(true);
             idField.set(user, id);
         } catch (ReflectiveOperationException e) {
