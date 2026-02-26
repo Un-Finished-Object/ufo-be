@@ -98,4 +98,8 @@ public class Pattern extends BaseEntity {
         this.scrapsCount = (scrapsCount == null) ? 0 : scrapsCount;
         this.viewCount = (viewCount == null) ? 0 : viewCount;
     }
+
+    public void increaseViewCount() {
+        this.viewCount += 1;
+    }
 }

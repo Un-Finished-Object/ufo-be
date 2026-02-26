@@ -117,6 +117,7 @@ class PatternServiceTest {
         assertThat(response.id()).isEqualTo(2L);
         assertThat(response.my().scrapped()).isTrue();
         assertThat(response.author()).isEqualTo("artist");
+        assertThat(response.stats().views()).isEqualTo(1);
     }
 
     @Test
