@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.credit.application.CreditService;
-import com.ufo.ufo.domain.interest.domain.UserInterest;
 import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
@@ -28,7 +27,6 @@ import com.ufo.ufo.global.exception.ApiException;
 import com.ufo.ufo.global.security.types.Role;
 import com.ufo.ufo.support.fixture.PatternAlternativeYarnFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
-import com.ufo.ufo.support.fixture.UserInterestFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import com.ufo.ufo.support.fixture.YarnFixture;
 import java.util.List;
@@ -235,7 +233,6 @@ class PatternServiceTest {
     @DisplayName("추천 도안 조회는 유저 관심사와 매칭된 도안을 우선 반환해야 한다")
     void getRecommendedPatterns_ReturnsInterestMatchedFirst() {
         User user = UserFixture.createUserWithId(1L);
-        UserInterest interest = UserInterestFixture.createUserInterest(user, "빈티지");
         Pattern pattern = PatternFixture.createPattern("빈티지 니트", "artist", "clothing", "sweater", "./patterns/1.png");
         PatternFixture.setId(pattern, 11L);
 
@@ -269,7 +266,6 @@ class PatternServiceTest {
     @DisplayName("추천 도안 조회에서 관심사 매칭 결과가 없으면 기본 추천 목록으로 fallback해야 한다")
     void getRecommendedPatterns_EmptyMatched_FallbackToDefaultRecommend() {
         User user = UserFixture.createUserWithId(1L);
-        UserInterest interest = UserInterestFixture.createUserInterest(user, "빈티지");
         Pattern pattern = PatternFixture.createPattern("fallback 추천", "artist", "clothing", "sweater", "./patterns/1.png");
         PatternFixture.setId(pattern, 13L);
         when(patternRepository.findRecommendedByUserInterest(1L)).thenReturn(List.of());
