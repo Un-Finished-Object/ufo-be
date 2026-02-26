@@ -1,8 +1,11 @@
 package com.ufo.ufo.domain.credit.application;
 
 import com.ufo.ufo.domain.credit.dao.CreditTransactionRepository;
+import com.ufo.ufo.domain.credit.dao.UnlockRepository;
 import com.ufo.ufo.domain.credit.domain.CreditTransaction;
 import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
+import com.ufo.ufo.domain.credit.domain.Unlock;
+import com.ufo.ufo.domain.credit.domain.UnlockType;
 import com.ufo.ufo.domain.credit.dto.response.CreditTransactionItemResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditRulesResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditTransactionsResponse;
@@ -31,6 +34,7 @@ public class CreditService {
 
     private final UserService userService;
     private final CreditTransactionRepository creditTransactionRepository;
+    private final UnlockRepository unlockRepository;
 
     public CreditWalletResponse getWallet(User user) {
         User loginUser = userService.getUserById(user.getId());
@@ -56,6 +60,25 @@ public class CreditService {
                 CreditPolicy.earnRules(),
                 CreditPolicy.spendRules()
         );
+    }
+
+    @Transactional
+    public void spendCreditsForFirstAlternativeView(User user, Long patternId) {
+        User loginUser = userService.getUserById(user.getId());
+        boolean alreadyUnlocked = unlockRepository.existsByUser_IdAndPatternIdAndType(
+                loginUser.getId(),
+                patternId,
+                UnlockType.YARN_INFO
+        );
+        if (alreadyUnlocked) {
+            return;
+        }
+        addCredits(loginUser, -CreditPolicy.ALT_YARN_VIEW_COST_BALLS, CreditTransactionType.ALT_YARN_VIEW);
+        unlockRepository.save(Unlock.builder()
+                .user(loginUser)
+                .patternId(patternId)
+                .type(UnlockType.YARN_INFO)
+                .build());
     }
 
     @Transactional
