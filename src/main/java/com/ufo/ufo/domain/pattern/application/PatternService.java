@@ -4,7 +4,6 @@ import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.dao.YarnRepository;
-import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
@@ -38,7 +37,6 @@ public class PatternService {
     private static final int PAGE_SIZE = 20;
 
     private final PatternRepository patternRepository;
-    private final CreditService creditService;
     private final ScrapRepository scrapRepository;
     private final PatternImageRepository patternImageRepository;
     private final PatternAlternativeYarnRepository patternAlternativeYarnRepository;
@@ -80,7 +78,6 @@ public class PatternService {
     @Transactional
     public PatternAlternativesResponse getAlternatives(User user, Long patternId) {
         findActivePattern(patternId);
-        creditService.spendCreditsForFirstAlternativeView(user, patternId);
         return PatternAlternativesResponse.fromAlternatives(
                 patternAlternativeYarnRepository.findAllByPattern_IdOrderByIdAsc(patternId)
         );
