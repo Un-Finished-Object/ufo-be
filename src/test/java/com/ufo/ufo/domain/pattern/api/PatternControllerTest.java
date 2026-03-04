@@ -5,7 +5,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.pattern.application.PatternService;
+import com.ufo.ufo.domain.pattern.application.PatternPurchaseService;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
+import com.ufo.ufo.domain.pattern.dto.request.PatternPurchaseRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativeDeleteResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativesResponse;
@@ -13,6 +15,8 @@ import com.ufo.ufo.domain.pattern.dto.response.PatternDetailResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternMyResponse;
+import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseResponse;
+import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseStatusResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternStatsResponse;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
@@ -32,6 +36,9 @@ class PatternControllerTest {
 
     @Mock
     private PatternService patternService;
+
+    @Mock
+    private PatternPurchaseService patternPurchaseService;
 
     @InjectMocks
     private PatternController patternController;
@@ -158,5 +165,37 @@ class PatternControllerTest {
         assertThat(response.getBody().data().userId()).isEqualTo(1L);
         assertThat(response.getBody().data().altId()).isEqualTo(1L);
         verify(patternService).deleteAlternative(user, 10L, 1L);
+    }
+
+    @Test
+    @DisplayName("구매 API는 서비스 응답을 data에 담아 반환해야 한다")
+    void purchase_ReturnsServiceResponse() {
+        User user = UserFixture.createUserWithId(1L);
+        PatternPurchaseRequest request = new PatternPurchaseRequest("1");
+        when(patternPurchaseService.purchase(user, 10L, request))
+                .thenReturn(new PatternPurchaseResponse(1L, "1"));
+
+        ResponseEntity<ApiResponse<PatternPurchaseResponse>> response = patternController.purchase(user, 10L, request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().userId()).isEqualTo(1L);
+        assertThat(response.getBody().data().type()).isEqualTo("1");
+        verify(patternPurchaseService).purchase(user, 10L, request);
+    }
+
+    @Test
+    @DisplayName("구매 여부 조회 API는 서비스 응답을 data에 담아 반환해야 한다")
+    void getPurchaseStatus_ReturnsServiceResponse() {
+        User user = UserFixture.createUserWithId(1L);
+        when(patternPurchaseService.getStatus(user, 10L))
+                .thenReturn(PatternPurchaseStatusResponse.from(1L, true, false));
+
+        ResponseEntity<ApiResponse<PatternPurchaseStatusResponse>> response = patternController.getPurchaseStatus(user, 10L);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().userId()).isEqualTo(1L);
+        assertThat(response.getBody().data().chat()).isTrue();
+        assertThat(response.getBody().data().alternative()).isFalse();
+        verify(patternPurchaseService).getStatus(user, 10L);
     }
 }
