@@ -1,13 +1,17 @@
 package com.ufo.ufo.domain.pattern.api;
 
 import com.ufo.ufo.domain.pattern.application.PatternService;
+import com.ufo.ufo.domain.pattern.application.PatternPurchaseService;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
+import com.ufo.ufo.domain.pattern.dto.request.PatternPurchaseRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativeDeleteResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativesResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternDetailResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
+import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseResponse;
+import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseStatusResponse;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
@@ -30,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PatternController {
 
     private final PatternService patternService;
+    private final PatternPurchaseService patternPurchaseService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<PatternListResponse>> getPatterns(
@@ -70,6 +75,23 @@ public class PatternController {
             @PathVariable("patternId") Long patternId
     ) {
         return ResponseEntity.ok(ApiResponse.success(patternService.getAlternatives(user, patternId)));
+    }
+
+    @PostMapping("/{patternId}/purchase")
+    public ResponseEntity<ApiResponse<PatternPurchaseResponse>> purchase(
+            @LoginUser User user,
+            @PathVariable("patternId") Long patternId,
+            @Valid @RequestBody PatternPurchaseRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(patternPurchaseService.purchase(user, patternId, request)));
+    }
+
+    @GetMapping("/{patternId}/purchase")
+    public ResponseEntity<ApiResponse<PatternPurchaseStatusResponse>> getPurchaseStatus(
+            @LoginUser User user,
+            @PathVariable("patternId") Long patternId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(patternPurchaseService.getStatus(user, patternId)));
     }
 
     @PostMapping("/{patternId}/alternatives")

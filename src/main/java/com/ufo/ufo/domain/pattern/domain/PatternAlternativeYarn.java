@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -45,8 +46,11 @@ public class PatternAlternativeYarn extends BaseEntity {
     @Column(name = "image_url")
     private String imageUrl;
 
+    @Column(name = "recommended_rewarded_at")
+    private LocalDateTime recommendedRewardedAt;
+
     @Column(name = "deleted_at")
-    private java.time.LocalDateTime deletedAt;
+    private LocalDateTime deletedAt;
 
     @Builder
     public PatternAlternativeYarn(Pattern pattern, User user, Yarn yarn, String gauge, String imageUrl) {
@@ -65,5 +69,13 @@ public class PatternAlternativeYarn extends BaseEntity {
 
     public boolean isOwnedBy(User user) {
         return this.user != null && user != null && this.user.getId().equals(user.getId());
+    }
+
+    public boolean canRewardForRecommended(long likesCount, int threshold) {
+        return this.user != null && this.recommendedRewardedAt == null && likesCount > threshold;
+    }
+
+    public void markRecommendedRewarded() {
+        this.recommendedRewardedAt = LocalDateTime.now();
     }
 }

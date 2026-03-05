@@ -6,6 +6,7 @@ import com.ufo.ufo.domain.credit.domain.CreditTransaction;
 import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
 import com.ufo.ufo.domain.credit.domain.Unlock;
 import com.ufo.ufo.domain.credit.domain.UnlockType;
+import com.ufo.ufo.domain.credit.exception.InsufficientCreditException;
 import com.ufo.ufo.domain.credit.dto.response.CreditTransactionItemResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditRulesResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditTransactionsResponse;
@@ -63,22 +64,23 @@ public class CreditService {
     }
 
     @Transactional
-    public void spendCreditsForFirstAlternativeView(User user, Long patternId) {
+    public void purchaseUnlock(User user, Long patternId, UnlockType unlockType) {
         User loginUser = userService.getUserById(user.getId());
-        boolean alreadyUnlocked = unlockRepository.existsByUser_IdAndPatternIdAndType(
-                loginUser.getId(),
-                patternId,
-                UnlockType.YARN_INFO
-        );
-        if (alreadyUnlocked) {
+        if (isUnlocked(loginUser.getId(), patternId, unlockType)) {
             return;
         }
-        addCredits(loginUser, -CreditPolicy.ALT_YARN_VIEW_COST_BALLS, CreditTransactionType.ALT_YARN_VIEW);
+        int cost = resolveUnlockCost(unlockType);
+        validateEnoughBalance(loginUser, cost);
+        addCredits(loginUser, -cost, resolveTransactionType(unlockType));
         unlockRepository.save(Unlock.builder()
                 .user(loginUser)
                 .patternId(patternId)
-                .type(UnlockType.YARN_INFO)
+                .type(unlockType)
                 .build());
+    }
+
+    public boolean isUnlocked(Long userId, Long patternId, UnlockType unlockType) {
+        return unlockRepository.existsByUser_IdAndPatternIdAndType(userId, patternId, unlockType);
     }
 
     @Transactional
@@ -177,5 +179,25 @@ public class CreditService {
 
     private String toFlowType(CreditTransaction transaction) {
         return transaction.getAmount() >= 0 ? "EARN" : "SPEND";
+    }
+
+    private int resolveUnlockCost(UnlockType unlockType) {
+        return switch (unlockType) {
+            case CHAT -> CreditPolicy.CHATROOM_ENTRY_COST_BALLS;
+            case YARN_INFO -> CreditPolicy.ALT_YARN_VIEW_COST_BALLS;
+        };
+    }
+
+    private CreditTransactionType resolveTransactionType(UnlockType unlockType) {
+        return switch (unlockType) {
+            case CHAT -> CreditTransactionType.CHATROOM_ENTRY;
+            case YARN_INFO -> CreditTransactionType.ALT_YARN_VIEW;
+        };
+    }
+
+    private void validateEnoughBalance(User user, int cost) {
+        if (user.getBallBalance() < cost) {
+            throw new InsufficientCreditException();
+        }
     }
 }

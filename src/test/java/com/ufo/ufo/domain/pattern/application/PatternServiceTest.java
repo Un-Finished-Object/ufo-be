@@ -1,5 +1,6 @@
 package com.ufo.ufo.domain.pattern.application;
 
+import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativesResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -8,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
@@ -47,9 +47,6 @@ class PatternServiceTest {
 
     @Mock
     private PatternRepository patternRepository;
-
-    @Mock
-    private CreditService creditService;
 
     @Mock
     private ScrapRepository scrapRepository;
@@ -204,16 +201,16 @@ class PatternServiceTest {
     }
 
     @Test
-    @DisplayName("대체 실 조회는 최초 조회 시 크레딧 차감 로직을 호출해야 한다")
-    void getAlternatives_ChargesCreditOnFirstView() {
+    @DisplayName("대체 실 조회는 도안 활성 여부를 확인하고 목록을 반환해야 한다")
+    void getAlternatives_ReturnsAlternativesWithoutCreditCharge() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(patternAlternativeYarnRepository.findAllByPattern_IdOrderByIdAsc(10L)).thenReturn(List.of());
 
-        patternService.getAlternatives(user, 10L);
+      PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
 
-        verify(creditService).spendCreditsForFirstAlternativeView(user, 10L);
+      assertThat(response.items()).isEmpty();
     }
 
     @Test
