@@ -12,6 +12,8 @@ import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseStatusResponse;
+import com.ufo.ufo.domain.scrap.application.ScrapService;
+import com.ufo.ufo.domain.scrap.dto.response.PatternScrapResponse;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
@@ -35,6 +37,7 @@ public class PatternController {
 
     private final PatternService patternService;
     private final PatternPurchaseService patternPurchaseService;
+    private final ScrapService scrapService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<PatternListResponse>> getPatterns(
@@ -92,6 +95,22 @@ public class PatternController {
             @PathVariable("patternId") Long patternId
     ) {
         return ResponseEntity.ok(ApiResponse.success(patternPurchaseService.getStatus(user, patternId)));
+    }
+
+    @PostMapping("/{patternId}/scrap")
+    public ResponseEntity<ApiResponse<PatternScrapResponse>> addPatternScrap(
+            @LoginUser User user,
+            @PathVariable("patternId") Long patternId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(scrapService.addPatternScrap(user, patternId)));
+    }
+
+    @DeleteMapping("/{patternId}/scrap")
+    public ResponseEntity<ApiResponse<PatternScrapResponse>> removePatternScrap(
+            @LoginUser User user,
+            @PathVariable("patternId") Long patternId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(scrapService.removePatternScrap(user, patternId)));
     }
 
     @PostMapping("/{patternId}/alternatives")

@@ -3,6 +3,8 @@ package com.ufo.ufo.domain.user.api;
 import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.interest.dto.request.UpdateMyInterestsRequest;
 import com.ufo.ufo.domain.interest.dto.response.MyInterestsResponse;
+import com.ufo.ufo.domain.scrap.application.ScrapService;
+import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.response.ApiResponse;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final InterestService interestService;
+    private final ScrapService scrapService;
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(@LoginUser User user) {
@@ -31,6 +34,11 @@ public class UserController {
     @GetMapping("/me/interests")
     public ResponseEntity<ApiResponse<MyInterestsResponse>> getMyInterests(@LoginUser User user) {
         return ResponseEntity.ok(ApiResponse.success(interestService.getMyInterests(user)));
+    }
+
+    @GetMapping("/me/scraps")
+    public ResponseEntity<ApiResponse<MyScrapsResponse>> getMyScraps(@LoginUser User user) {
+        return ResponseEntity.ok(ApiResponse.success(scrapService.getMyScraps(user)));
     }
 
     @PatchMapping("/me/interests")
