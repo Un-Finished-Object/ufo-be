@@ -18,6 +18,8 @@ import com.ufo.ufo.domain.pattern.dto.response.PatternMyResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseStatusResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternStatsResponse;
+import com.ufo.ufo.domain.scrap.application.ScrapService;
+import com.ufo.ufo.domain.scrap.dto.response.PatternScrapResponse;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.support.fixture.UserFixture;
@@ -39,6 +41,9 @@ class PatternControllerTest {
 
     @Mock
     private PatternPurchaseService patternPurchaseService;
+
+    @Mock
+    private ScrapService scrapService;
 
     @InjectMocks
     private PatternController patternController;
@@ -197,5 +202,35 @@ class PatternControllerTest {
         assertThat(response.getBody().data().chat()).isTrue();
         assertThat(response.getBody().data().alternative()).isFalse();
         verify(patternPurchaseService).getStatus(user, 10L);
+    }
+
+    @Test
+    @DisplayName("도안 찜 추가 API는 서비스 응답을 data에 담아 반환해야 한다")
+    void addPatternScrap_ReturnsServiceResponse() {
+        User user = UserFixture.createUserWithId(1L);
+        when(scrapService.addPatternScrap(user, 10L))
+                .thenReturn(PatternScrapResponse.from(true, 34));
+
+        ResponseEntity<ApiResponse<PatternScrapResponse>> response = patternController.addPatternScrap(user, 10L);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().scrapped()).isTrue();
+        assertThat(response.getBody().data().scrapCount()).isEqualTo(34);
+        verify(scrapService).addPatternScrap(user, 10L);
+    }
+
+    @Test
+    @DisplayName("도안 찜 취소 API는 서비스 응답을 data에 담아 반환해야 한다")
+    void removePatternScrap_ReturnsServiceResponse() {
+        User user = UserFixture.createUserWithId(1L);
+        when(scrapService.removePatternScrap(user, 10L))
+                .thenReturn(PatternScrapResponse.from(false, 33));
+
+        ResponseEntity<ApiResponse<PatternScrapResponse>> response = patternController.removePatternScrap(user, 10L);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().scrapped()).isFalse();
+        assertThat(response.getBody().data().scrapCount()).isEqualTo(33);
+        verify(scrapService).removePatternScrap(user, 10L);
     }
 }
