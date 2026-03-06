@@ -7,6 +7,8 @@ import static org.mockito.Mockito.when;
 import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.interest.dto.request.UpdateMyInterestsRequest;
 import com.ufo.ufo.domain.interest.dto.response.MyInterestsResponse;
+import com.ufo.ufo.domain.scrap.application.ScrapService;
+import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.support.fixture.UserFixture;
@@ -25,6 +27,9 @@ class UserControllerTest {
 
     @Mock
     private InterestService interestService;
+
+    @Mock
+    private ScrapService scrapService;
 
     @InjectMocks
     private UserController userController;
@@ -69,5 +74,19 @@ class UserControllerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().keywords()).containsExactly("빈티지");
         verify(interestService).updateMyInterests(user, request);
+    }
+
+    @Test
+    @DisplayName("내 찜 목록 조회는 서비스 결과를 data에 담아 응답해야 한다")
+    void getMyScraps_ReturnsServiceResponse() {
+        User user = UserFixture.createUser();
+        MyScrapsResponse serviceResponse = MyScrapsResponse.from(List.of());
+        when(scrapService.getMyScraps(user)).thenReturn(serviceResponse);
+
+        ResponseEntity<ApiResponse<MyScrapsResponse>> response = userController.getMyScraps(user);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().scraps()).isEmpty();
+        verify(scrapService).getMyScraps(user);
     }
 }

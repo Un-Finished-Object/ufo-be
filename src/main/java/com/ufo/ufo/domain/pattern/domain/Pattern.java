@@ -102,4 +102,14 @@ public class Pattern extends BaseEntity {
     public void increaseViewCount() {
         this.viewCount += 1;
     }
+
+    public void increaseScrapsCount() {
+        this.scrapsCount += 1;
+    }
+
+    public void decreaseScrapsCount() {
+        if (this.scrapsCount > 0) {
+            this.scrapsCount -= 1;
+        }
+    }
 }
