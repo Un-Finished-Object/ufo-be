@@ -52,16 +52,18 @@ class AttendanceControllerTest {
     @DisplayName("출석 현황 API는 서비스 응답의 날짜별 출석 여부를 data에 담아 반환해야 한다")
     void getStatus_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
-        when(attendanceService.getStatus(user))
+        Integer year = 2026;
+        Integer month = 2;
+        when(attendanceService.getStatus(user, year, month))
                 .thenReturn(new AttendanceStatusResponse(
                         Map.of("2026-02-01", true, "2026-02-02", false)));
 
-        ResponseEntity<ApiResponse<AttendanceStatusResponse>> response = attendanceController.getStatus(user);
+        ResponseEntity<ApiResponse<AttendanceStatusResponse>> response = attendanceController.getStatus(user, year, month);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().rewarded().get("2026-02-01")).isTrue();
         assertThat(response.getBody().data().rewarded().get("2026-02-02")).isFalse();
         assertThat(response.getBody().error()).isNull();
-        verify(attendanceService).getStatus(user);
+        verify(attendanceService).getStatus(user, year, month);
     }
 }

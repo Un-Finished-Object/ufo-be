@@ -17,6 +17,7 @@ import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
@@ -89,27 +90,30 @@ class AttendanceServiceTest {
     }
 
     @Test
-    @DisplayName("출석 현황 조회는 현재 월 1일부터 오늘까지 날짜별 출석 여부를 반환해야 한다")
-    void getStatus_ReturnsDailyRewardedFromMonthStartToToday() {
+    @DisplayName("출석 현황 조회는 요청한 연월의 1일부터 말일까지 날짜별 출석 여부를 반환해야 한다")
+    void getStatus_ReturnsDailyRewardedForRequestedMonth() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
-        LocalDate today = LocalDate.now();
-        LocalDate monthStart = today.withDayOfMonth(1);
+        Integer year = 2026;
+        Integer month = 2;
+        YearMonth yearMonth = YearMonth.of(year, month);
+        LocalDate monthStart = yearMonth.atDay(1);
+        LocalDate monthEnd = yearMonth.atEndOfMonth();
         when(userService.getUserById(1L)).thenReturn(loginUser);
         when(attendanceCheckRepository.findAllByUser_IdAndAttendanceDateBetweenOrderByAttendanceDateAsc(
-                any(Long.class), any(LocalDate.class), any(LocalDate.class)))
+                1L, monthStart, monthEnd))
                 .thenReturn(List.of(
                         AttendanceCheck.builder().user(loginUser).attendanceDate(monthStart).build()
                 ));
 
-        AttendanceStatusResponse response = attendanceService.getStatus(requestUser);
+        AttendanceStatusResponse response = attendanceService.getStatus(requestUser, year, month);
 
         assertThat(response.rewarded()).isInstanceOf(LinkedHashMap.class);
-        assertThat(response.rewarded()).hasSize(today.getDayOfMonth());
+        assertThat(response.rewarded()).hasSize(yearMonth.lengthOfMonth());
         assertThat(response.rewarded().get(monthStart.toString())).isTrue();
-        if (today.getDayOfMonth() > 1) {
+        if (yearMonth.lengthOfMonth() > 1) {
             assertThat(response.rewarded().get(monthStart.plusDays(1).toString())).isFalse();
         }
-        assertThat(response.rewarded()).containsKey(today.toString());
+        assertThat(response.rewarded()).containsKey(monthEnd.toString());
     }
 }
