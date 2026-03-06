@@ -4,12 +4,14 @@ import com.ufo.ufo.domain.attendance.dao.AttendanceCheckRepository;
 import com.ufo.ufo.domain.attendance.domain.AttendanceCheck;
 import com.ufo.ufo.domain.attendance.dto.response.AttendanceCheckResponse;
 import com.ufo.ufo.domain.attendance.dto.response.AttendanceStatusResponse;
+import com.ufo.ufo.domain.attendance.exception.InvalidAttendanceYearMonthException;
 import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
 import com.ufo.ufo.domain.credit.policy.CreditPolicy;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -41,12 +43,13 @@ public class AttendanceService {
         return createSuccessResponse(loginUser, today);
     }
 
-    public AttendanceStatusResponse getStatus(User user) {
+    public AttendanceStatusResponse getStatus(User user, Integer year, Integer month) {
         User loginUser = userService.getUserById(user.getId());
-        LocalDate today = LocalDate.now();
-        LocalDate from = monthStartOf(today);
-        Set<LocalDate> checkedDates = findCheckedDates(loginUser, from, today);
-        return new AttendanceStatusResponse(buildRewardedMap(from, today, checkedDates));
+        YearMonth targetMonth = resolveYearMonth(year, month);
+        LocalDate from = targetMonth.atDay(1);
+        LocalDate to = targetMonth.atEndOfMonth();
+        Set<LocalDate> checkedDates = findCheckedDates(loginUser, from, to);
+        return new AttendanceStatusResponse(buildRewardedMap(from, to, checkedDates));
     }
 
     private boolean isAlreadyCheckedToday(User user, LocalDate date) {
@@ -72,8 +75,15 @@ public class AttendanceService {
         return new AttendanceCheckResponse(date, true, CreditPolicy.ATTENDANCE_DAILY_BALLS, user.getBallBalance());
     }
 
-    private LocalDate monthStartOf(LocalDate date) {
-        return date.withDayOfMonth(1);
+    private YearMonth resolveYearMonth(Integer year, Integer month) {
+        if (year == null || month == null) {
+            throw new InvalidAttendanceYearMonthException();
+        }
+        try {
+            return YearMonth.of(year, month);
+        } catch (RuntimeException e) {
+            throw new InvalidAttendanceYearMonthException();
+        }
     }
 
     private Set<LocalDate> findCheckedDates(User user, LocalDate from, LocalDate to) {
