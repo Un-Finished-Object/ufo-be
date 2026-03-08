@@ -8,9 +8,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.chat.dto.websocket.request.ChatMessageSendRequest;
+import com.ufo.ufo.domain.chat.dto.websocket.request.ChatReadUpdateRequest;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatErrorPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatEventType;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatMessageCreatedPayload;
+import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatSocketEvent;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.user.dao.UserRepository;
@@ -96,5 +98,55 @@ class ChatWebSocketServiceTest {
         assertThat(payload.code()).isEqualTo("CHAT_ROOM_NOT_FOUND");
         assertThat(payload.message()).isEqualTo("존재하지 않는 채팅방입니다.");
         assertThat(payload.clientMessageId()).isEqualTo("temp-err-1");
+    }
+
+    @Test
+    @DisplayName("읽음 처리 전송 시 해당 채팅방으로 READ_UPDATED 이벤트를 브로드캐스트해야 한다")
+    void publishReadUpdate_BroadcastsReadUpdatedEvent() {
+        Long roomId = 10L;
+        String userEmail = "test@example.com";
+        User user = UserFixture.createUser(userEmail, com.ufo.ufo.global.security.types.Role.ROLE_USER);
+        UserFixture.setId(user, 21L);
+        Principal principal = () -> userEmail;
+
+        when(patternRepository.existsById(roomId)).thenReturn(true);
+        when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
+
+        chatWebSocketService.publishReadUpdate(principal, new ChatReadUpdateRequest(roomId, 53L));
+
+        ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(messagingTemplate).convertAndSend(eq("/sub/chat/rooms/10"), payloadCaptor.capture());
+
+        ChatSocketEvent<?> event = (ChatSocketEvent<?>) payloadCaptor.getValue();
+        assertThat(event.eventType()).isEqualTo(ChatEventType.READ_UPDATED);
+        assertThat(event.roomId()).isEqualTo(roomId);
+
+        ChatReadUpdatedPayload payload = (ChatReadUpdatedPayload) event.payload();
+        assertThat(payload.userId()).isEqualTo(21L);
+        assertThat(payload.lastReadMessageId()).isEqualTo(53L);
+        assertThat(payload.readAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 채팅방으로 읽음 처리 전송 시 ERROR 이벤트를 브로드캐스트해야 한다")
+    void publishReadUpdate_InvalidRoom_BroadcastsErrorEvent() {
+        Long roomId = 999L;
+        Principal principal = () -> "test@example.com";
+        when(patternRepository.existsById(roomId)).thenReturn(false);
+
+        chatWebSocketService.publishReadUpdate(principal, new ChatReadUpdateRequest(roomId, 53L));
+
+        ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(messagingTemplate).convertAndSend(eq("/sub/chat/rooms/999"), payloadCaptor.capture());
+        verify(userRepository, never()).findByEmail(any());
+
+        ChatSocketEvent<?> event = (ChatSocketEvent<?>) payloadCaptor.getValue();
+        assertThat(event.eventType()).isEqualTo(ChatEventType.ERROR);
+        assertThat(event.roomId()).isEqualTo(roomId);
+
+        ChatErrorPayload payload = (ChatErrorPayload) event.payload();
+        assertThat(payload.code()).isEqualTo("CHAT_ROOM_NOT_FOUND");
+        assertThat(payload.message()).isEqualTo("존재하지 않는 채팅방입니다.");
+        assertThat(payload.clientMessageId()).isNull();
     }
 }
