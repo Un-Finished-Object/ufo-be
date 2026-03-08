@@ -1,9 +1,11 @@
 package com.ufo.ufo.domain.chat.application;
 
 import com.ufo.ufo.domain.chat.dto.websocket.request.ChatMessageSendRequest;
+import com.ufo.ufo.domain.chat.dto.websocket.request.ChatReadUpdateRequest;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatErrorPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatEventType;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatMessageCreatedPayload;
+import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatSocketEvent;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.user.dao.UserRepository;
@@ -40,15 +42,8 @@ public class ChatWebSocketService {
             return;
         }
 
-        String userEmail = extractUserEmail(principal);
-        if (userEmail == null) {
-            sendError(roomId, "UNAUTHORIZED", "인증 사용자 정보를 확인할 수 없습니다.", clientMessageId);
-            return;
-        }
-
-        Optional<User> maybeUser = userRepository.findByEmail(userEmail);
+        Optional<User> maybeUser = resolveAuthenticatedUser(principal, roomId, clientMessageId);
         if (maybeUser.isEmpty()) {
-            sendError(roomId, "USER_NOT_FOUND", "사용자 정보를 찾을 수 없습니다.", clientMessageId);
             return;
         }
 
@@ -69,6 +64,52 @@ public class ChatWebSocketService {
         );
         messagingTemplate.convertAndSend(roomDestination(roomId),
                 new ChatSocketEvent<>(ChatEventType.MESSAGE_CREATED, roomId, payload));
+    }
+
+    public void publishReadUpdate(Principal principal, ChatReadUpdateRequest request) {
+        Long roomId = request.roomId();
+        if (roomId == null) {
+            return;
+        }
+        if (!patternRepository.existsById(roomId)) {
+            sendError(roomId, "CHAT_ROOM_NOT_FOUND", "존재하지 않는 채팅방입니다.", null);
+            return;
+        }
+
+        Optional<User> maybeUser = resolveAuthenticatedUser(principal, roomId, null);
+        if (maybeUser.isEmpty()) {
+            return;
+        }
+
+        Long lastReadMessageId = request.lastReadMessageId();
+        if (lastReadMessageId == null || lastReadMessageId <= 0) {
+            sendError(roomId, "INVALID_LAST_READ_MESSAGE_ID", "유효한 마지막 읽음 메시지 ID가 필요합니다.", null);
+            return;
+        }
+
+        User user = maybeUser.get();
+        ChatReadUpdatedPayload payload = new ChatReadUpdatedPayload(
+                user.getId(),
+                lastReadMessageId,
+                LocalDateTime.now()
+        );
+        messagingTemplate.convertAndSend(roomDestination(roomId),
+                new ChatSocketEvent<>(ChatEventType.READ_UPDATED, roomId, payload));
+    }
+
+    private Optional<User> resolveAuthenticatedUser(Principal principal, Long roomId, String clientMessageId) {
+        String userEmail = extractUserEmail(principal);
+        if (userEmail == null) {
+            sendError(roomId, "UNAUTHORIZED", "인증 사용자 정보를 확인할 수 없습니다.", clientMessageId);
+            return Optional.empty();
+        }
+
+        Optional<User> maybeUser = userRepository.findByEmail(userEmail);
+        if (maybeUser.isEmpty()) {
+            sendError(roomId, "USER_NOT_FOUND", "사용자 정보를 찾을 수 없습니다.", clientMessageId);
+            return Optional.empty();
+        }
+        return maybeUser;
     }
 
     private String extractUserEmail(Principal principal) {
