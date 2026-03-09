@@ -14,11 +14,18 @@ import com.ufo.ufo.domain.chat.dto.websocket.response.ChatEventType;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatMessageCreatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatSocketEvent;
+import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
+import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
+import com.ufo.ufo.domain.chat.domain.ChatMessage;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
+import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
+import java.lang.reflect.Field;
 import java.security.Principal;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,6 +49,12 @@ class ChatWebSocketServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private ChatMessageRepository chatMessageRepository;
+
+    @Mock
+    private ChatReadStatusRepository chatReadStatusRepository;
+
     @InjectMocks
     private ChatWebSocketService chatWebSocketService;
 
@@ -52,10 +65,16 @@ class ChatWebSocketServiceTest {
         String userEmail = "test@example.com";
         User user = UserFixture.createUser(userEmail, com.ufo.ufo.global.security.types.Role.ROLE_USER);
         UserFixture.setId(user, 21L);
+        Pattern pattern = PatternFixture.createPatternWithId(roomId);
+        ChatMessage savedMessage = ChatMessage.builder().pattern(pattern).user(user).text("안녕하세요").build();
+        setId(savedMessage, 1L);
+        setCreatedAt(savedMessage, LocalDateTime.of(2026, 3, 9, 10, 0));
         Principal principal = () -> userEmail;
 
         when(patternRepository.existsById(roomId)).thenReturn(true);
+        when(patternRepository.findById(roomId)).thenReturn(Optional.of(pattern));
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
+        when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(savedMessage);
 
         chatWebSocketService.publishMessage(principal,
                 new ChatMessageSendRequest(roomId, " 안녕하세요 ", "temp-123456"));
@@ -68,12 +87,12 @@ class ChatWebSocketServiceTest {
         assertThat(event.roomId()).isEqualTo(roomId);
 
         ChatMessageCreatedPayload payload = (ChatMessageCreatedPayload) event.payload();
-        assertThat(payload.messageId()).isNotNull();
+        assertThat(payload.messageId()).isEqualTo(1L);
         assertThat(payload.clientMessageId()).isEqualTo("temp-123456");
         assertThat(payload.senderId()).isEqualTo(21L);
         assertThat(payload.senderName()).isEqualTo(user.getNickname());
         assertThat(payload.text()).isEqualTo("안녕하세요");
-        assertThat(payload.createdAt()).isNotNull();
+        assertThat(payload.createdAt()).isEqualTo(LocalDateTime.of(2026, 3, 9, 10, 0));
     }
 
     @Test
@@ -107,10 +126,13 @@ class ChatWebSocketServiceTest {
         String userEmail = "test@example.com";
         User user = UserFixture.createUser(userEmail, com.ufo.ufo.global.security.types.Role.ROLE_USER);
         UserFixture.setId(user, 21L);
+        Pattern pattern = PatternFixture.createPatternWithId(roomId);
         Principal principal = () -> userEmail;
 
         when(patternRepository.existsById(roomId)).thenReturn(true);
+        when(patternRepository.findById(roomId)).thenReturn(Optional.of(pattern));
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
+        when(chatReadStatusRepository.findByPattern_IdAndUser_Id(roomId, 21L)).thenReturn(Optional.empty());
 
         chatWebSocketService.publishReadUpdate(principal, new ChatReadUpdateRequest(roomId, 53L));
 
@@ -148,5 +170,25 @@ class ChatWebSocketServiceTest {
         assertThat(payload.code()).isEqualTo("CHAT_ROOM_NOT_FOUND");
         assertThat(payload.message()).isEqualTo("존재하지 않는 채팅방입니다.");
         assertThat(payload.clientMessageId()).isNull();
+    }
+
+    private void setId(ChatMessage chatMessage, Long id) {
+        try {
+            Field idField = ChatMessage.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(chatMessage, id);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private void setCreatedAt(ChatMessage chatMessage, LocalDateTime createdAt) {
+        try {
+            Field createdAtField = ChatMessage.class.getSuperclass().getDeclaredField("createdAt");
+            createdAtField.setAccessible(true);
+            createdAtField.set(chatMessage, createdAt);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }
