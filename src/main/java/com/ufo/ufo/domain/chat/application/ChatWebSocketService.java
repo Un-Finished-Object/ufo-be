@@ -1,5 +1,9 @@
 package com.ufo.ufo.domain.chat.application;
 
+import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
+import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
+import com.ufo.ufo.domain.chat.domain.ChatMessage;
+import com.ufo.ufo.domain.chat.domain.ChatReadStatus;
 import com.ufo.ufo.domain.chat.dto.websocket.request.ChatMessageSendRequest;
 import com.ufo.ufo.domain.chat.dto.websocket.request.ChatReadUpdateRequest;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatErrorPayload;
@@ -7,13 +11,13 @@ import com.ufo.ufo.domain.chat.dto.websocket.response.ChatEventType;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatMessageCreatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatSocketEvent;
+import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -27,9 +31,10 @@ public class ChatWebSocketService {
     private final SimpMessagingTemplate messagingTemplate;
     private final PatternRepository patternRepository;
     private final UserRepository userRepository;
+    private final ChatMessageRepository chatMessageRepository;
+    private final ChatReadStatusRepository chatReadStatusRepository;
 
-    private final AtomicLong messageSequence = new AtomicLong(0);
-
+    @Transactional
     public void publishMessage(Principal principal, ChatMessageSendRequest request) {
         Long roomId = request.roomId();
         if (roomId == null) {
@@ -53,19 +58,35 @@ public class ChatWebSocketService {
             return;
         }
 
+        Optional<Pattern> maybePattern = patternRepository.findById(roomId);
+        if (maybePattern.isEmpty()) {
+            sendError(roomId, "CHAT_ROOM_NOT_FOUND", "존재하지 않는 채팅방입니다.", clientMessageId);
+            return;
+        }
+
         User sender = maybeUser.get();
+        Pattern pattern = maybePattern.get();
+        ChatMessage savedMessage = chatMessageRepository.save(
+                ChatMessage.builder()
+                        .pattern(pattern)
+                        .user(sender)
+                        .text(text)
+                        .build()
+        );
+
         ChatMessageCreatedPayload payload = new ChatMessageCreatedPayload(
-                messageSequence.incrementAndGet(),
+                savedMessage.getId(),
                 clientMessageId,
                 sender.getId(),
                 sender.getNickname(),
                 text,
-                LocalDateTime.now()
+                savedMessage.getCreatedAt()
         );
         messagingTemplate.convertAndSend(roomDestination(roomId),
                 new ChatSocketEvent<>(ChatEventType.MESSAGE_CREATED, roomId, payload));
     }
 
+    @Transactional
     public void publishReadUpdate(Principal principal, ChatReadUpdateRequest request) {
         Long roomId = request.roomId();
         if (roomId == null) {
@@ -91,7 +112,7 @@ public class ChatWebSocketService {
         ChatReadUpdatedPayload payload = new ChatReadUpdatedPayload(
                 user.getId(),
                 lastReadMessageId,
-                LocalDateTime.now()
+                readAt
         );
         messagingTemplate.convertAndSend(roomDestination(roomId),
                 new ChatSocketEvent<>(ChatEventType.READ_UPDATED, roomId, payload));
