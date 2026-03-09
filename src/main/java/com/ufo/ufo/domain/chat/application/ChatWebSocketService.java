@@ -108,7 +108,27 @@ public class ChatWebSocketService {
             return;
         }
 
+        Optional<Pattern> maybePattern = patternRepository.findById(roomId);
+        if (maybePattern.isEmpty()) {
+            sendError(roomId, "CHAT_ROOM_NOT_FOUND", "존재하지 않는 채팅방입니다.", null);
+            return;
+        }
+
         User user = maybeUser.get();
+        Pattern pattern = maybePattern.get();
+        LocalDateTime readAt = LocalDateTime.now();
+
+        chatReadStatusRepository.findByPattern_IdAndUser_Id(roomId, user.getId())
+                .ifPresentOrElse(
+                        readStatus -> readStatus.update(lastReadMessageId, readAt),
+                        () -> chatReadStatusRepository.save(ChatReadStatus.builder()
+                                .pattern(pattern)
+                                .user(user)
+                                .lastReadMessageId(lastReadMessageId)
+                                .readAt(readAt)
+                                .build())
+                );
+
         ChatReadUpdatedPayload payload = new ChatReadUpdatedPayload(
                 user.getId(),
                 lastReadMessageId,
