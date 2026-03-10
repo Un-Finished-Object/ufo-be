@@ -5,8 +5,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.chat.application.ChatMessageService;
+import com.ufo.ufo.domain.chat.application.ChatRoomStatusService;
+import com.ufo.ufo.domain.chat.dto.request.UpdateChatRoomStatusRequest;
 import com.ufo.ufo.domain.chat.dto.response.ChatMessageItemResponse;
 import com.ufo.ufo.domain.chat.dto.response.ChatMessagesResponse;
+import com.ufo.ufo.domain.chat.dto.response.ChatRoomStatusResponse;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.support.fixture.UserFixture;
@@ -26,6 +29,9 @@ class ChatControllerTest {
 
     @Mock
     private ChatMessageService chatMessageService;
+
+    @Mock
+    private ChatRoomStatusService chatRoomStatusService;
 
     @InjectMocks
     private ChatController chatController;
@@ -55,5 +61,26 @@ class ChatControllerTest {
         assertThat(response.getBody().data().messages().getFirst().messageId()).isEqualTo(49L);
         assertThat(response.getBody().error()).isNull();
         verify(chatMessageService).getMessages(user, patternId, messageId);
+    }
+
+    @Test
+    @DisplayName("채팅방 상태 변경 API는 변경된 상태를 반환해야 한다")
+    void updateStatus_ReturnsServiceResponse() {
+        User user = UserFixture.createUserWithId(1L);
+        Long patternId = 10L;
+        UpdateChatRoomStatusRequest request = new UpdateChatRoomStatusRequest(true, false);
+        ChatRoomStatusResponse serviceResponse = ChatRoomStatusResponse.of(patternId, true, false);
+
+        when(chatRoomStatusService.updateStatus(user, patternId, request)).thenReturn(serviceResponse);
+
+        ResponseEntity<ApiResponse<ChatRoomStatusResponse>> response =
+                chatController.updateStatus(user, patternId, request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().chatId()).isEqualTo(patternId);
+        assertThat(response.getBody().data().favorite()).isTrue();
+        assertThat(response.getBody().data().isHidden()).isFalse();
+        assertThat(response.getBody().error()).isNull();
+        verify(chatRoomStatusService).updateStatus(user, patternId, request);
     }
 }
