@@ -2,14 +2,20 @@ package com.ufo.ufo.domain.pattern.application;
 
 import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.credit.domain.UnlockType;
+import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
+import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.dto.request.PatternPurchaseRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseStatusResponse;
+import com.ufo.ufo.domain.pattern.exception.ChatRoomAlreadyPurchasedException;
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
+import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,12 +26,17 @@ public class PatternPurchaseService {
 
     private final PatternRepository patternRepository;
     private final CreditService creditService;
+    private final UserService userService;
+    private final ChatRoomStatusRepository chatRoomStatusRepository;
 
     @Transactional
     public PatternPurchaseResponse purchase(User user, Long patternId, PatternPurchaseRequest request) {
-        findActivePattern(patternId);
-        request.toUnlockTypes()
-                .forEach(unlockType -> creditService.purchaseUnlock(user, patternId, unlockType));
+        Pattern pattern = findActivePattern(patternId);
+        List<UnlockType> unlockTypes = request.toUnlockTypes();
+        unlockTypes.forEach(unlockType -> creditService.purchaseUnlock(user, patternId, unlockType));
+        if (unlockTypes.contains(UnlockType.CHAT)) {
+            ensureChatRoomStatus(user, pattern);
+        }
         return PatternPurchaseResponse.from(user.getId(), request.type());
     }
 
@@ -38,11 +49,26 @@ public class PatternPurchaseService {
         );
     }
 
-    private void findActivePattern(Long patternId) {
+    private Pattern findActivePattern(Long patternId) {
         Pattern pattern = patternRepository.findById(patternId)
                 .orElseThrow(PatternNotFoundException::new);
         if (pattern.getDeletedAt() != null) {
             throw new PatternNotFoundException();
+        }
+        return pattern;
+    }
+
+    private void ensureChatRoomStatus(User user, Pattern pattern) {
+        User loginUser = userService.getUserById(user.getId());
+        try {
+            chatRoomStatusRepository.save(ChatRoomStatus.builder()
+                    .user(loginUser)
+                    .pattern(pattern)
+                    .favorite(false)
+                    .hidden(false)
+                    .build());
+        } catch (DataIntegrityViolationException exception) {
+            throw new ChatRoomAlreadyPurchasedException();
         }
     }
 }

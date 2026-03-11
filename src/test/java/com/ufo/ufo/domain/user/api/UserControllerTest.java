@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.chat.application.ChatRoomQueryService;
+import com.ufo.ufo.domain.chat.dto.response.UserChatRoomItemResponse;
+import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
 import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.interest.dto.request.UpdateMyInterestsRequest;
 import com.ufo.ufo.domain.interest.dto.response.MyInterestsResponse;
@@ -30,6 +33,9 @@ class UserControllerTest {
 
     @Mock
     private ScrapService scrapService;
+
+    @Mock
+    private ChatRoomQueryService chatRoomQueryService;
 
     @InjectMocks
     private UserController userController;
@@ -88,5 +94,23 @@ class UserControllerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().scraps()).isEmpty();
         verify(scrapService).getMyScraps(user);
+    }
+
+    @Test
+    @DisplayName("내 채팅방 목록 조회는 서비스 결과를 data에 담아 응답해야 한다")
+    void getMyChats_ReturnsServiceResponse() {
+        User user = UserFixture.createUser();
+        UserChatRoomListResponse serviceResponse = UserChatRoomListResponse.of(
+                List.of(UserChatRoomItemResponse.of(1L, "가디건", "chatRoom1.png", true, false, 30))
+        );
+        when(chatRoomQueryService.getMyChats(user)).thenReturn(serviceResponse);
+
+        ResponseEntity<ApiResponse<UserChatRoomListResponse>> response = userController.getMyChats(user);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().chats()).hasSize(1);
+        assertThat(response.getBody().data().chats().get(0).chatId()).isEqualTo(1L);
+        assertThat(response.getBody().data().chats().get(0).unRead()).isEqualTo(30);
+        verify(chatRoomQueryService).getMyChats(user);
     }
 }
