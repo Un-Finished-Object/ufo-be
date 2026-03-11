@@ -3,6 +3,8 @@ package com.ufo.ufo.domain.user.api;
 import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.interest.dto.request.UpdateMyInterestsRequest;
 import com.ufo.ufo.domain.interest.dto.response.MyInterestsResponse;
+import com.ufo.ufo.domain.chat.application.ChatRoomQueryService;
+import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
 import com.ufo.ufo.domain.scrap.application.ScrapService;
 import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse;
 import com.ufo.ufo.domain.user.domain.User;
@@ -25,6 +27,7 @@ public class UserController {
 
     private final InterestService interestService;
     private final ScrapService scrapService;
+    private final ChatRoomQueryService chatRoomQueryService;
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(@LoginUser User user) {
@@ -39,6 +42,11 @@ public class UserController {
     @GetMapping("/me/scraps")
     public ResponseEntity<ApiResponse<MyScrapsResponse>> getMyScraps(@LoginUser User user) {
         return ResponseEntity.ok(ApiResponse.success(scrapService.getMyScraps(user)));
+    }
+
+    @GetMapping("/me/chats")
+    public ResponseEntity<ApiResponse<UserChatRoomListResponse>> getMyChats(@LoginUser User user) {
+        return ResponseEntity.ok(ApiResponse.success(chatRoomQueryService.getMyChats(user)));
     }
 
     @PatchMapping("/me/interests")

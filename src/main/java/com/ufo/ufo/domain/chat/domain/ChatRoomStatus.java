@@ -64,4 +64,8 @@ public class ChatRoomStatus extends BaseEntity {
             this.hidden = hidden;
         }
     }
+
+    public Long getChatId() {
+        return pattern.getId();
+    }
 }
