@@ -5,6 +5,6 @@ import org.springframework.http.HttpStatus;
 
 public class InvalidPatternPurchaseTypeException extends ApiException {
     public InvalidPatternPurchaseTypeException() {
-        super(HttpStatus.BAD_REQUEST, "type은 1, 2, 3 중 하나여야 합니다.");
+        super(HttpStatus.BAD_REQUEST, "type은 chat, yarn 중 하나여야 합니다.");
     }
 }

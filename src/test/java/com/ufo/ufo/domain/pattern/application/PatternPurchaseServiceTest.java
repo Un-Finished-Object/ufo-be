@@ -52,8 +52,8 @@ class PatternPurchaseServiceTest {
     private PatternPurchaseService patternPurchaseService;
 
     @Test
-    @DisplayName("구매 요청 type이 1이면 채팅 잠금 해제만 구매해야 한다")
-    void purchase_Type1_PurchasesChatOnly() {
+    @DisplayName("구매 요청 type이 chat이면 채팅 잠금 해제만 구매해야 한다")
+    void purchase_TypeChat_PurchasesChatOnly() {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
@@ -61,10 +61,10 @@ class PatternPurchaseServiceTest {
         when(chatRoomStatusRepository.save(any(ChatRoomStatus.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PatternPurchaseResponse response = patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("1"));
+        PatternPurchaseResponse response = patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat"));
 
         assertThat(response.userId()).isEqualTo(1L);
-        assertThat(response.type()).isEqualTo("1");
+        assertThat(response.type()).isEqualTo("chat");
         verify(creditService).purchaseUnlock(user, 10L, UnlockType.CHAT);
         verify(creditService, times(1)).purchaseUnlock(user, 10L, UnlockType.CHAT);
         verify(creditService, times(0)).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
@@ -72,39 +72,20 @@ class PatternPurchaseServiceTest {
     }
 
     @Test
-    @DisplayName("구매 요청 type이 2이면 대체 실 잠금 해제만 구매해야 한다")
-    void purchase_Type2_PurchasesAlternativeOnly() {
+    @DisplayName("구매 요청 type이 yarn이면 대체 실 잠금 해제만 구매해야 한다")
+    void purchase_TypeYarn_PurchasesAlternativeOnly() {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
 
-        PatternPurchaseResponse response = patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("2"));
+        PatternPurchaseResponse response = patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("yarn"));
 
         assertThat(response.userId()).isEqualTo(1L);
-        assertThat(response.type()).isEqualTo("2");
+        assertThat(response.type()).isEqualTo("yarn");
         verify(creditService, times(0)).purchaseUnlock(user, 10L, UnlockType.CHAT);
         verify(creditService).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
         verify(creditService, times(1)).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
         verifyNoInteractions(chatRoomStatusRepository);
-    }
-
-    @Test
-    @DisplayName("구매 요청 type이 3이면 채팅/대체 실 잠금 해제를 모두 구매해야 한다")
-    void purchase_Type3_PurchasesAll() {
-        var user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(10L);
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(userService.getUserById(1L)).thenReturn(user);
-        when(chatRoomStatusRepository.save(any(ChatRoomStatus.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-        PatternPurchaseResponse response = patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("3"));
-
-        assertThat(response.userId()).isEqualTo(1L);
-        assertThat(response.type()).isEqualTo("3");
-        verify(creditService).purchaseUnlock(user, 10L, UnlockType.CHAT);
-        verify(creditService).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
-        verify(chatRoomStatusRepository, times(1)).save(any(ChatRoomStatus.class));
     }
 
     @Test
@@ -117,7 +98,7 @@ class PatternPurchaseServiceTest {
         when(chatRoomStatusRepository.save(any(ChatRoomStatus.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
 
-        assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("1")))
+        assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))
                 .isInstanceOf(ChatRoomAlreadyPurchasedException.class);
     }
 
@@ -143,7 +124,7 @@ class PatternPurchaseServiceTest {
         var user = UserFixture.createUserWithId(1L);
         when(patternRepository.findById(10L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("1")))
+        assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))
                 .isInstanceOf(ApiException.class);
         verifyNoInteractions(creditService);
         verifyNoInteractions(chatRoomStatusRepository);
@@ -157,7 +138,7 @@ class PatternPurchaseServiceTest {
         PatternFixture.setDeletedAt(deletedPattern, LocalDateTime.now());
         when(patternRepository.findById(10L)).thenReturn(Optional.of(deletedPattern));
 
-        assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("1")))
+        assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))
                 .isInstanceOf(ApiException.class);
         verifyNoInteractions(creditService);
         verifyNoInteractions(chatRoomStatusRepository);
