@@ -10,6 +10,7 @@ import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.exception.UserNotFoundException;
 import com.ufo.ufo.global.security.types.Role;
 import com.ufo.ufo.support.fixture.UserFixture;
+import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,7 @@ class UserServiceTest {
     void getUserInfo_WhenUserExists_ReturnsUserResponse() {
         String email = "test@example.com";
         User user = UserFixture.createUser(email, Role.ROLE_USER);
+        UserFixture.setCreatedAt(user, LocalDate.now().minusDays(5).atStartOfDay());
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
 
         UserResponse response = userService.getUserInfo(email);
@@ -40,6 +42,7 @@ class UserServiceTest {
         assertThat(response.email()).isEqualTo(email);
         assertThat(response.nickname()).isEqualTo("tester");
         assertThat(response.profileImage()).isEqualTo("https://example.com/profile.png");
+        assertThat(response.joinDate()).isEqualTo(5);
     }
 
     @Test

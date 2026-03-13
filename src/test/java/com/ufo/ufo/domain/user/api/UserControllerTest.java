@@ -15,6 +15,7 @@ import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.support.fixture.UserFixture;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,12 +45,14 @@ class UserControllerTest {
     @DisplayName("내 정보 조회는 로그인 사용자 정보를 그대로 응답해야 한다")
     void getMyInfo_ReturnsUserResponse() {
         User user = UserFixture.createUser();
+        UserFixture.setCreatedAt(user, LocalDate.now().minusDays(10).atStartOfDay());
 
         ResponseEntity<ApiResponse<com.ufo.ufo.domain.user.dto.response.UserResponse>> response = userController.getMyInfo(user);
 
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().email()).isEqualTo("test@example.com");
+        assertThat(response.getBody().data().joinDate()).isEqualTo(10);
         assertThat(response.getBody().error()).isNull();
     }
 
