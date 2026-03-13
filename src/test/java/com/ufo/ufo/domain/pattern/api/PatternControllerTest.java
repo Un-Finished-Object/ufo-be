@@ -176,15 +176,15 @@ class PatternControllerTest {
     @DisplayName("구매 API는 서비스 응답을 data에 담아 반환해야 한다")
     void purchase_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
-        PatternPurchaseRequest request = new PatternPurchaseRequest("1");
+        PatternPurchaseRequest request = new PatternPurchaseRequest("chat");
         when(patternPurchaseService.purchase(user, 10L, request))
-                .thenReturn(new PatternPurchaseResponse(1L, "1"));
+                .thenReturn(new PatternPurchaseResponse(1L, "chat"));
 
         ResponseEntity<ApiResponse<PatternPurchaseResponse>> response = patternController.purchase(user, 10L, request);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().userId()).isEqualTo(1L);
-        assertThat(response.getBody().data().type()).isEqualTo("1");
+        assertThat(response.getBody().data().type()).isEqualTo("chat");
         verify(patternPurchaseService).purchase(user, 10L, request);
     }
 
