@@ -11,9 +11,8 @@ public record PatternPurchaseRequest(
 ) {
     public List<UnlockType> toUnlockTypes() {
         return switch (type.trim()) {
-            case "1" -> List.of(UnlockType.CHAT);
-            case "2" -> List.of(UnlockType.YARN_INFO);
-            case "3" -> List.of(UnlockType.CHAT, UnlockType.YARN_INFO);
+            case "chat" -> List.of(UnlockType.CHAT);
+            case "yarn" -> List.of(UnlockType.YARN_INFO);
             default -> throw new InvalidPatternPurchaseTypeException();
         };
     }
