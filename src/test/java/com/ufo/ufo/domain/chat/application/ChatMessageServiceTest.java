@@ -84,9 +84,10 @@ class ChatMessageServiceTest {
         assertThat(response.hasNext()).isFalse();
         assertThat(response.nextMessageId()).isNull();
         assertThat(response.messages()).hasSize(1);
-        assertThat(response.messages().get(0).messageId()).isEqualTo(50L);
-        assertThat(response.messages().get(0).text()).isEqualTo("안녕하세요");
-        assertThat(response.messages().get(0).createdAt()).isEqualTo(LocalDateTime.of(2026, 3, 9, 12, 0));
+        assertThat(response.messages().getFirst().userName()).isEqualTo("tester");
+        assertThat(response.messages().getFirst().messageId()).isEqualTo(50L);
+        assertThat(response.messages().getFirst().text()).isEqualTo("안녕하세요");
+        assertThat(response.messages().getFirst().createdAt()).isEqualTo(LocalDateTime.of(2026, 3, 9, 12, 0));
     }
 
     @Test
