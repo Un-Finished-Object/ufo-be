@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
 public record UserResponse(
+        Long userId,
         String email,
         String nickname,
         String profileImage,
@@ -18,6 +19,7 @@ public record UserResponse(
             );
         }
         return new UserResponse(
+                user.getId(),
                 user.getEmail(),
                 user.getNickname(),
                 user.getProfileImage(),

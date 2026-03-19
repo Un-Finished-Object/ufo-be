@@ -1,5 +1,6 @@
 package com.ufo.ufo.domain.user.api;
 
+import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -45,12 +46,14 @@ class UserControllerTest {
     @DisplayName("내 정보 조회는 로그인 사용자 정보를 그대로 응답해야 한다")
     void getMyInfo_ReturnsUserResponse() {
         User user = UserFixture.createUser();
+        UserFixture.setId(user, 10L);
         UserFixture.setCreatedAt(user, LocalDate.now().minusDays(10).atStartOfDay());
 
-        ResponseEntity<ApiResponse<com.ufo.ufo.domain.user.dto.response.UserResponse>> response = userController.getMyInfo(user);
+        ResponseEntity<ApiResponse<UserResponse>> response = userController.getMyInfo(user);
 
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().userId()).isEqualTo(10L);
         assertThat(response.getBody().data().email()).isEqualTo("test@example.com");
         assertThat(response.getBody().data().joinDate()).isEqualTo(10);
         assertThat(response.getBody().error()).isNull();
@@ -112,8 +115,8 @@ class UserControllerTest {
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().chats()).hasSize(1);
-        assertThat(response.getBody().data().chats().get(0).chatId()).isEqualTo(1L);
-        assertThat(response.getBody().data().chats().get(0).unRead()).isEqualTo(30);
+        assertThat(response.getBody().data().chats().getFirst().chatId()).isEqualTo(1L);
+        assertThat(response.getBody().data().chats().getFirst().unRead()).isEqualTo(30);
         verify(chatRoomQueryService).getMyChats(user);
     }
 }
