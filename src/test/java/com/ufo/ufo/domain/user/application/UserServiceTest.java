@@ -34,6 +34,7 @@ class UserServiceTest {
     void getUserInfo_WhenUserExists_ReturnsUserResponse() {
         String email = "test@example.com";
         User user = UserFixture.createUser(email, Role.ROLE_USER);
+        UserFixture.setId(user, 10L);
         UserFixture.setCreatedAt(user, LocalDate.now().minusDays(5).atStartOfDay());
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
 
@@ -42,6 +43,7 @@ class UserServiceTest {
         assertThat(response.email()).isEqualTo(email);
         assertThat(response.nickname()).isEqualTo("tester");
         assertThat(response.profileImage()).isEqualTo("https://example.com/profile.png");
+        assertThat(response.userId()).isEqualTo(10L);
         assertThat(response.joinDate()).isEqualTo(5);
     }
 
