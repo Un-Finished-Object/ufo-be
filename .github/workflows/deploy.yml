@@ -20,7 +20,7 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
 
-		# 보안 설정 파일 2개 동적 생성 (application-prod.yml, application-secret.yml)
+    # 보안 설정 파일 2개 동적 생성 (application-prod.yml, application-secret.yml)
     - name: Make application-secret.yml and application-prod.yml
       run: |
         mkdir -p src/main/resources
