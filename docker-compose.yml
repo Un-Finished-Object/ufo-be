@@ -11,5 +11,4 @@ services:
       SPRING_CONFIG_ADDITIONAL_LOCATION: "optional:file:/app/config/"
     volumes:
       - ./config/application-prod.yml:/app/config/application-prod.yml:ro
-      - ./config/application-secret.yml:/app/config/application-secret.yml:ro
     restart: always
