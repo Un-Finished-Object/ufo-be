@@ -1,0 +1,15 @@
+services:
+  backend-server:
+    image: ${DOCKER_USERNAME:?DOCKER_USERNAME is required}/ufo-backend:${IMAGE_TAG:-latest}
+    container_name: ufo-backend
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: Asia/Seoul
+      SPRING_PROFILES_ACTIVE: prod
+      JAVA_OPTS: "-Xms512m -Xmx800m"
+      SPRING_CONFIG_ADDITIONAL_LOCATION: "optional:file:/app/config/"
+    volumes:
+      - ./config/application-prod.yml:/app/config/application-prod.yml:ro
+      - ./config/application-secret.yml:/app/config/application-secret.yml:ro
+    restart: always
