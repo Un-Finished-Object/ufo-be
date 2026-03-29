@@ -9,7 +9,7 @@ permissions:
 
 concurrency:
   group: deploy-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
@@ -34,6 +34,9 @@ jobs:
     # Gradle 실행 권한 부여 및 빌드
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
+
+    - name: Run Tests
+      run: ./gradlew test --no-daemon
 
     - name: Build bootJar with Gradle
       run: ./gradlew clean bootJar -x test --no-daemon
