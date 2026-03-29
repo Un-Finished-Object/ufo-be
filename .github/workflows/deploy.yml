@@ -55,9 +55,8 @@ jobs:
           # EC2 내부의 작업 폴더로 이동
           cd /home/ubuntu/ufo-backend
 
-          # 서버 외부 설정 파일 존재 확인 (compose 볼륨 마운트 대상)
+          # 서버 외부 설정 파일 존재 확인
           test -f ./config/application-prod.yml
-          test -f ./config/application-secret.yml
 
           # 도커 컴포즈 환경변수 주입
           export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
