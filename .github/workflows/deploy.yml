@@ -1,0 +1,87 @@
+name: UFO Backend CI/CD
+
+on:
+  push:
+    branches: [ "main" ] # main 브랜치에 push 될 때 실행
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REPO: ${{ secrets.DOCKER_USERNAME }}/ufo-backend
+      IMAGE_TAG: ${{ github.sha }}
+
+    steps:
+    # GitHub 코드 가져오기
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    # JDK 21 세팅
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: gradle
+
+    # Gradle 실행 권한 부여 및 빌드
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Run Tests
+      run: ./gradlew test --no-daemon
+
+    - name: Build bootJar with Gradle
+      run: ./gradlew clean bootJar -x test --no-daemon
+
+    # Docker Hub 로그인
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    # Docker 이미지 빌드 및 푸시
+    - name: Build and Push Docker Image
+      run: |
+        set -euo pipefail
+        JAR_FILE=$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*plain*' | head -n 1)
+        test -n "$JAR_FILE"
+        docker build --pull --build-arg JAR_FILE="$JAR_FILE" -t "$IMAGE_REPO:$IMAGE_TAG" -t "$IMAGE_REPO:latest" .
+        docker push "$IMAGE_REPO:$IMAGE_TAG"
+        docker push "$IMAGE_REPO:latest"
+
+    # EC2에 접속하여 배포 스크립트 실행
+    - name: Deploy to AWS EC2
+      uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          set -euo pipefail
+
+          # EC2 내부의 작업 폴더로 이동
+          cd /home/ubuntu/ufo-backend
+
+          # 서버 외부 설정 파일 존재 확인
+          test -f ./config/application-prod.yml
+
+          # 도커 컴포즈 환경변수 주입
+          export DOCKER_USERNAME='${{ secrets.DOCKER_USERNAME }}'
+          export IMAGE_TAG='${{ github.sha }}'
+
+          # 기존 실행 중인 컨테이너 종료 및 삭제, 새 이미지로 실행
+          docker compose pull backend-server
+          docker compose down
+          docker compose up -d
+
+          # 안 쓰는 찌꺼기 이미지 삭제 (용량 확보)
+          docker image prune -f
