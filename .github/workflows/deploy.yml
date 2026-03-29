@@ -20,18 +20,10 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
 
-    # 보안 설정 파일 2개 동적 생성 (application-prod.yml, application-secret.yml)
-    - name: Make application-secret.yml and application-prod.yml
-      run: |
-        mkdir -p src/main/resources
-        
-        echo "${{ secrets.APPLICATION_PROD }}" > src/main/resources/application-prod.yml
-        echo "${{ secrets.APPLICATION_SECRET }}" > src/main/resources/application-secret.yml
- 
     # Gradle 실행 권한 부여 및 빌드
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-      
+
     - name: Build with Gradle
       run: ./gradlew clean build -x test
 
@@ -45,26 +37,36 @@ jobs:
     # Docker 이미지 빌드 및 푸시
     - name: Build and Push Docker Image
       run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/ufo-backend:latest .
+        JAR_FILE=$(ls build/libs/*.jar | grep -v 'plain' | head -n 1)
+        test -n "$JAR_FILE"
+        docker build --build-arg JAR_FILE="$JAR_FILE" -t ${{ secrets.DOCKER_USERNAME }}/ufo-backend:latest .
         docker push ${{ secrets.DOCKER_USERNAME }}/ufo-backend:latest
 
     # EC2에 접속하여 배포 스크립트 실행
     - name: Deploy to AWS EC2
-      uses: appleboy/ssh-action@master
+      uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
+          set -e
+
           # EC2 내부의 작업 폴더로 이동
           cd /home/ubuntu/ufo-backend
-          
-          # 도커 허브에서 최신 이미지 다운로드
-          sudo docker pull ${{ secrets.DOCKER_USERNAME }}/ufo-backend:latest
-          
+
+          # 서버 외부 설정 파일 존재 확인 (compose 볼륨 마운트 대상)
+          test -f ./config/application-prod.yml
+          test -f ./config/application-secret.yml
+
+          # 도커 컴포즈 환경변수 주입
+          export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+          export IMAGE_TAG=latest
+
           # 기존 실행 중인 컨테이너 종료 및 삭제, 새 이미지로 실행
-          sudo docker compose down
-          sudo docker compose up -d
-          
+          sudo -E docker compose pull backend-server
+          sudo -E docker compose down
+          sudo -E docker compose up -d
+
           # 안 쓰는 찌꺼기 이미지 삭제 (용량 확보)
           sudo docker image prune -f
