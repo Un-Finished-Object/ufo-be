@@ -58,6 +58,28 @@ jobs:
         docker push "$IMAGE_REPO:$IMAGE_TAG"
         docker push "$IMAGE_REPO:latest"
 
+    # EC2 배포 디렉터리 준비
+    - name: Prepare Deploy Directory on EC2
+      uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          set -euo pipefail
+          mkdir -p /home/ubuntu/ufo-backend
+
+    # docker-compose 파일을 EC2로 전송
+    - name: Upload docker-compose.yml to EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: docker-compose.yml
+        target: /home/ubuntu/ufo-backend
+        overwrite: true
+
     # EC2에 접속하여 배포 스크립트 실행
     - name: Deploy to AWS EC2
       uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
@@ -74,14 +96,25 @@ jobs:
           # 서버 외부 설정 파일 존재 확인
           test -f ./config/application-prod.yml
 
+          # compose 파일 경로 확인
+          if [ -f ./docker-compose.yml ]; then
+            COMPOSE_FILE=./docker-compose.yml
+          elif [ -f ./compose.yml ]; then
+            COMPOSE_FILE=./compose.yml
+          else
+            echo "docker compose configuration file not found in /home/ubuntu/ufo-backend"
+            ls -al
+            exit 1
+          fi
+
           # 도커 컴포즈 환경변수 주입
           export DOCKER_USERNAME='${{ secrets.DOCKER_USERNAME }}'
           export IMAGE_TAG='${{ github.sha }}'
 
           # 기존 실행 중인 컨테이너 종료 및 삭제, 새 이미지로 실행
-          docker compose pull backend-server
-          docker compose down
-          docker compose up -d
+          docker compose -f "$COMPOSE_FILE" pull backend-server
+          docker compose -f "$COMPOSE_FILE" down
+          docker compose -f "$COMPOSE_FILE" up -d
 
           # 안 쓰는 찌꺼기 이미지 삭제 (용량 확보)
           docker image prune -f
