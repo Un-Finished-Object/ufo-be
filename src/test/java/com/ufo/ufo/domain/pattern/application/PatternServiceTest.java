@@ -84,6 +84,21 @@ class PatternServiceTest {
     }
 
     @Test
+    @DisplayName("도안 목록 조회에서 category가 all이면 카테고리 필터 없이 조회해야 한다")
+    void getPatterns_AllCategory_UsesNullCategoryFilter() {
+        User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(1L);
+        when(patternRepository.findAllByCategory(any(), any(), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(pattern)));
+        when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 1L)).thenReturn(false);
+
+        PatternListResponse response = patternService.getPatterns(user, "all", "ALL", "news", 1);
+
+        assertThat(response.items()).hasSize(1);
+        verify(patternRepository).findAllByCategory(eq(null), eq(null), any(PageRequest.class));
+    }
+
+    @Test
     @DisplayName("도안 목록 조회에서 sort가 scraps면 인기순 조회 리포지토리를 사용해야 한다")
     void getPatterns_ScrapsSort_UsesPopularityQuery() {
         User user = UserFixture.createUserWithId(1L);

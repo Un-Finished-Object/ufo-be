@@ -46,10 +46,12 @@ public class PatternService {
         PatternSort sortOption = PatternSort.from(sort);
         int pageNumber = normalizePage(page);
         PageRequest pageRequest = createPageRequestForSort(sortOption, pageNumber);
+        String categoryFilter = normalizeCategoryFilter(category);
+        String subCategoryFilter = normalizeCategoryFilter(subCategory);
 
         Page<Pattern> result = isScrapsSort(sortOption)
-                ? patternRepository.findAllByCategoryOrderByPopularity(category, subCategory, pageRequest)
-                : patternRepository.findAllByCategory(category, subCategory, pageRequest);
+                ? patternRepository.findAllByCategoryOrderByPopularity(categoryFilter, subCategoryFilter, pageRequest)
+                : patternRepository.findAllByCategory(categoryFilter, subCategoryFilter, pageRequest);
 
         return PatternListResponse.from(result.stream().map(pattern -> toListItemResponse(pattern, user)).toList(), pageNumber);
     }
@@ -199,6 +201,13 @@ public class PatternService {
             return 1;
         }
         return page;
+    }
+
+    private String normalizeCategoryFilter(String category) {
+        if (category == null || category.isBlank() || "all".equalsIgnoreCase(category)) {
+            return null;
+        }
+        return category;
     }
 
     private PageRequest createPageRequestForSort(PatternSort sort, int pageNumber) {
