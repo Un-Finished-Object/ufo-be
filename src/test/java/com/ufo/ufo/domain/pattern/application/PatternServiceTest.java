@@ -92,7 +92,7 @@ class PatternServiceTest {
                 .thenReturn(new PageImpl<>(List.of(pattern)));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 1L)).thenReturn(false);
 
-        PatternListResponse response = patternService.getPatterns(user, "all", "ALL", "news", 1);
+        PatternListResponse response = patternService.getPatterns(user, "all", null, "news", 1);
 
         assertThat(response.items()).hasSize(1);
         verify(patternRepository).findAllByCategory(eq(null), eq(null), any(PageRequest.class));
