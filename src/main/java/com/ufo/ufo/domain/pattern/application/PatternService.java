@@ -20,6 +20,8 @@ import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
 import com.ufo.ufo.domain.pattern.exception.AlternativeYarnNotFoundException;
 import com.ufo.ufo.domain.pattern.exception.PatternAlternativePermissionDeniedException;
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
+import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryNotAllowedException;
+import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryRequiredException;
 import com.ufo.ufo.domain.user.domain.User;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +45,7 @@ public class PatternService {
     private final YarnRepository yarnRepository;
 
     public PatternListResponse getPatterns(User user, String category, String subCategory, String sort, Integer page) {
+        validateCategoryAndSubCategory(category, subCategory);
         PatternSort sortOption = PatternSort.from(sort);
         int pageNumber = normalizePage(page);
         PageRequest pageRequest = createPageRequestForSort(sortOption, pageNumber);
@@ -208,6 +211,15 @@ public class PatternService {
             return null;
         }
         return category;
+    }
+
+    private void validateCategoryAndSubCategory(String category, String subCategory) {
+        if ("apparel".equalsIgnoreCase(category) && subCategory == null) {
+            throw new PatternSubCategoryRequiredException();
+        }
+        if (!"apparel".equalsIgnoreCase(category) && subCategory != null) {
+            throw new PatternSubCategoryNotAllowedException();
+        }
     }
 
     private PageRequest createPageRequestForSort(PatternSort sort, int pageNumber) {
