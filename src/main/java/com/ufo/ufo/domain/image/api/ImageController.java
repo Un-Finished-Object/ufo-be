@@ -7,16 +7,21 @@ import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/images")
 @RequiredArgsConstructor
+@Validated
 public class ImageController {
 
     private final ImageService imageService;
@@ -27,5 +32,16 @@ public class ImageController {
             @Valid @RequestBody ImagePresignedUrlIssueRequest request
     ) {
         return ResponseEntity.ok(ApiResponse.success(imageService.issuePresignedUrls(request)));
+    }
+
+    @DeleteMapping
+    public ResponseEntity<Void> deleteImage(
+            @LoginUser User user,
+            @RequestParam("imageUrl")
+            @NotBlank(message = "imageUrl은 필수입니다.")
+            String imageUrl
+    ) {
+        imageService.deleteImage(imageUrl);
+        return ResponseEntity.noContent().build();
     }
 }

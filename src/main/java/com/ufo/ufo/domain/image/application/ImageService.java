@@ -7,6 +7,7 @@ import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse.UrlInfo;
 import com.ufo.ufo.domain.image.exception.ImageBucketNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
+import com.ufo.ufo.domain.image.exception.InvalidImageUrlException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -16,6 +17,8 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
@@ -28,6 +31,7 @@ public class ImageService {
     private static final DateTimeFormatter KST_OFFSET_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     private final S3Presigner s3Presigner;
+    private final S3Client s3Client;
     private final ImageProperties imageProperties;
 
     public ImagePresignedUrlIssueResponse issuePresignedUrls(ImagePresignedUrlIssueRequest request) {
@@ -49,6 +53,15 @@ public class ImageService {
                 allowedContentTypes,
                 urls
         );
+    }
+
+    public void deleteImage(String imageUrl) {
+        validateBucketConfigured();
+        String key = extractObjectKey(imageUrl);
+        s3Client.deleteObject(DeleteObjectRequest.builder()
+                .bucket(imageProperties.s3().bucket())
+                .key(key)
+                .build());
     }
 
     private UrlInfo generateUrlInfo(ImagePurpose purpose, Duration signatureDuration) {
@@ -77,7 +90,7 @@ public class ImageService {
         if (publicBaseUrl != null && !publicBaseUrl.isBlank()) {
             return publicBaseUrl.endsWith("/") ? publicBaseUrl + key : publicBaseUrl + "/" + key;
         }
-        return "https://" + imageProperties.s3().bucket() + ".s3." + imageProperties.s3().region() + ".amazonaws.com/" + key;
+        return defaultS3BaseUrl() + "/" + key;
     }
 
     private void validateBucketConfigured() {
@@ -96,5 +109,47 @@ public class ImageService {
 
     private String formatKst(Instant instant) {
         return instant.atZone(KST_ZONE_ID).format(KST_OFFSET_FORMATTER);
+    }
+
+    private String extractObjectKey(String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) {
+            throw new InvalidImageUrlException();
+        }
+
+        String urlWithoutQuery = imageUrl.split("\\?", 2)[0];
+        String key = tryExtractKey(urlWithoutQuery, imageProperties.s3().publicBaseUrl());
+        if (key == null) {
+            key = tryExtractKey(urlWithoutQuery, defaultS3BaseUrl());
+        }
+        if (key == null || key.isBlank() || !isAllowedPrefix(key)) {
+            throw new InvalidImageUrlException();
+        }
+        return key;
+    }
+
+    private String tryExtractKey(String imageUrl, String baseUrl) {
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return null;
+        }
+        String normalizedBaseUrl = trimTrailingSlash(baseUrl);
+        String expectedPrefix = normalizedBaseUrl + "/";
+        if (!imageUrl.startsWith(expectedPrefix)) {
+            return null;
+        }
+        return imageUrl.substring(expectedPrefix.length());
+    }
+
+    private boolean isAllowedPrefix(String key) {
+        return key.startsWith(ImagePurpose.STYLE.prefix() + "/")
+                || key.startsWith(ImagePurpose.PROFILE.prefix() + "/")
+                || key.startsWith(ImagePurpose.PATTERN.prefix() + "/");
+    }
+
+    private String defaultS3BaseUrl() {
+        return "https://" + imageProperties.s3().bucket() + ".s3." + imageProperties.s3().region() + ".amazonaws.com";
+    }
+
+    private String trimTrailingSlash(String value) {
+        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 }
