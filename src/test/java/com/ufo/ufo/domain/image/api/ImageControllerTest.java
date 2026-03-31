@@ -18,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 @ExtendWith(MockitoExtension.class)
@@ -51,5 +52,18 @@ class ImageControllerTest {
         assertThat(response.getBody().data().urls()).hasSize(1);
         assertThat(response.getBody().error()).isNull();
         verify(imageService).issuePresignedUrls(request);
+    }
+
+    @Test
+    @DisplayName("이미지 삭제 API는 204를 반환하고 서비스를 호출해야 한다")
+    void deleteImage_ReturnsNoContent() {
+        User user = UserFixture.createUserWithId(1L);
+        String imageUrl = "https://cdn.ufo.com/styles/123e4567-e89b-12d3-a456-426614174000";
+
+        ResponseEntity<Void> response = imageController.deleteImage(user, imageUrl);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(imageService).deleteImage(imageUrl);
     }
 }
