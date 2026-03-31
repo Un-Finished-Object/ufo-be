@@ -53,7 +53,7 @@ class PatternControllerTest {
     void getPatterns_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
         when(patternService.getPatterns(user, "clothing", "sweater", "news", 1))
-                .thenReturn(new PatternListResponse(List.of(), 1));
+                .thenReturn(new PatternListResponse(List.of(), 1, 0));
 
         ResponseEntity<ApiResponse<PatternListResponse>> response =
                 patternController.getPatterns(user, "clothing", "sweater", "news", 1);
@@ -134,7 +134,7 @@ class PatternControllerTest {
     void searchPatterns_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
         when(patternService.searchPatterns(user, "니트", 2))
-                .thenReturn(new PatternListResponse(List.of(), 2));
+                .thenReturn(new PatternListResponse(List.of(), 2, 0));
 
         ResponseEntity<ApiResponse<PatternListResponse>> response = patternController.searchPatterns(user, "니트", 2);
 

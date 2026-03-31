@@ -54,7 +54,7 @@ class PatternControllerValidationTest {
     @DisplayName("유효한 파라미터 요청이면 200을 반환하고 서비스를 호출한다")
     void getPatterns_ValidParams_ReturnsOk() throws Exception {
         when(patternService.getPatterns(any(), anyString(), any(), anyString(), anyInt()))
-                .thenReturn(new PatternListResponse(List.of(), 1));
+                .thenReturn(new PatternListResponse(List.of(), 1, 0));
 
         mockMvc.perform(get("/v1/patterns")
                         .param("category", "all")

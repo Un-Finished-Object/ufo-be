@@ -72,9 +72,10 @@ class PatternServiceTest {
                 .thenReturn(new PageImpl<>(List.of(pattern)));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 1L)).thenReturn(true);
 
-        PatternListResponse response = patternService.getPatterns(user, "clothing", "sweater", "news", 1);
+        PatternListResponse response = patternService.getPatterns(user, "apparel", "sweater", "news", 1);
 
         assertThat(response.page()).isEqualTo(1);
+        assertThat(response.nextPage()).isEqualTo(0);
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().id()).isEqualTo(1L);
         assertThat(response.items().getFirst().category()).isEqualTo("clothing");
