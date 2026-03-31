@@ -42,7 +42,7 @@ class ImageControllerTest {
                 List.of("image/jpeg", "image/png", "image/webp"),
                 List.of(UrlInfo.from("https://example.com/presigned", "https://example.com/image"))
         );
-        when(imageService.issuePresignedUrls(request)).thenReturn(serviceResponse);
+        when(imageService.issuePresignedUrls(user, request)).thenReturn(serviceResponse);
 
         ResponseEntity<ApiResponse<ImagePresignedUrlIssueResponse>> response =
                 imageController.issuePresignedUrls(user, request);
@@ -51,19 +51,19 @@ class ImageControllerTest {
         assertThat(response.getBody().data().expiresAt()).isEqualTo("2026-03-31T18:00:00+09:00");
         assertThat(response.getBody().data().urls()).hasSize(1);
         assertThat(response.getBody().error()).isNull();
-        verify(imageService).issuePresignedUrls(request);
+        verify(imageService).issuePresignedUrls(user, request);
     }
 
     @Test
     @DisplayName("이미지 삭제 API는 204를 반환하고 서비스를 호출해야 한다")
     void deleteImage_ReturnsNoContent() {
         User user = UserFixture.createUserWithId(1L);
-        String imageUrl = "https://cdn.ufo.com/styles/123e4567-e89b-12d3-a456-426614174000";
+        String imageUrl = "https://cdn.ufo.com/styles/1/123e4567-e89b-12d3-a456-426614174000";
 
         ResponseEntity<Void> response = imageController.deleteImage(user, imageUrl);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(response.getBody()).isNull();
-        verify(imageService).deleteImage(imageUrl);
+        verify(imageService).deleteImage(user, imageUrl);
     }
 }

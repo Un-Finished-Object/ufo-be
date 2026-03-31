@@ -12,9 +12,12 @@ import com.ufo.ufo.domain.image.config.ImageProperties;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
 import com.ufo.ufo.domain.image.exception.ImageBucketNotConfiguredException;
+import com.ufo.ufo.domain.image.exception.ImageDeletePermissionDeniedException;
 import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
 import com.ufo.ufo.domain.image.exception.InvalidImagePurposeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageUrlException;
+import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.support.fixture.UserFixture;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
@@ -54,10 +57,12 @@ class ImageServiceTest {
     private S3Client s3Client;
 
     private ImageService imageService;
+    private User user;
 
     @BeforeEach
     void setUp() {
         imageService = new ImageService(s3Presigner, s3Client, IMAGE_PROPERTIES);
+        user = UserFixture.createUserWithId(1L);
     }
 
     @Test
@@ -70,6 +75,7 @@ class ImageServiceTest {
                 .thenReturn(second);
 
         ImagePresignedUrlIssueResponse response = imageService.issuePresignedUrls(
+                user,
                 new ImagePresignedUrlIssueRequest(2, "STYLE")
         );
 
@@ -78,7 +84,7 @@ class ImageServiceTest {
         assertThat(response.expiresAt()).contains("+09:00");
         assertThat(response.urls()).hasSize(2);
         assertThat(response.urls().getFirst().presignedUrl()).isEqualTo("https://s3.example.com/presigned-1");
-        assertThat(response.urls().getFirst().imageUrl()).startsWith("https://cdn.ufo.com/styles/");
+        assertThat(response.urls().getFirst().imageUrl()).startsWith("https://cdn.ufo.com/styles/1/");
         verify(s3Presigner, times(2)).presignPutObject(org.mockito.ArgumentMatchers.any(PutObjectPresignRequest.class));
 
         ArgumentCaptor<PutObjectPresignRequest> captor = ArgumentCaptor.forClass(PutObjectPresignRequest.class);
@@ -87,21 +93,21 @@ class ImageServiceTest {
                 .allSatisfy(req -> {
                     assertThat(req.signatureDuration().toMinutes()).isEqualTo(5L);
                     assertThat(req.putObjectRequest().bucket()).isEqualTo("ufo-bucket");
-                    assertThat(req.putObjectRequest().key()).startsWith("styles/");
+                    assertThat(req.putObjectRequest().key()).startsWith("styles/1/");
                 });
     }
 
     @Test
     @DisplayName("fileCount가 정책 범위를 벗어나면 예외가 발생해야 한다")
     void issuePresignedUrls_InvalidFileCount_Throws() {
-        assertThatThrownBy(() -> imageService.issuePresignedUrls(new ImagePresignedUrlIssueRequest(6, "STYLE")))
+        assertThatThrownBy(() -> imageService.issuePresignedUrls(user, new ImagePresignedUrlIssueRequest(6, "STYLE")))
                 .isInstanceOf(InvalidImageFileCountException.class);
     }
 
     @Test
     @DisplayName("purpose가 허용값이 아니면 예외가 발생해야 한다")
     void issuePresignedUrls_InvalidPurpose_Throws() {
-        assertThatThrownBy(() -> imageService.issuePresignedUrls(new ImagePresignedUrlIssueRequest(1, "UNKNOWN")))
+        assertThatThrownBy(() -> imageService.issuePresignedUrls(user, new ImagePresignedUrlIssueRequest(1, "UNKNOWN")))
                 .isInstanceOf(InvalidImagePurposeException.class);
     }
 
@@ -116,27 +122,27 @@ class ImageServiceTest {
         );
         ImageService imageService = new ImageService(s3Presigner, s3Client, emptyBucketProperties);
 
-        assertThatThrownBy(() -> imageService.issuePresignedUrls(new ImagePresignedUrlIssueRequest(1, "STYLE")))
+        assertThatThrownBy(() -> imageService.issuePresignedUrls(user, new ImagePresignedUrlIssueRequest(1, "STYLE")))
                 .isInstanceOf(ImageBucketNotConfiguredException.class);
     }
 
     @Test
     @DisplayName("이미지 삭제는 유효한 내부 URL에서 key를 추출해 S3 deleteObject를 호출해야 한다")
     void deleteImage_ValidUrl_DeletesObject() {
-        String imageUrl = "https://cdn.ufo.com/styles/123e4567-e89b-12d3-a456-426614174000";
+        String imageUrl = "https://cdn.ufo.com/styles/1/123e4567-e89b-12d3-a456-426614174000";
 
-        imageService.deleteImage(imageUrl);
+        imageService.deleteImage(user, imageUrl);
 
         ArgumentCaptor<DeleteObjectRequest> captor = ArgumentCaptor.forClass(DeleteObjectRequest.class);
         verify(s3Client).deleteObject(captor.capture());
         assertThat(captor.getValue().bucket()).isEqualTo("ufo-bucket");
-        assertThat(captor.getValue().key()).isEqualTo("styles/123e4567-e89b-12d3-a456-426614174000");
+        assertThat(captor.getValue().key()).isEqualTo("styles/1/123e4567-e89b-12d3-a456-426614174000");
     }
 
     @Test
     @DisplayName("이미지 삭제는 외부 URL이면 예외가 발생하고 삭제를 호출하지 않아야 한다")
     void deleteImage_ExternalUrl_Throws() {
-        assertThatThrownBy(() -> imageService.deleteImage("https://evil.com/styles/123"))
+        assertThatThrownBy(() -> imageService.deleteImage(user, "https://evil.com/styles/123"))
                 .isInstanceOf(InvalidImageUrlException.class);
         verifyNoInteractions(s3Client);
     }
@@ -144,8 +150,16 @@ class ImageServiceTest {
     @Test
     @DisplayName("이미지 삭제는 허용되지 않은 prefix면 예외가 발생해야 한다")
     void deleteImage_DisallowedPrefix_Throws() {
-        assertThatThrownBy(() -> imageService.deleteImage("https://cdn.ufo.com/unknown/123"))
+        assertThatThrownBy(() -> imageService.deleteImage(user, "https://cdn.ufo.com/unknown/123"))
                 .isInstanceOf(InvalidImageUrlException.class);
+        verifyNoInteractions(s3Client);
+    }
+
+    @Test
+    @DisplayName("이미지 삭제는 본인 소유가 아니면 예외가 발생해야 한다")
+    void deleteImage_NotOwner_Throws() {
+        assertThatThrownBy(() -> imageService.deleteImage(user, "https://cdn.ufo.com/styles/2/123"))
+                .isInstanceOf(ImageDeletePermissionDeniedException.class);
         verifyNoInteractions(s3Client);
     }
 
