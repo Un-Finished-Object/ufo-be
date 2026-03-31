@@ -6,8 +6,10 @@ import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse.UrlInfo;
 import com.ufo.ufo.domain.image.exception.ImageBucketNotConfiguredException;
+import com.ufo.ufo.domain.image.exception.ImageDeletePermissionDeniedException;
 import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
 import com.ufo.ufo.domain.image.exception.InvalidImageUrlException;
+import com.ufo.ufo.domain.user.domain.User;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -34,7 +36,7 @@ public class ImageService {
     private final S3Client s3Client;
     private final ImageProperties imageProperties;
 
-    public ImagePresignedUrlIssueResponse issuePresignedUrls(ImagePresignedUrlIssueRequest request) {
+    public ImagePresignedUrlIssueResponse issuePresignedUrls(User user, ImagePresignedUrlIssueRequest request) {
         validateBucketConfigured();
         validateFileCount(request.fileCount());
 
@@ -44,7 +46,7 @@ public class ImageService {
         List<String> allowedContentTypes = imageProperties.allowedContentTypes();
 
         List<UrlInfo> urls = IntStream.range(0, request.fileCount())
-                .mapToObj(index -> generateUrlInfo(purpose, signatureDuration))
+                .mapToObj(index -> generateUrlInfo(user, purpose, signatureDuration))
                 .toList();
 
         return ImagePresignedUrlIssueResponse.from(
@@ -55,17 +57,18 @@ public class ImageService {
         );
     }
 
-    public void deleteImage(String imageUrl) {
+    public void deleteImage(User user, String imageUrl) {
         validateBucketConfigured();
         String key = extractObjectKey(imageUrl);
+        validateOwnership(key, user.getId());
         s3Client.deleteObject(DeleteObjectRequest.builder()
                 .bucket(imageProperties.s3().bucket())
                 .key(key)
                 .build());
     }
 
-    private UrlInfo generateUrlInfo(ImagePurpose purpose, Duration signatureDuration) {
-        String key = generateObjectKey(purpose);
+    private UrlInfo generateUrlInfo(User user, ImagePurpose purpose, Duration signatureDuration) {
+        String key = generateObjectKey(user.getId(), purpose);
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(imageProperties.s3().bucket())
                 .key(key)
@@ -81,8 +84,8 @@ public class ImageService {
         return UrlInfo.from(presignedRequest.url().toString(), buildImageUrl(key));
     }
 
-    private String generateObjectKey(ImagePurpose purpose) {
-        return purpose.prefix() + "/" + UUID.randomUUID();
+    private String generateObjectKey(Long userId, ImagePurpose purpose) {
+        return purpose.prefix() + "/" + userId + "/" + UUID.randomUUID();
     }
 
     private String buildImageUrl(String key) {
@@ -143,6 +146,16 @@ public class ImageService {
         return key.startsWith(ImagePurpose.STYLE.prefix() + "/")
                 || key.startsWith(ImagePurpose.PROFILE.prefix() + "/")
                 || key.startsWith(ImagePurpose.PATTERN.prefix() + "/");
+    }
+
+    private void validateOwnership(String key, Long userId) {
+        String[] parts = key.split("/", 3);
+        if (parts.length < 3) {
+            throw new InvalidImageUrlException();
+        }
+        if (userId == null || !parts[1].equals(String.valueOf(userId))) {
+            throw new ImageDeletePermissionDeniedException();
+        }
     }
 
     private String defaultS3BaseUrl() {

@@ -31,7 +31,7 @@ public class ImageController {
             @LoginUser User user,
             @Valid @RequestBody ImagePresignedUrlIssueRequest request
     ) {
-        return ResponseEntity.ok(ApiResponse.success(imageService.issuePresignedUrls(request)));
+        return ResponseEntity.ok(ApiResponse.success(imageService.issuePresignedUrls(user, request)));
     }
 
     @DeleteMapping
@@ -41,7 +41,7 @@ public class ImageController {
             @NotBlank(message = "imageUrl은 필수입니다.")
             String imageUrl
     ) {
-        imageService.deleteImage(imageUrl);
+        imageService.deleteImage(user, imageUrl);
         return ResponseEntity.noContent().build();
     }
 }
