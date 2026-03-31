@@ -78,7 +78,7 @@ class PatternServiceTest {
         assertThat(response.nextPage()).isEqualTo(0);
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().id()).isEqualTo(1L);
-        assertThat(response.items().getFirst().category()).isEqualTo("clothing");
+        assertThat(response.items().getFirst().category()).isEqualTo("apparel");
         assertThat(response.items().getFirst().subCategory()).isEqualTo("sweater");
         assertThat(response.items().getFirst().stats().scraps()).isEqualTo(0L);
         assertThat(response.items().getFirst().my().scrapped()).isTrue();
@@ -108,7 +108,7 @@ class PatternServiceTest {
                 .thenReturn(new PageImpl<>(List.of(pattern)));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 1L)).thenReturn(false);
 
-        PatternListResponse response = patternService.getPatterns(user, "clothing", null, "scraps", 1);
+        PatternListResponse response = patternService.getPatterns(user, "all", null, "scraps", 1);
 
         assertThat(response.items()).hasSize(1);
         verify(patternRepository).findAllByCategoryOrderByPopularity(any(), any(), any(PageRequest.class));
@@ -135,7 +135,7 @@ class PatternServiceTest {
     @DisplayName("도안 상세 조회에서 이미지가 없으면 썸네일을 images에 포함해야 한다")
     void getPatternDetail_UsesThumbnailWhenImageEmpty() {
         User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPattern("patternA", "artist", "clothing", "sweater", "./patterns/t.png");
+        Pattern pattern = PatternFixture.createPattern("patternA", "artist", "apparel", "sweater", "./patterns/t.png");
         PatternFixture.setId(pattern, 2L);
         when(patternRepository.findById(2L)).thenReturn(Optional.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 2L)).thenReturn(false);
@@ -246,7 +246,7 @@ class PatternServiceTest {
     @DisplayName("추천 도안 조회는 유저 관심사와 매칭된 도안을 우선 반환해야 한다")
     void getRecommendedPatterns_ReturnsInterestMatchedFirst() {
         User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPattern("빈티지 니트", "artist", "clothing", "sweater", "./patterns/1.png");
+        Pattern pattern = PatternFixture.createPattern("빈티지 니트", "artist", "apparel", "sweater", "./patterns/1.png");
         PatternFixture.setId(pattern, 11L);
 
         when(patternRepository.findRecommendedByUserInterest(1L)).thenReturn(List.of(pattern));
@@ -262,7 +262,7 @@ class PatternServiceTest {
     @DisplayName("추천 도안 조회에서 관심사가 없으면 기본 추천 목록을 반환해야 한다")
     void getRecommendedPatterns_NoInterest_ReturnsDefaultRecommend() {
         User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPattern("기본 추천", "artist", "clothing", "sweater", "./patterns/1.png");
+        Pattern pattern = PatternFixture.createPattern("기본 추천", "artist", "apparel", "sweater", "./patterns/1.png");
         PatternFixture.setId(pattern, 12L);
         when(patternRepository.findRecommendedByUserInterest(1L)).thenReturn(List.of());
         when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
@@ -279,7 +279,7 @@ class PatternServiceTest {
     @DisplayName("추천 도안 조회에서 관심사 매칭 결과가 없으면 기본 추천 목록으로 fallback해야 한다")
     void getRecommendedPatterns_EmptyMatched_FallbackToDefaultRecommend() {
         User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPattern("fallback 추천", "artist", "clothing", "sweater", "./patterns/1.png");
+        Pattern pattern = PatternFixture.createPattern("fallback 추천", "artist", "apparel", "sweater", "./patterns/1.png");
         PatternFixture.setId(pattern, 13L);
         when(patternRepository.findRecommendedByUserInterest(1L)).thenReturn(List.of());
         when(patternRepository.findRecommended()).thenReturn(List.of(pattern));

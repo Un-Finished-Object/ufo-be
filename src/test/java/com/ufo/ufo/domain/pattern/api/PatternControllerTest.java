@@ -52,15 +52,15 @@ class PatternControllerTest {
     @DisplayName("도안 목록 조회 API는 서비스 응답을 data에 담아 반환해야 한다")
     void getPatterns_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
-        when(patternService.getPatterns(user, "clothing", "sweater", "news", 1))
+        when(patternService.getPatterns(user, "apparel", "sweater", "news", 1))
                 .thenReturn(new PatternListResponse(List.of(), 1, 0));
 
         ResponseEntity<ApiResponse<PatternListResponse>> response =
-                patternController.getPatterns(user, "clothing", "sweater", "news", 1);
+                patternController.getPatterns(user, "apparel", "sweater", "news", 1);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().page()).isEqualTo(1);
-        verify(patternService).getPatterns(user, "clothing", "sweater", "news", 1);
+        verify(patternService).getPatterns(user, "apparel", "sweater", "news", 1);
     }
 
     @Test

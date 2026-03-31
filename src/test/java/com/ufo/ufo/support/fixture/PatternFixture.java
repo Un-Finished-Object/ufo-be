@@ -13,7 +13,7 @@ public final class PatternFixture {
         return Pattern.builder()
                 .title("patternA")
                 .designer("artist")
-                .categoryMain("clothing")
+                .categoryMain("apparel")
                 .categorySub("sweater")
                 .thumbnailUrl("./patterns/1.png")
                 .build();
