@@ -12,14 +12,19 @@ import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseStatusResponse;
+import com.ufo.ufo.domain.pattern.validation.ValidPatternCategory;
+import com.ufo.ufo.domain.pattern.validation.ValidPatternSort;
+import com.ufo.ufo.domain.pattern.validation.ValidPatternSubCategory;
 import com.ufo.ufo.domain.scrap.application.ScrapService;
 import com.ufo.ufo.domain.scrap.dto.response.PatternScrapResponse;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -33,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/v1/patterns")
 @RequiredArgsConstructor
+@Validated
 public class PatternController {
 
     private final PatternService patternService;
@@ -42,10 +48,18 @@ public class PatternController {
     @GetMapping
     public ResponseEntity<ApiResponse<PatternListResponse>> getPatterns(
             @LoginUser User user,
-            @RequestParam(name = "category") String category,
-            @RequestParam(name = "subCategory", required = false) String subCategory,
-            @RequestParam(name = "sort") String sort,
-            @RequestParam(name = "page") Integer page
+            @RequestParam(name = "category")
+            @ValidPatternCategory
+            String category,
+            @RequestParam(name = "subCategory", required = false)
+            @ValidPatternSubCategory
+            String subCategory,
+            @RequestParam(name = "sort")
+            @ValidPatternSort
+            String sort,
+            @RequestParam(name = "page")
+            @Min(value = 1, message = "page는 1 이상이어야 합니다.")
+            Integer page
     ) {
         return ResponseEntity.ok(ApiResponse.success(patternService.getPatterns(user, category, subCategory, sort, page)));
     }

@@ -20,6 +20,8 @@ import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
 import com.ufo.ufo.domain.pattern.exception.AlternativeYarnNotFoundException;
 import com.ufo.ufo.domain.pattern.exception.PatternAlternativePermissionDeniedException;
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
+import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryNotAllowedException;
+import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryRequiredException;
 import com.ufo.ufo.domain.user.domain.User;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +45,7 @@ public class PatternService {
     private final YarnRepository yarnRepository;
 
     public PatternListResponse getPatterns(User user, String category, String subCategory, String sort, Integer page) {
+        validateCategoryAndSubCategory(category, subCategory);
         PatternSort sortOption = PatternSort.from(sort);
         int pageNumber = normalizePage(page);
         PageRequest pageRequest = createPageRequestForSort(sortOption, pageNumber);
@@ -53,7 +56,8 @@ public class PatternService {
                 ? patternRepository.findAllByCategoryOrderByPopularity(categoryFilter, subCategoryFilter, pageRequest)
                 : patternRepository.findAllByCategory(categoryFilter, subCategoryFilter, pageRequest);
 
-        return PatternListResponse.from(result.stream().map(pattern -> toListItemResponse(pattern, user)).toList(), pageNumber);
+        int nextPage = resolveNextPage(pageNumber, result.getTotalPages());
+        return PatternListResponse.from(result.stream().map(pattern -> toListItemResponse(pattern, user)).toList(), pageNumber, nextPage);
     }
 
     public PatternItemsResponse getRecommendedPatterns(User user) {
@@ -65,7 +69,8 @@ public class PatternService {
         int pageNumber = normalizePage(page);
         PageRequest pageRequest = PageRequest.of(pageNumber - 1, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Pattern> result = patternRepository.search(keyword == null ? "" : keyword, pageRequest);
-        return PatternListResponse.from(result.stream().map(pattern -> toListItemResponse(pattern, user)).toList(), pageNumber);
+        int nextPage = resolveNextPage(pageNumber, result.getTotalPages());
+        return PatternListResponse.from(result.stream().map(pattern -> toListItemResponse(pattern, user)).toList(), pageNumber, nextPage);
     }
 
     @Transactional
@@ -208,6 +213,23 @@ public class PatternService {
             return null;
         }
         return category;
+    }
+
+    private void validateCategoryAndSubCategory(String category, String subCategory) {
+        if ("apparel".equalsIgnoreCase(category) && subCategory == null) {
+            throw new PatternSubCategoryRequiredException();
+        }
+        if (!"apparel".equalsIgnoreCase(category) && subCategory != null) {
+            throw new PatternSubCategoryNotAllowedException();
+        }
+    }
+
+    private int resolveNextPage(int currentPage, int totalPages) {
+        int remainingPages = totalPages - currentPage;
+        if (remainingPages <= 0) {
+            return 0;
+        }
+        return Math.min(remainingPages, 5);
     }
 
     private PageRequest createPageRequestForSort(PatternSort sort, int pageNumber) {
