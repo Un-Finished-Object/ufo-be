@@ -25,7 +25,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .allowedOrigins(
                         "http://localhost:3000",
                         "http://localhost:5173",
-                        "https://knit-ufo.co.kr",
+                        "https://www.knit-ufo.co.kr",
                         "https://api.knit-ufo.co.kr"
                 )
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
