@@ -9,3 +9,14 @@ spring:
       hibernate:
         format_sql: true
     show-sql: true
+
+app:
+  image:
+    max-file-count: 5
+    max-bytes: 10485760
+    allowed-content-types: image/jpeg,image/png,image/webp
+    s3:
+      bucket: ${S3_IMAGE_BUCKET}
+      region: ${S3_REGION}
+      url-expiration-minutes: 5
+      public-base-url: "https://${S3_IMAGE_BUCKET}.s3.${S3_REGION}.amazonaws.com"
