@@ -1,5 +1,6 @@
 package com.ufo.ufo.domain.image.application;
 
+import com.ufo.ufo.domain.image.config.ImageProperties;
 import com.ufo.ufo.domain.image.domain.ImagePurpose;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
@@ -10,12 +11,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -29,36 +28,16 @@ public class ImageService {
     private static final DateTimeFormatter KST_OFFSET_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     private final S3Presigner s3Presigner;
-
-    @Value("${app.image.s3.bucket}")
-    private String bucket;
-
-    @Value("${app.image.s3.region}")
-    private String region;
-
-    @Value("${app.image.s3.url-expiration-minutes}")
-    private long urlExpirationMinutes;
-
-    @Value("${app.image.s3.public-base-url}")
-    private String publicBaseUrl;
-
-    @Value("${app.image.max-bytes}")
-    private long maxBytes;
-
-    @Value("${app.image.max-file-count}")
-    private int maxFileCount;
-
-    @Value("${app.image.allowed-content-types}")
-    private String allowedContentTypesValue;
+    private final ImageProperties imageProperties;
 
     public ImagePresignedUrlIssueResponse issuePresignedUrls(ImagePresignedUrlIssueRequest request) {
         validateBucketConfigured();
         validateFileCount(request.fileCount());
 
         ImagePurpose purpose = ImagePurpose.from(request.purpose());
-        Duration signatureDuration = Duration.ofMinutes(urlExpirationMinutes);
+        Duration signatureDuration = Duration.ofMinutes(imageProperties.s3().urlExpirationMinutes());
         Instant expiresAt = Instant.now().plus(signatureDuration);
-        List<String> allowedContentTypes = resolveAllowedContentTypes();
+        List<String> allowedContentTypes = imageProperties.allowedContentTypes();
 
         List<UrlInfo> urls = IntStream.range(0, request.fileCount())
                 .mapToObj(index -> generateUrlInfo(purpose, signatureDuration))
@@ -66,7 +45,7 @@ public class ImageService {
 
         return ImagePresignedUrlIssueResponse.from(
                 formatKst(expiresAt),
-                maxBytes,
+                imageProperties.maxBytes(),
                 allowedContentTypes,
                 urls
         );
@@ -75,7 +54,7 @@ public class ImageService {
     private UrlInfo generateUrlInfo(ImagePurpose purpose, Duration signatureDuration) {
         String key = generateObjectKey(purpose);
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(bucket)
+                .bucket(imageProperties.s3().bucket())
                 .key(key)
                 .build();
 
@@ -94,26 +73,22 @@ public class ImageService {
     }
 
     private String buildImageUrl(String key) {
+        String publicBaseUrl = imageProperties.s3().publicBaseUrl();
         if (publicBaseUrl != null && !publicBaseUrl.isBlank()) {
             return publicBaseUrl.endsWith("/") ? publicBaseUrl + key : publicBaseUrl + "/" + key;
         }
-        return "https://" + bucket + ".s3." + region + ".amazonaws.com/" + key;
-    }
-
-    private List<String> resolveAllowedContentTypes() {
-        return Arrays.stream(allowedContentTypesValue.split(","))
-                .map(String::trim)
-                .filter(value -> !value.isBlank())
-                .toList();
+        return "https://" + imageProperties.s3().bucket() + ".s3." + imageProperties.s3().region() + ".amazonaws.com/" + key;
     }
 
     private void validateBucketConfigured() {
+        String bucket = imageProperties.s3().bucket();
         if (bucket == null || bucket.isBlank()) {
             throw new ImageBucketNotConfiguredException();
         }
     }
 
     private void validateFileCount(Integer fileCount) {
+        int maxFileCount = imageProperties.maxFileCount();
         if (fileCount == null || fileCount < 1 || fileCount > maxFileCount) {
             throw new InvalidImageFileCountException(maxFileCount);
         }
