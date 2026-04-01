@@ -19,7 +19,7 @@ app:
       - image/png
       - image/webp
     s3:
-      bucket: ${S3_IMAGE_BUCKET}
-      region: ${S3_REGION}
+      bucket: ${S3_IMAGE_BUCKET:}
+      region: ${S3_REGION:ap-northeast-2}
       url-expiration-minutes: 5
-      public-base-url: "https://${S3_IMAGE_BUCKET}.s3.${S3_REGION}.amazonaws.com"
+      public-base-url: ${S3_PUBLIC_BASE_URL:}
