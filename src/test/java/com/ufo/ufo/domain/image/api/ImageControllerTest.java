@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
+import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest.FileInfo;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse.UrlInfo;
 import com.ufo.ufo.domain.user.domain.User;
@@ -35,7 +36,11 @@ class ImageControllerTest {
     @DisplayName("Presigned URL 발급 API는 서비스 응답을 data에 담아 반환해야 한다")
     void issuePresignedUrls_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
-        ImagePresignedUrlIssueRequest request = new ImagePresignedUrlIssueRequest(2, "STYLE");
+        ImagePresignedUrlIssueRequest request = new ImagePresignedUrlIssueRequest(
+                2,
+                "STYLE",
+                List.of(new FileInfo("image/jpeg", 1_024L), new FileInfo("image/png", 2_048L))
+        );
         ImagePresignedUrlIssueResponse serviceResponse = ImagePresignedUrlIssueResponse.from(
                 "2026-03-31T18:00:00+09:00",
                 10_485_760L,

@@ -2,13 +2,17 @@ package com.ufo.ufo.domain.image.application;
 
 import com.ufo.ufo.domain.image.config.ImageProperties;
 import com.ufo.ufo.domain.image.domain.ImagePurpose;
+import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest.FileInfo;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse.UrlInfo;
+import com.ufo.ufo.domain.image.exception.ImageFileMetadataMismatchException;
 import com.ufo.ufo.domain.image.exception.ImageBucketNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageDeletePermissionDeniedException;
 import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
+import com.ufo.ufo.domain.image.exception.InvalidImageContentTypeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageUrlException;
+import com.ufo.ufo.domain.image.exception.InvalidImageSizeException;
 import com.ufo.ufo.domain.user.domain.User;
 import java.time.Duration;
 import java.time.Instant;
@@ -16,7 +20,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -38,15 +41,15 @@ public class ImageService {
 
     public ImagePresignedUrlIssueResponse issuePresignedUrls(User user, ImagePresignedUrlIssueRequest request) {
         validateBucketConfigured();
-        validateFileCount(request.fileCount());
+        validateFiles(request.fileCount(), request.files());
 
         ImagePurpose purpose = ImagePurpose.from(request.purpose());
         Duration signatureDuration = Duration.ofMinutes(imageProperties.s3().urlExpirationMinutes());
         Instant expiresAt = Instant.now().plus(signatureDuration);
         List<String> allowedContentTypes = imageProperties.allowedContentTypes();
 
-        List<UrlInfo> urls = IntStream.range(0, request.fileCount())
-                .mapToObj(index -> generateUrlInfo(user, purpose, signatureDuration))
+        List<UrlInfo> urls = request.files().stream()
+                .map(file -> generateUrlInfo(user, purpose, signatureDuration, file))
                 .toList();
 
         return ImagePresignedUrlIssueResponse.from(
@@ -67,11 +70,13 @@ public class ImageService {
                 .build());
     }
 
-    private UrlInfo generateUrlInfo(User user, ImagePurpose purpose, Duration signatureDuration) {
+    private UrlInfo generateUrlInfo(User user, ImagePurpose purpose, Duration signatureDuration, FileInfo fileInfo) {
         String key = generateObjectKey(user.getId(), purpose);
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(imageProperties.s3().bucket())
                 .key(key)
+                .contentType(fileInfo.contentType())
+                .contentLength(fileInfo.contentLength())
                 .build();
 
         PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(
@@ -103,10 +108,44 @@ public class ImageService {
         }
     }
 
-    private void validateFileCount(Integer fileCount) {
+    private void validateFiles(Integer fileCount, List<FileInfo> files) {
+        validateFileMetadataCount(fileCount, files);
+        validateFileCountRange(fileCount);
+        validateFilePolicies(files);
+    }
+
+    private void validateFileMetadataCount(Integer fileCount, List<FileInfo> files) {
+        if (fileCount == null || files == null || !fileCount.equals(files.size())) {
+            throw new ImageFileMetadataMismatchException();
+        }
+    }
+
+    private void validateFileCountRange(int fileCount) {
         int maxFileCount = imageProperties.maxFileCount();
-        if (fileCount == null || fileCount < 1 || fileCount > maxFileCount) {
+        if (fileCount < 1 || fileCount > maxFileCount) {
             throw new InvalidImageFileCountException(maxFileCount);
+        }
+    }
+
+    private void validateFilePolicies(List<FileInfo> files) {
+        List<String> allowedContentTypes = imageProperties.allowedContentTypes();
+        long maxBytes = imageProperties.maxBytes();
+
+        files.forEach(file -> {
+            validateContentType(file.contentType(), allowedContentTypes);
+            validateContentLength(file.contentLength(), maxBytes);
+        });
+    }
+
+    private void validateContentType(String contentType, List<String> allowedContentTypes) {
+        if (!allowedContentTypes.contains(contentType)) {
+            throw new InvalidImageContentTypeException(contentType, allowedContentTypes);
+        }
+    }
+
+    private void validateContentLength(long contentLength, long maxBytes) {
+        if (contentLength > maxBytes) {
+            throw new InvalidImageSizeException(contentLength, maxBytes);
         }
     }
 

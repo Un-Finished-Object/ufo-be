@@ -10,11 +10,15 @@ import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.image.config.ImageProperties;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
+import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest.FileInfo;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
+import com.ufo.ufo.domain.image.exception.ImageFileMetadataMismatchException;
 import com.ufo.ufo.domain.image.exception.ImageBucketNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageDeletePermissionDeniedException;
+import com.ufo.ufo.domain.image.exception.InvalidImageContentTypeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
 import com.ufo.ufo.domain.image.exception.InvalidImagePurposeException;
+import com.ufo.ufo.domain.image.exception.InvalidImageSizeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageUrlException;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.UserFixture;
@@ -76,7 +80,14 @@ class ImageServiceTest {
 
         ImagePresignedUrlIssueResponse response = imageService.issuePresignedUrls(
                 user,
-                new ImagePresignedUrlIssueRequest(2, "STYLE")
+                new ImagePresignedUrlIssueRequest(
+                        2,
+                        "STYLE",
+                        List.of(
+                                new FileInfo("image/jpeg", 1_024L),
+                                new FileInfo("image/png", 2_048L)
+                        )
+                )
         );
 
         assertThat(response.allowedContentTypes()).containsExactly("image/jpeg", "image/png", "image/webp");
@@ -95,19 +106,40 @@ class ImageServiceTest {
                     assertThat(req.putObjectRequest().bucket()).isEqualTo("ufo-bucket");
                     assertThat(req.putObjectRequest().key()).startsWith("styles/1/");
                 });
+        assertThat(captor.getAllValues().get(0).putObjectRequest().contentType()).isEqualTo("image/jpeg");
+        assertThat(captor.getAllValues().get(0).putObjectRequest().contentLength()).isEqualTo(1_024L);
+        assertThat(captor.getAllValues().get(1).putObjectRequest().contentType()).isEqualTo("image/png");
+        assertThat(captor.getAllValues().get(1).putObjectRequest().contentLength()).isEqualTo(2_048L);
     }
 
     @Test
     @DisplayName("fileCount가 정책 범위를 벗어나면 예외가 발생해야 한다")
     void issuePresignedUrls_InvalidFileCount_Throws() {
-        assertThatThrownBy(() -> imageService.issuePresignedUrls(user, new ImagePresignedUrlIssueRequest(6, "STYLE")))
+        assertThatThrownBy(() -> imageService.issuePresignedUrls(
+                user,
+                new ImagePresignedUrlIssueRequest(
+                        6,
+                        "STYLE",
+                        List.of(
+                                new FileInfo("image/jpeg", 1_024L),
+                                new FileInfo("image/png", 2_048L),
+                                new FileInfo("image/webp", 3_072L),
+                                new FileInfo("image/jpeg", 1_024L),
+                                new FileInfo("image/png", 2_048L),
+                                new FileInfo("image/webp", 3_072L)
+                        )
+                )
+        ))
                 .isInstanceOf(InvalidImageFileCountException.class);
     }
 
     @Test
     @DisplayName("purpose가 허용값이 아니면 예외가 발생해야 한다")
     void issuePresignedUrls_InvalidPurpose_Throws() {
-        assertThatThrownBy(() -> imageService.issuePresignedUrls(user, new ImagePresignedUrlIssueRequest(1, "UNKNOWN")))
+        assertThatThrownBy(() -> imageService.issuePresignedUrls(
+                user,
+                new ImagePresignedUrlIssueRequest(1, "UNKNOWN", List.of(new FileInfo("image/jpeg", 1_024L)))
+        ))
                 .isInstanceOf(InvalidImagePurposeException.class);
     }
 
@@ -122,8 +154,41 @@ class ImageServiceTest {
         );
         ImageService imageService = new ImageService(s3Presigner, s3Client, emptyBucketProperties);
 
-        assertThatThrownBy(() -> imageService.issuePresignedUrls(user, new ImagePresignedUrlIssueRequest(1, "STYLE")))
+        assertThatThrownBy(() -> imageService.issuePresignedUrls(
+                user,
+                new ImagePresignedUrlIssueRequest(1, "STYLE", List.of(new FileInfo("image/jpeg", 1_024L)))
+        ))
                 .isInstanceOf(ImageBucketNotConfiguredException.class);
+    }
+
+    @Test
+    @DisplayName("fileCount와 files 개수가 다르면 예외가 발생해야 한다")
+    void issuePresignedUrls_FileCountMismatch_Throws() {
+        assertThatThrownBy(() -> imageService.issuePresignedUrls(
+                user,
+                new ImagePresignedUrlIssueRequest(2, "STYLE", List.of(new FileInfo("image/jpeg", 1_024L)))
+        ))
+                .isInstanceOf(ImageFileMetadataMismatchException.class);
+    }
+
+    @Test
+    @DisplayName("허용되지 않은 contentType이면 예외가 발생해야 한다")
+    void issuePresignedUrls_InvalidContentType_Throws() {
+        assertThatThrownBy(() -> imageService.issuePresignedUrls(
+                user,
+                new ImagePresignedUrlIssueRequest(1, "STYLE", List.of(new FileInfo("application/pdf", 1_024L)))
+        ))
+                .isInstanceOf(InvalidImageContentTypeException.class);
+    }
+
+    @Test
+    @DisplayName("파일 크기가 정책을 초과하면 예외가 발생해야 한다")
+    void issuePresignedUrls_ExceedsMaxBytes_Throws() {
+        assertThatThrownBy(() -> imageService.issuePresignedUrls(
+                user,
+                new ImagePresignedUrlIssueRequest(1, "STYLE", List.of(new FileInfo("image/jpeg", 20_000_000L)))
+        ))
+                .isInstanceOf(InvalidImageSizeException.class);
     }
 
     @Test
