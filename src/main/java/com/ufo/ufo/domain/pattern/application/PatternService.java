@@ -4,6 +4,7 @@ import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.dao.YarnRepository;
+import com.ufo.ufo.domain.pattern.domain.AlternativeYarnGauge;
 import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
@@ -157,9 +158,10 @@ public class PatternService {
                 .vendor(request.store())
                 .price(request.cost())
                 .weightG(request.weight())
-                .length(null)
-                .ingredient(null)
-                .thickness(null)
+                .length(request.length())
+                .mainComponent(request.mainComponent())
+                .subComponent(request.subComponent())
+                .thickness(request.thickness())
                 .build());
     }
 
@@ -173,8 +175,8 @@ public class PatternService {
                 .pattern(pattern)
                 .user(user)
                 .yarn(yarn)
-                .gauge(request.gauge())
                 .imageUrl(request.yarnUri())
+                .gauges(toGaugeEntities(request.gauges()))
                 .build());
     }
 
@@ -190,11 +192,22 @@ public class PatternService {
                 request.store(),
                 request.cost(),
                 request.weight(),
-                yarn.getLength(),
-                yarn.getIngredient(),
-                yarn.getThickness()
+                request.length(),
+                request.mainComponent(),
+                request.subComponent(),
+                request.thickness()
         );
-        alternative.update(yarn, request.gauge(), request.yarnUri());
+        alternative.update(yarn, request.yarnUri(), toGaugeEntities(request.gauges()));
+    }
+
+    private List<AlternativeYarnGauge> toGaugeEntities(List<CreateAlternativeRequest.GaugeRequest> gauges) {
+        return gauges.stream()
+                .map(gauge -> AlternativeYarnGauge.builder()
+                        .needleSize(gauge.needleSize())
+                        .stitch(gauge.stitch())
+                        .rowCount(gauge.row())
+                        .build())
+                .toList();
     }
 
     private boolean isScrapsSort(PatternSort sort) {
