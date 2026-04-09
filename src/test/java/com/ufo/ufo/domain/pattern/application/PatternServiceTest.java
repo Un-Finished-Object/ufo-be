@@ -16,6 +16,7 @@ import com.ufo.ufo.domain.pattern.dao.YarnRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
+import com.ufo.ufo.domain.pattern.dto.request.AlternativeGaugeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternDetailResponse;
@@ -167,7 +168,18 @@ class PatternServiceTest {
         assertThatThrownBy(() -> patternService.createAlternative(
                 guest,
                 1L,
-                new CreateAlternativeRequest("name", "./yarns/1.png", 100, 10000, "gauge", "store")))
+                new CreateAlternativeRequest(
+                        "name",
+                        "./yarns/1.png",
+                        100,
+                        10000,
+                        "알파카",
+                        "알파카 90%, 나일론 10%",
+                        "store",
+                        "2",
+                        180,
+                        List.of(new AlternativeGaugeRequest("5.5", 17, 24))
+                )))
                 .isInstanceOf(ApiException.class);
     }
 
@@ -187,13 +199,25 @@ class PatternServiceTest {
                 user,
                 10L,
                 30L,
-                new UpdateAlternativeYarnRequest("newName", "./yarns/new.png", 120, 20000, "newGauge", "newStore")
+                new UpdateAlternativeYarnRequest(
+                        "newName",
+                        "./yarns/new.png",
+                        120,
+                        20000,
+                        "메리노",
+                        "메리노 100%",
+                        "newStore",
+                        "1",
+                        140,
+                        List.of(new AlternativeGaugeRequest("4.0", 22, 30))
+                )
         );
 
         assertThat(response.altId()).isEqualTo(30L);
         assertThat(response.yarnName()).isEqualTo("newName");
         assertThat(response.cost()).isEqualTo(20000);
         assertThat(response.weight()).isEqualTo(120);
+        assertThat(response.gauges()).hasSize(1);
     }
 
     @Test
@@ -212,7 +236,21 @@ class PatternServiceTest {
         when(patternAlternativeYarnRepository.findByIdAndPattern_Id(30L, 10L)).thenReturn(Optional.of(alt));
 
         assertThatThrownBy(() -> patternService.updateAlternative(
-                requester, 10L, 30L, new UpdateAlternativeYarnRequest("newName", "./yarns/new.png", 120, 20000, "newGauge", "newStore")))
+                requester,
+                10L,
+                30L,
+                new UpdateAlternativeYarnRequest(
+                        "newName",
+                        "./yarns/new.png",
+                        120,
+                        20000,
+                        "메리노",
+                        "메리노 100%",
+                        "newStore",
+                        "1",
+                        140,
+                        List.of(new AlternativeGaugeRequest("4.0", 22, 30))
+                )))
                 .isInstanceOf(ApiException.class);
     }
 
@@ -305,6 +343,24 @@ class PatternServiceTest {
     }
 
     @Test
+    @DisplayName("대체 실 삭제는 권한 확인 후 대체 실을 삭제해야 한다")
+    void deleteAlternative_DeletesAlternativeById() {
+        User owner = UserFixture.createUser("owner@example.com", Role.ROLE_USER);
+        UserFixture.setId(owner, 2L);
+
+        Pattern pattern = PatternFixture.createPatternWithId(10L);
+        Yarn yarn = YarnFixture.createYarnWithId(20L);
+        PatternAlternativeYarn alt = PatternAlternativeYarnFixture.createWithId(30L, pattern, owner, yarn);
+
+        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(patternAlternativeYarnRepository.findByIdAndPattern_Id(30L, 10L)).thenReturn(Optional.of(alt));
+
+        patternService.deleteAlternative(owner, 10L, 30L);
+
+        verify(patternAlternativeYarnRepository).deleteById(30L);
+    }
+
+    @Test
     @DisplayName("자신이 등록하지 않은 대체 실은 삭제할 수 없어야 한다")
     void deleteAlternative_NotOwner_ThrowsForbidden() {
         User requester = UserFixture.createUser("u@example.com", Role.ROLE_USER);
@@ -324,3 +380,4 @@ class PatternServiceTest {
     }
 
 }
+

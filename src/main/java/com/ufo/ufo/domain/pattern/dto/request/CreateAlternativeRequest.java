@@ -1,23 +1,31 @@
 package com.ufo.ufo.domain.pattern.dto.request;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 
 public record CreateAlternativeRequest(
-        @JsonProperty("yarn_name")
         @NotBlank(message = "yarnName 필드의 정보가 올바르지 않습니다.")
         String yarnName,
-        @JsonProperty("yarn_uri")
         @NotBlank(message = "yarnUri 필드의 정보가 올바르지 않습니다.")
         String yarnUri,
         @NotNull(message = "weight 필드의 정보가 올바르지 않습니다.")
         Integer weight,
         @NotNull(message = "cost 필드의 정보가 올바르지 않습니다.")
         Integer cost,
-        @NotBlank(message = "gauge 필드의 정보가 올바르지 않습니다.")
-        String gauge,
+        @NotBlank(message = "mainComponent 필드의 정보가 올바르지 않습니다.")
+        String mainComponent,
+        @NotBlank(message = "subComponent 필드의 정보가 올바르지 않습니다.")
+        String subComponent,
         @NotBlank(message = "store 필드의 정보가 올바르지 않습니다.")
-        String store
+        String store,
+        @NotBlank(message = "thickness 필드의 정보가 올바르지 않습니다.")
+        String thickness,
+        @NotNull(message = "length 필드의 정보가 올바르지 않습니다.")
+        Integer length,
+        @NotEmpty(message = "gauges 필드의 정보가 올바르지 않습니다.")
+        @Valid List<@NotNull(message = "gauges 항목의 정보가 올바르지 않습니다.") AlternativeGaugeRequest> gauges
 ) {
 }

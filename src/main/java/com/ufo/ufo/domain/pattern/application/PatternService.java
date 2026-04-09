@@ -4,12 +4,14 @@ import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.dao.YarnRepository;
+import com.ufo.ufo.domain.pattern.domain.AlternativeYarnGauge;
 import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.pattern.domain.PatternImage;
 import com.ufo.ufo.domain.pattern.domain.PatternSort;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
+import com.ufo.ufo.domain.pattern.dto.request.AlternativeGaugeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativesResponse;
@@ -116,7 +118,7 @@ public class PatternService {
         findActivePattern(patternId);
         PatternAlternativeYarn alternative = findAlternativeYarn(altId, patternId);
         validateAlternativeOwner(user, alternative);
-        patternAlternativeYarnRepository.delete(alternative);
+        patternAlternativeYarnRepository.deleteById(altId);
     }
 
     private Pattern findActivePattern(Long patternId) {
@@ -157,9 +159,10 @@ public class PatternService {
                 .vendor(request.store())
                 .price(request.cost())
                 .weightG(request.weight())
-                .length(null)
-                .ingredient(null)
-                .thickness(null)
+                .length(request.length())
+                .mainComponent(request.mainComponent())
+                .subComponent(request.subComponent())
+                .thickness(request.thickness())
                 .build());
     }
 
@@ -173,8 +176,8 @@ public class PatternService {
                 .pattern(pattern)
                 .user(user)
                 .yarn(yarn)
-                .gauge(request.gauge())
                 .imageUrl(request.yarnUri())
+                .gauges(toGaugeEntities(request.gauges()))
                 .build());
     }
 
@@ -190,11 +193,22 @@ public class PatternService {
                 request.store(),
                 request.cost(),
                 request.weight(),
-                yarn.getLength(),
-                yarn.getIngredient(),
-                yarn.getThickness()
+                request.length(),
+                request.mainComponent(),
+                request.subComponent(),
+                request.thickness()
         );
-        alternative.update(yarn, request.gauge(), request.yarnUri());
+        alternative.update(yarn, request.yarnUri(), toGaugeEntities(request.gauges()));
+    }
+
+    private List<AlternativeYarnGauge> toGaugeEntities(List<AlternativeGaugeRequest> gauges) {
+        return gauges.stream()
+                .map(gauge -> AlternativeYarnGauge.builder()
+                        .needleSize(gauge.needleSize())
+                        .stitch(gauge.stitch())
+                        .rowCount(gauge.row())
+                        .build())
+                .toList();
     }
 
     private boolean isScrapsSort(PatternSort sort) {
@@ -256,3 +270,4 @@ public class PatternService {
     }
 
 }
+

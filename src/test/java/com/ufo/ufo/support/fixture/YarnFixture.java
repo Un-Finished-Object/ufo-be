@@ -11,9 +11,11 @@ public final class YarnFixture {
     public static Yarn createYarn() {
         return Yarn.builder()
                 .name("old")
-                .ingredient("oldI")
+                .mainComponent("wool")
+                .subComponent("wool 80%, nylon 20%")
                 .vendor("oldV")
                 .price(1000)
+                .length(120)
                 .thickness("oldT")
                 .build();
     }
