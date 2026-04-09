@@ -89,9 +89,9 @@ class PatternControllerTest {
     @DisplayName("대체 실 등록 API는 서비스 응답을 data에 담아 반환해야 한다")
     void createAlternative_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
-        CreateAlternativeRequest request = new CreateAlternativeRequest("n", "./yarns/1.png", 100, 10000, "", "");
+        CreateAlternativeRequest request = createAlternativeRequest();
         when(patternService.createAlternative(user, 10L, request))
-                .thenReturn(new PatternAlternativesResponse.Item(1L, "n", "./yarns/1.png", 10000, 100, "", "", "admin"));
+                .thenReturn(sampleAlternativeItem());
 
         ResponseEntity<ApiResponse<PatternAlternativesResponse.Item>> response =
                 patternController.createAlternative(user, 10L, request);
@@ -147,9 +147,9 @@ class PatternControllerTest {
     @DisplayName("대체 실 수정 API는 서비스 응답을 data에 담아 반환해야 한다")
     void updateAlternative_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
-        UpdateAlternativeYarnRequest request = new UpdateAlternativeYarnRequest("n", "./yarns/1.png", 100, 10000, "g", "s");
+        UpdateAlternativeYarnRequest request = updateAlternativeRequest();
         when(patternService.updateAlternative(user, 10L, 1L, request))
-                .thenReturn(new PatternAlternativesResponse.Item(1L, "n", "./yarns/1.png", 10000, 100, "g", "s", "admin"));
+                .thenReturn(sampleAlternativeItem());
 
         ResponseEntity<ApiResponse<PatternAlternativesResponse.Item>> response =
                 patternController.updateAlternative(user, 10L, 1L, request);
@@ -232,5 +232,53 @@ class PatternControllerTest {
         assertThat(response.getBody().data().scrapped()).isFalse();
         assertThat(response.getBody().data().scrapCount()).isEqualTo(33);
         verify(scrapService).removePatternScrap(user, 10L);
+    }
+
+    private CreateAlternativeRequest createAlternativeRequest() {
+        return new CreateAlternativeRequest(
+                "n",
+                "./yarns/1.png",
+                100,
+                10000,
+                "알파카",
+                "알파카 90%, 나일론 10%",
+                "s",
+                "2",
+                180,
+                List.of(new CreateAlternativeRequest.GaugeRequest("5.5", 17, 24))
+        );
+    }
+
+    private UpdateAlternativeYarnRequest updateAlternativeRequest() {
+        return new UpdateAlternativeYarnRequest(
+                "n",
+                "./yarns/1.png",
+                100,
+                10000,
+                "알파카",
+                "알파카 90%, 나일론 10%",
+                "s",
+                "2",
+                180,
+                List.of(new CreateAlternativeRequest.GaugeRequest("5.5", 17, 24))
+        );
+    }
+
+    private PatternAlternativesResponse.Item sampleAlternativeItem() {
+        return new PatternAlternativesResponse.Item(
+                1L,
+                2L,
+                "n",
+                "./yarns/1.png",
+                100,
+                10000,
+                "알파카",
+                "알파카 90%, 나일론 10%",
+                "s",
+                "2",
+                180,
+                List.of(new PatternAlternativesResponse.Item.Gauge("5.5", 17, 24)),
+                "admin"
+        );
     }
 }
