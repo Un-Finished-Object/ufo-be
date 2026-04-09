@@ -11,6 +11,7 @@ import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.pattern.domain.PatternImage;
 import com.ufo.ufo.domain.pattern.domain.PatternSort;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
+import com.ufo.ufo.domain.pattern.dto.request.AlternativeGaugeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativesResponse;
@@ -200,7 +201,7 @@ public class PatternService {
         alternative.update(yarn, request.yarnUri(), toGaugeEntities(request.gauges()));
     }
 
-    private List<AlternativeYarnGauge> toGaugeEntities(List<CreateAlternativeRequest.GaugeRequest> gauges) {
+    private List<AlternativeYarnGauge> toGaugeEntities(List<AlternativeGaugeRequest> gauges) {
         return gauges.stream()
                 .map(gauge -> AlternativeYarnGauge.builder()
                         .needleSize(gauge.needleSize())

@@ -16,6 +16,7 @@ import com.ufo.ufo.domain.pattern.dao.YarnRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
+import com.ufo.ufo.domain.pattern.dto.request.AlternativeGaugeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternDetailResponse;
@@ -177,7 +178,7 @@ class PatternServiceTest {
                         "store",
                         "2",
                         180,
-                        List.of(new CreateAlternativeRequest.GaugeRequest("5.5", 17, 24))
+                        List.of(new AlternativeGaugeRequest("5.5", 17, 24))
                 )))
                 .isInstanceOf(ApiException.class);
     }
@@ -208,7 +209,7 @@ class PatternServiceTest {
                         "newStore",
                         "1",
                         140,
-                        List.of(new CreateAlternativeRequest.GaugeRequest("4.0", 22, 30))
+                        List.of(new AlternativeGaugeRequest("4.0", 22, 30))
                 )
         );
 
@@ -248,7 +249,7 @@ class PatternServiceTest {
                         "newStore",
                         "1",
                         140,
-                        List.of(new CreateAlternativeRequest.GaugeRequest("4.0", 22, 30))
+                        List.of(new AlternativeGaugeRequest("4.0", 22, 30))
                 )))
                 .isInstanceOf(ApiException.class);
     }

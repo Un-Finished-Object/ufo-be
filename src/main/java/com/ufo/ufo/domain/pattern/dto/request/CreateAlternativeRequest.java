@@ -26,15 +26,6 @@ public record CreateAlternativeRequest(
         @NotNull(message = "length 필드의 정보가 올바르지 않습니다.")
         Integer length,
         @NotEmpty(message = "gauges 필드의 정보가 올바르지 않습니다.")
-        @Valid List<GaugeRequest> gauges
+        @Valid List<@NotNull(message = "gauges 항목의 정보가 올바르지 않습니다.") AlternativeGaugeRequest> gauges
 ) {
-    public record GaugeRequest(
-            @NotBlank(message = "needleSize 필드의 정보가 올바르지 않습니다.")
-            String needleSize,
-            @NotNull(message = "stitch 필드의 정보가 올바르지 않습니다.")
-            Integer stitch,
-            @NotNull(message = "row 필드의 정보가 올바르지 않습니다.")
-            Integer row
-    ) {
-    }
 }

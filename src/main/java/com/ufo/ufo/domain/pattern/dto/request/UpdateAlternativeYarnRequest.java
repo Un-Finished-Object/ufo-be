@@ -26,6 +26,6 @@ public record UpdateAlternativeYarnRequest(
         @NotNull(message = "length 필드의 정보가 올바르지 않습니다.")
         Integer length,
         @NotEmpty(message = "gauges 필드의 정보가 올바르지 않습니다.")
-        @Valid List<CreateAlternativeRequest.GaugeRequest> gauges
+        @Valid List<@NotNull(message = "gauges 항목의 정보가 올바르지 않습니다.") AlternativeGaugeRequest> gauges
 ) {
 }
