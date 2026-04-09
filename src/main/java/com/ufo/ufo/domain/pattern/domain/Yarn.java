@@ -1,11 +1,11 @@
 package com.ufo.ufo.domain.pattern.domain;
 
 import com.ufo.ufo.global.base.BaseEntity;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Column;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -37,10 +37,13 @@ public class Yarn extends BaseEntity {
     private Integer weightG;
 
     @Column(name = "length")
-    private String length;
+    private Integer length;
 
-    @Column(name = "ingredient")
-    private String ingredient;
+    @Column(name = "main_component")
+    private String mainComponent;
+
+    @Column(name = "sub_component")
+    private String subComponent;
 
     @Column(name = "thickness")
     private String thickness;
@@ -49,23 +52,43 @@ public class Yarn extends BaseEntity {
     private LocalDateTime deletedAt;
 
     @Builder
-    public Yarn(String name, String vendor, Integer price, Integer weightG, String length, String ingredient, String thickness) {
+    public Yarn(
+            String name,
+            String vendor,
+            Integer price,
+            Integer weightG,
+            Integer length,
+            String mainComponent,
+            String subComponent,
+            String thickness
+    ) {
         this.name = name;
         this.vendor = vendor;
         this.price = (price == null) ? 0 : price;
         this.weightG = weightG;
         this.length = length;
-        this.ingredient = ingredient;
+        this.mainComponent = mainComponent;
+        this.subComponent = subComponent;
         this.thickness = thickness;
     }
 
-    public void update(String name, String vendor, Integer price, Integer weightG, String length, String ingredient, String thickness) {
+    public void update(
+            String name,
+            String vendor,
+            Integer price,
+            Integer weightG,
+            Integer length,
+            String mainComponent,
+            String subComponent,
+            String thickness
+    ) {
         this.name = name;
         this.vendor = vendor;
         this.price = (price == null) ? 0 : price;
         this.weightG = weightG;
         this.length = length;
-        this.ingredient = ingredient;
+        this.mainComponent = mainComponent;
+        this.subComponent = subComponent;
         this.thickness = thickness;
     }
 }
