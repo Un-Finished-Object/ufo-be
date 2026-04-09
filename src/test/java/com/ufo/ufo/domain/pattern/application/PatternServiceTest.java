@@ -342,6 +342,24 @@ class PatternServiceTest {
     }
 
     @Test
+    @DisplayName("대체 실 삭제는 권한 확인 후 대체 실을 삭제해야 한다")
+    void deleteAlternative_DeletesAlternativeById() {
+        User owner = UserFixture.createUser("owner@example.com", Role.ROLE_USER);
+        UserFixture.setId(owner, 2L);
+
+        Pattern pattern = PatternFixture.createPatternWithId(10L);
+        Yarn yarn = YarnFixture.createYarnWithId(20L);
+        PatternAlternativeYarn alt = PatternAlternativeYarnFixture.createWithId(30L, pattern, owner, yarn);
+
+        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(patternAlternativeYarnRepository.findByIdAndPattern_Id(30L, 10L)).thenReturn(Optional.of(alt));
+
+        patternService.deleteAlternative(owner, 10L, 30L);
+
+        verify(patternAlternativeYarnRepository).deleteById(30L);
+    }
+
+    @Test
     @DisplayName("자신이 등록하지 않은 대체 실은 삭제할 수 없어야 한다")
     void deleteAlternative_NotOwner_ThrowsForbidden() {
         User requester = UserFixture.createUser("u@example.com", Role.ROLE_USER);
@@ -361,3 +379,4 @@ class PatternServiceTest {
     }
 
 }
+

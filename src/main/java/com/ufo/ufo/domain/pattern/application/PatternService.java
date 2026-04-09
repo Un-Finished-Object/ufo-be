@@ -117,7 +117,7 @@ public class PatternService {
         findActivePattern(patternId);
         PatternAlternativeYarn alternative = findAlternativeYarn(altId, patternId);
         validateAlternativeOwner(user, alternative);
-        patternAlternativeYarnRepository.delete(alternative);
+        patternAlternativeYarnRepository.deleteById(altId);
     }
 
     private Pattern findActivePattern(Long patternId) {
@@ -269,3 +269,4 @@ public class PatternService {
     }
 
 }
+
