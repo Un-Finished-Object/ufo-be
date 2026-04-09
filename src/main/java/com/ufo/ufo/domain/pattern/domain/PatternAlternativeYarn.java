@@ -2,6 +2,7 @@ package com.ufo.ufo.domain.pattern.domain;
 
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.base.BaseEntity;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -10,8 +11,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -40,8 +44,8 @@ public class PatternAlternativeYarn extends BaseEntity {
     @JoinColumn(name = "yarn_id")
     private Yarn yarn;
 
-    @Column(name = "gauge")
-    private String gauge;
+    @OneToMany(mappedBy = "alternative", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AlternativeYarnGauge> gauges = new ArrayList<>();
 
     @Column(name = "image_url")
     private String imageUrl;
@@ -53,18 +57,34 @@ public class PatternAlternativeYarn extends BaseEntity {
     private LocalDateTime deletedAt;
 
     @Builder
-    public PatternAlternativeYarn(Pattern pattern, User user, Yarn yarn, String gauge, String imageUrl) {
+    public PatternAlternativeYarn(Pattern pattern, User user, Yarn yarn, String imageUrl, List<AlternativeYarnGauge> gauges) {
         this.pattern = pattern;
         this.user = user;
         this.yarn = yarn;
-        this.gauge = gauge;
         this.imageUrl = imageUrl;
+        replaceGauges(gauges);
     }
 
-    public void update(Yarn yarn, String gauge, String imageUrl) {
+    public void update(Yarn yarn, String imageUrl, List<AlternativeYarnGauge> gauges) {
         this.yarn = yarn;
-        this.gauge = gauge;
         this.imageUrl = imageUrl;
+        replaceGauges(gauges);
+    }
+
+    public void replaceGauges(List<AlternativeYarnGauge> gauges) {
+        this.gauges.clear();
+        if (gauges == null) {
+            return;
+        }
+        gauges.forEach(this::addGauge);
+    }
+
+    public void addGauge(AlternativeYarnGauge gauge) {
+        if (gauge == null) {
+            return;
+        }
+        gauge.assignAlternative(this);
+        this.gauges.add(gauge);
     }
 
     public boolean isOwnedBy(User user) {
