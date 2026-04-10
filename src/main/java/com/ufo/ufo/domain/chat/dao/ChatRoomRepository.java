@@ -16,6 +16,4 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             LocalDateTime at,
             LocalDateTime sameAt
     );
-
-    Optional<ChatRoom> findByPattern_IdAndSegmentNo(Long patternId, Integer segmentNo);
 }
