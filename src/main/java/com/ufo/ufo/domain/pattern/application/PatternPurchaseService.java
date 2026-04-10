@@ -2,7 +2,9 @@ package com.ufo.ufo.domain.pattern.application;
 
 import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.credit.domain.UnlockType;
+import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
+import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
@@ -14,8 +16,10 @@ import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import java.util.List;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,10 +27,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PatternPurchaseService {
+    @Value("${app.chat.segment-days}")
+    private int chatSegmentDays;
 
     private final PatternRepository patternRepository;
     private final CreditService creditService;
     private final UserService userService;
+    private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomStatusRepository chatRoomStatusRepository;
 
     @Transactional
@@ -60,15 +67,45 @@ public class PatternPurchaseService {
 
     private void ensureChatRoomStatus(User user, Pattern pattern) {
         User loginUser = userService.getUserById(user.getId());
+        if (chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(loginUser.getId(), pattern.getId())) {
+            throw new ChatRoomAlreadyPurchasedException();
+        }
+
+        LocalDateTime joinedAt = LocalDateTime.now();
+        ChatRoom chatRoom = resolveChatRoom(pattern, joinedAt);
         try {
             chatRoomStatusRepository.save(ChatRoomStatus.builder()
                     .user(loginUser)
-                    .pattern(pattern)
+                    .room(chatRoom)
                     .favorite(false)
                     .hidden(false)
                     .build());
         } catch (DataIntegrityViolationException exception) {
             throw new ChatRoomAlreadyPurchasedException();
         }
+    }
+
+    private ChatRoom resolveChatRoom(Pattern pattern, LocalDateTime joinedAt) {
+        return chatRoomRepository.findFirstByPattern_IdAndSegmentStartAtLessThanEqualAndSegmentEndAtGreaterThan(
+                        pattern.getId(),
+                        joinedAt,
+                        joinedAt
+                )
+                .orElseGet(() -> createSegmentRoom(pattern, joinedAt));
+    }
+
+    private ChatRoom createSegmentRoom(Pattern pattern, LocalDateTime joinedAt) {
+        LocalDateTime baseAt = pattern.getCreatedAt() != null ? pattern.getCreatedAt() : joinedAt;
+        long days = Math.max(0, java.time.Duration.between(baseAt, joinedAt).toDays());
+        int segmentNo = Math.toIntExact(days / chatSegmentDays);
+        LocalDateTime segmentStartAt = baseAt.plusDays((long) segmentNo * chatSegmentDays);
+        LocalDateTime segmentEndAt = segmentStartAt.plusDays(chatSegmentDays);
+
+        return chatRoomRepository.save(ChatRoom.builder()
+                .pattern(pattern)
+                .segmentNo(segmentNo)
+                .segmentStartAt(segmentStartAt)
+                .segmentEndAt(segmentEndAt)
+                .build());
     }
 }
