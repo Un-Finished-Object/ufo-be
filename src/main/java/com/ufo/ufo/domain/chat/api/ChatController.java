@@ -26,21 +26,21 @@ public class ChatController {
     private final ChatMessageService chatMessageService;
     private final ChatRoomStatusService chatRoomStatusService;
 
-    @GetMapping("/{patternId}/messages")
+    @GetMapping("/{roomId}/messages")
     public ResponseEntity<ApiResponse<ChatMessagesResponse>> getMessages(
             @LoginUser User user,
-            @PathVariable Long patternId,
+            @PathVariable Long roomId,
             @RequestParam(required = false) Long messageId
     ) {
-        return ResponseEntity.ok(ApiResponse.success(chatMessageService.getMessages(user, patternId, messageId)));
+        return ResponseEntity.ok(ApiResponse.success(chatMessageService.getMessages(user, roomId, messageId)));
     }
 
-    @PatchMapping("/{patternId}/status")
+    @PatchMapping("/{roomId}/status")
     public ResponseEntity<ApiResponse<ChatRoomStatusResponse>> updateStatus(
             @LoginUser User user,
-            @PathVariable Long patternId,
+            @PathVariable Long roomId,
             @RequestBody UpdateChatRoomStatusRequest request
     ) {
-        return ResponseEntity.ok(ApiResponse.success(chatRoomStatusService.updateStatus(user, patternId, request)));
+        return ResponseEntity.ok(ApiResponse.success(chatRoomStatusService.updateStatus(user, roomId, request)));
     }
 }

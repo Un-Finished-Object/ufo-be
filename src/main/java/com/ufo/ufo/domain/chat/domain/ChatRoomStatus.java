@@ -1,6 +1,5 @@
 package com.ufo.ufo.domain.chat.domain;
 
-import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.base.BaseEntity;
 import jakarta.persistence.Column;
@@ -23,7 +22,7 @@ import lombok.NoArgsConstructor;
 @Table(
         name = "chat_room_statuses",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_chat_room_status_user_pattern", columnNames = {"user_id", "pattern_id"})
+                @UniqueConstraint(name = "uk_chat_room_status_user_room", columnNames = {"user_id", "chat_room_id"})
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -39,8 +38,8 @@ public class ChatRoomStatus extends BaseEntity {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "pattern_id")
-    private Pattern pattern;
+    @JoinColumn(name = "chat_room_id")
+    private ChatRoom room;
 
     @Column(name = "favorite", nullable = false)
     private boolean favorite;
@@ -49,9 +48,9 @@ public class ChatRoomStatus extends BaseEntity {
     private boolean hidden;
 
     @Builder
-    public ChatRoomStatus(User user, Pattern pattern, boolean favorite, boolean hidden) {
+    public ChatRoomStatus(User user, ChatRoom room, boolean favorite, boolean hidden) {
         this.user = user;
-        this.pattern = pattern;
+        this.room = room;
         this.favorite = favorite;
         this.hidden = hidden;
     }
@@ -66,6 +65,6 @@ public class ChatRoomStatus extends BaseEntity {
     }
 
     public Long getChatId() {
-        return pattern.getId();
+        return room.getId();
     }
 }

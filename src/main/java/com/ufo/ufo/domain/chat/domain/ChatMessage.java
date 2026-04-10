@@ -1,6 +1,5 @@
 package com.ufo.ufo.domain.chat.domain;
 
-import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.base.BaseEntity;
 import jakarta.persistence.Column;
@@ -29,8 +28,8 @@ public class ChatMessage extends BaseEntity {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pattern_id", nullable = false)
-    private Pattern pattern;
+    @JoinColumn(name = "chat_room_id", nullable = false)
+    private ChatRoom room;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -40,8 +39,8 @@ public class ChatMessage extends BaseEntity {
     private String text;
 
     @Builder
-    public ChatMessage(Pattern pattern, User user, String text) {
-        this.pattern = pattern;
+    public ChatMessage(ChatRoom room, User user, String text) {
+        this.room = room;
         this.user = user;
         this.text = text;
     }
