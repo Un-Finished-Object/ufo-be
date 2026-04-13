@@ -26,14 +26,17 @@ import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.support.fixture.ChatRoomFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
+import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("도안 구매 서비스 테스트")
@@ -56,6 +59,11 @@ class PatternPurchaseServiceTest {
 
     @InjectMocks
     private PatternPurchaseService patternPurchaseService;
+
+    @BeforeEach
+    void setUp() {
+        setChatSegmentDays(7);
+    }
 
     @Test
     @DisplayName("구매 요청 type이 chat이면 채팅 잠금 해제만 구매해야 한다")
@@ -116,6 +124,35 @@ class PatternPurchaseServiceTest {
     }
 
     @Test
+    @DisplayName("세그먼트 채팅방 생성 충돌 시 기존 방을 재조회해 구매를 이어가야 한다")
+    void purchase_WhenSegmentRoomCreateRace_UsesExistingRoom() {
+        var user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(10L);
+        ChatRoom existingRoom = ChatRoomFixture.createRoomWithId(pattern, 20L);
+
+        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(userService.getUserById(1L)).thenReturn(user);
+        when(chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(false);
+        when(chatRoomRepository.findFirstByPattern_IdAndSegmentStartAtLessThanEqualAndSegmentEndAtGreaterThan(
+                eq(10L),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
+        )).thenReturn(Optional.empty());
+        when(chatRoomRepository.save(any(ChatRoom.class))).thenThrow(new DataIntegrityViolationException("duplicate room"));
+        when(chatRoomRepository.findByPattern_IdAndSegmentStartAt(eq(10L), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(existingRoom));
+        when(chatRoomStatusRepository.save(any(ChatRoomStatus.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PatternPurchaseResponse response = patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat"));
+
+        assertThat(response.userId()).isEqualTo(1L);
+        assertThat(response.type()).isEqualTo("chat");
+        verify(chatRoomRepository).findByPattern_IdAndSegmentStartAt(eq(10L), any(LocalDateTime.class));
+        verify(chatRoomStatusRepository).save(any(ChatRoomStatus.class));
+    }
+
+    @Test
     @DisplayName("구매 여부 조회는 채팅/대체 실 해금 여부를 반환해야 한다")
     void getStatus_ReturnsUnlockStatus() {
         var user = UserFixture.createUserWithId(1L);
@@ -171,5 +208,15 @@ class PatternPurchaseServiceTest {
         verifyNoInteractions(creditService);
         verifyNoInteractions(chatRoomStatusRepository);
         verifyNoInteractions(chatRoomRepository);
+    }
+
+    private void setChatSegmentDays(int days) {
+        try {
+            Field field = PatternPurchaseService.class.getDeclaredField("chatSegmentDays");
+            field.setAccessible(true);
+            field.set(patternPurchaseService, days);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

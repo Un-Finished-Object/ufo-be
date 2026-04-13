@@ -15,6 +15,7 @@ import com.ufo.ufo.domain.pattern.exception.ChatRoomAlreadyPurchasedException;
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
+import java.time.Duration;
 import java.util.List;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -87,25 +88,37 @@ public class PatternPurchaseService {
 
     private ChatRoom resolveChatRoom(Pattern pattern, LocalDateTime joinedAt) {
         return chatRoomRepository.findFirstByPattern_IdAndSegmentStartAtLessThanEqualAndSegmentEndAtGreaterThan(
-                        pattern.getId(),
-                        joinedAt,
-                        joinedAt
-                )
-                .orElseGet(() -> createSegmentRoom(pattern, joinedAt));
+                pattern.getId(),
+                joinedAt,
+                joinedAt
+        ).orElseGet(() -> createOrGetSegmentRoom(pattern, joinedAt));
     }
 
     private ChatRoom createSegmentRoom(Pattern pattern, LocalDateTime joinedAt) {
-        LocalDateTime baseAt = pattern.getCreatedAt() != null ? pattern.getCreatedAt() : joinedAt;
-        long days = Math.max(0, java.time.Duration.between(baseAt, joinedAt).toDays());
-        int segmentNo = Math.toIntExact(days / chatSegmentDays);
-        LocalDateTime segmentStartAt = baseAt.plusDays((long) segmentNo * chatSegmentDays);
+        LocalDateTime segmentStartAt = calculateSegmentStartAt(pattern, joinedAt);
         LocalDateTime segmentEndAt = segmentStartAt.plusDays(chatSegmentDays);
 
         return chatRoomRepository.save(ChatRoom.builder()
                 .pattern(pattern)
-                .segmentNo(segmentNo)
                 .segmentStartAt(segmentStartAt)
                 .segmentEndAt(segmentEndAt)
                 .build());
+    }
+
+    private ChatRoom createOrGetSegmentRoom(Pattern pattern, LocalDateTime joinedAt) {
+        LocalDateTime segmentStartAt = calculateSegmentStartAt(pattern, joinedAt);
+        try {
+            return createSegmentRoom(pattern, joinedAt);
+        } catch (DataIntegrityViolationException exception) {
+            return chatRoomRepository.findByPattern_IdAndSegmentStartAt(pattern.getId(), segmentStartAt)
+                    .orElseThrow(() -> exception);
+        }
+    }
+
+    private LocalDateTime calculateSegmentStartAt(Pattern pattern, LocalDateTime joinedAt) {
+        LocalDateTime baseAt = pattern.getCreatedAt() != null ? pattern.getCreatedAt() : joinedAt;
+        long days = Math.max(0, Duration.between(baseAt, joinedAt).toDays());
+        int segmentNo = Math.toIntExact(days / chatSegmentDays);
+        return baseAt.plusDays((long) segmentNo * chatSegmentDays);
     }
 }
