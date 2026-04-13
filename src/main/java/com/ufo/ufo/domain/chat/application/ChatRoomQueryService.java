@@ -8,7 +8,6 @@ import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
 import com.ufo.ufo.domain.chat.dto.response.ChatUnreadCount;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -28,11 +27,8 @@ public class ChatRoomQueryService {
 
     public UserChatRoomListResponse getMyChats(User user) {
         User loginUser = userService.getUserById(user.getId());
-        LocalDateTime now = LocalDateTime.now();
         List<ChatRoomStatus> statuses = chatRoomStatusRepository
-                .findAllByUser_IdAndRoom_SegmentStartAtLessThanEqualAndRoom_SegmentEndAtGreaterThanOrderByCreatedAtDescIdDesc(
-                loginUser.getId(), now, now
-        );
+                .findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(loginUser.getId());
         if (statuses.isEmpty()) {
             return UserChatRoomListResponse.of(Collections.emptyList());
         }

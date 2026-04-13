@@ -1,7 +1,6 @@
 package com.ufo.ufo.domain.chat.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -17,7 +16,6 @@ import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.ChatRoomFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
-import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,11 +45,8 @@ class ChatRoomQueryServiceTest {
     void getMyChats_NoChats_ReturnsEmpty() {
         User user = UserFixture.createUserWithId(1L);
         when(userService.getUserById(1L)).thenReturn(user);
-        when(chatRoomStatusRepository.findAllByUser_IdAndRoom_SegmentStartAtLessThanEqualAndRoom_SegmentEndAtGreaterThanOrderByCreatedAtDescIdDesc(
-                eq(1L),
-                any(LocalDateTime.class),
-                any(LocalDateTime.class)
-        )).thenReturn(List.of());
+        when(chatRoomStatusRepository.findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L)))
+                .thenReturn(List.of());
 
         UserChatRoomListResponse response = chatRoomQueryService.getMyChats(user);
 
@@ -81,11 +76,8 @@ class ChatRoomQueryServiceTest {
                 .build();
 
         when(userService.getUserById(1L)).thenReturn(user);
-        when(chatRoomStatusRepository.findAllByUser_IdAndRoom_SegmentStartAtLessThanEqualAndRoom_SegmentEndAtGreaterThanOrderByCreatedAtDescIdDesc(
-                eq(1L),
-                any(LocalDateTime.class),
-                any(LocalDateTime.class)
-        )).thenReturn(List.of(status1, status2));
+        when(chatRoomStatusRepository.findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L)))
+                .thenReturn(List.of(status1, status2));
         when(chatMessageRepository.countUnreadByRoomIds(1L, List.of(100L, 101L)))
                 .thenReturn(List.of(new ChatUnreadCount(100L, 3L)));
 
