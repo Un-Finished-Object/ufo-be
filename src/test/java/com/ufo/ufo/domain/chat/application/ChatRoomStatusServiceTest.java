@@ -56,7 +56,7 @@ class ChatRoomStatusServiceTest {
                 .hidden(false)
                 .build();
 
-        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
+        when(chatRoomRepository.existsByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(true);
         when(userService.getUserById(1L)).thenReturn(user);
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(1L, roomId)).thenReturn(Optional.of(existing));
 
