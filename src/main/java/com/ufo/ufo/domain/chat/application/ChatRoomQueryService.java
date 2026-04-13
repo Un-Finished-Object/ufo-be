@@ -27,16 +27,17 @@ public class ChatRoomQueryService {
 
     public UserChatRoomListResponse getMyChats(User user) {
         User loginUser = userService.getUserById(user.getId());
-        List<ChatRoomStatus> statuses = chatRoomStatusRepository.findAllActiveByUserIdOrderByLatest(loginUser.getId());
+        List<ChatRoomStatus> statuses = chatRoomStatusRepository
+                .findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(loginUser.getId());
         if (statuses.isEmpty()) {
             return UserChatRoomListResponse.of(Collections.emptyList());
         }
 
-        List<Long> patternIds = statuses.stream()
+        List<Long> roomIds = statuses.stream()
                 .map(ChatRoomStatus::getChatId)
                 .toList();
 
-        Map<Long, Long> unreadMap = chatMessageRepository.countUnreadByPatternIds(loginUser.getId(), patternIds)
+        Map<Long, Long> unreadMap = chatMessageRepository.countUnreadByRoomIds(loginUser.getId(), roomIds)
                 .stream()
                 .collect(Collectors.toMap(ChatUnreadCount::chatId, ChatUnreadCount::unRead));
 
@@ -46,8 +47,8 @@ public class ChatRoomQueryService {
                     int unRead = unreadMap.getOrDefault(chatId, 0L).intValue();
                     return UserChatRoomItemResponse.of(
                             chatId,
-                            status.getPattern().getTitle(),
-                            status.getPattern().getThumbnailUrl(),
+                            status.getRoom().getPattern().getTitle(),
+                            status.getRoom().getPattern().getThumbnailUrl(),
                             status.isFavorite(),
                             status.isHidden(),
                             unRead

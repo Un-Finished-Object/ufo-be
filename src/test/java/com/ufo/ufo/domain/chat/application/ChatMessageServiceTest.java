@@ -7,14 +7,18 @@ import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
 import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
+import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
+import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatMessage;
 import com.ufo.ufo.domain.chat.domain.ChatReadStatus;
+import com.ufo.ufo.domain.chat.domain.ChatRoom;
+import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.chat.dto.response.ChatMessagesResponse;
 import com.ufo.ufo.domain.chat.exception.InvalidChatMessageIdException;
-import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.support.fixture.ChatRoomFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.lang.reflect.Field;
@@ -41,7 +45,10 @@ class ChatMessageServiceTest {
     private ChatReadStatusRepository chatReadStatusRepository;
 
     @Mock
-    private PatternRepository patternRepository;
+    private ChatRoomRepository chatRoomRepository;
+
+    @Mock
+    private ChatRoomStatusRepository chatRoomStatusRepository;
 
     @Mock
     private UserService userService;
@@ -52,12 +59,19 @@ class ChatMessageServiceTest {
     @Test
     @DisplayName("messageId가 없으면 최신 메시지 목록과 마지막 읽음 메시지 ID를 반환해야 한다")
     void getMessages_WithoutCursor_ReturnsRecentMessages() {
-        Long patternId = 10L;
+        Long roomId = 10L;
         User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(patternId);
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
+        ChatRoomStatus roomStatus = ChatRoomStatus.builder()
+                .user(user)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .build();
 
         ChatMessage message = ChatMessage.builder()
-                .pattern(pattern)
+                .room(room)
                 .user(user)
                 .text("안녕하세요")
                 .build();
@@ -65,20 +79,21 @@ class ChatMessageServiceTest {
         setCreatedAt(message, LocalDateTime.of(2026, 3, 9, 12, 0));
 
         ChatReadStatus readStatus = ChatReadStatus.builder()
-                .pattern(pattern)
+                .room(room)
                 .user(user)
                 .lastReadMessageId(38L)
                 .readAt(LocalDateTime.of(2026, 3, 9, 12, 1))
                 .build();
 
-        when(patternRepository.existsById(patternId)).thenReturn(true);
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
         when(userService.getUserById(1L)).thenReturn(user);
-        when(chatMessageRepository.findByPattern_IdOrderByIdDesc(patternId, PageRequest.of(0, 31)))
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(1L, roomId)).thenReturn(Optional.of(roomStatus));
+        when(chatMessageRepository.findByRoom_IdOrderByIdDesc(roomId, PageRequest.of(0, 31)))
                 .thenReturn(List.of(message));
-        when(chatReadStatusRepository.findByPattern_IdAndUser_Id(patternId, 1L))
+        when(chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, 1L))
                 .thenReturn(Optional.of(readStatus));
 
-        ChatMessagesResponse response = chatMessageService.getMessages(user, patternId, null);
+        ChatMessagesResponse response = chatMessageService.getMessages(user, roomId, null);
 
         assertThat(response.lastMessageId()).isEqualTo(38L);
         assertThat(response.hasNext()).isFalse();
@@ -93,36 +108,52 @@ class ChatMessageServiceTest {
     @Test
     @DisplayName("messageId가 있으면 해당 ID 이전 메시지 목록을 반환해야 한다")
     void getMessages_WithCursor_ReturnsOlderMessages() {
-        Long patternId = 10L;
+        Long roomId = 10L;
         Long cursorMessageId = 50L;
         User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
+        ChatRoomStatus roomStatus = ChatRoomStatus.builder()
+                .user(user)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .build();
 
-        when(patternRepository.existsById(patternId)).thenReturn(true);
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
         when(userService.getUserById(1L)).thenReturn(user);
-        when(chatMessageRepository.findByPattern_IdAndIdLessThanOrderByIdDesc(patternId, cursorMessageId, PageRequest.of(0, 31)))
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(1L, roomId)).thenReturn(Optional.of(roomStatus));
+        when(chatMessageRepository.findByRoom_IdAndIdLessThanOrderByIdDesc(roomId, cursorMessageId, PageRequest.of(0, 31)))
                 .thenReturn(List.of());
-        when(chatReadStatusRepository.findByPattern_IdAndUser_Id(patternId, 1L))
+        when(chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, 1L))
                 .thenReturn(Optional.empty());
 
-        ChatMessagesResponse response = chatMessageService.getMessages(user, patternId, cursorMessageId);
+        ChatMessagesResponse response = chatMessageService.getMessages(user, roomId, cursorMessageId);
 
         assertThat(response.lastMessageId()).isNull();
         assertThat(response.hasNext()).isFalse();
         assertThat(response.nextMessageId()).isNull();
         assertThat(response.messages()).isEmpty();
-        verify(chatMessageRepository).findByPattern_IdAndIdLessThanOrderByIdDesc(patternId, cursorMessageId, PageRequest.of(0, 31));
+        verify(chatMessageRepository).findByRoom_IdAndIdLessThanOrderByIdDesc(roomId, cursorMessageId, PageRequest.of(0, 31));
     }
 
     @Test
     @DisplayName("조회 결과가 페이지 크기를 초과하면 hasNext=true와 nextMessageId를 반환해야 한다")
     void getMessages_HasNext_ReturnsNextCursor() {
-        Long patternId = 10L;
+        Long roomId = 10L;
         User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(patternId);
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
+        ChatRoomStatus roomStatus = ChatRoomStatus.builder()
+                .user(user)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .build();
         List<ChatMessage> fetchedMessages = new ArrayList<>();
         for (long id = 100L; id >= 70L; id--) {
             ChatMessage chatMessage = ChatMessage.builder()
-                    .pattern(pattern)
+                    .room(room)
                     .user(user)
                     .text("msg-" + id)
                     .build();
@@ -131,14 +162,15 @@ class ChatMessageServiceTest {
             fetchedMessages.add(chatMessage);
         }
 
-        when(patternRepository.existsById(patternId)).thenReturn(true);
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
         when(userService.getUserById(1L)).thenReturn(user);
-        when(chatMessageRepository.findByPattern_IdOrderByIdDesc(patternId, PageRequest.of(0, 31)))
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(1L, roomId)).thenReturn(Optional.of(roomStatus));
+        when(chatMessageRepository.findByRoom_IdOrderByIdDesc(roomId, PageRequest.of(0, 31)))
                 .thenReturn(fetchedMessages);
-        when(chatReadStatusRepository.findByPattern_IdAndUser_Id(patternId, 1L))
+        when(chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, 1L))
                 .thenReturn(Optional.empty());
 
-        ChatMessagesResponse response = chatMessageService.getMessages(user, patternId, null);
+        ChatMessagesResponse response = chatMessageService.getMessages(user, roomId, null);
 
         assertThat(response.hasNext()).isTrue();
         assertThat(response.messages()).hasSize(30);
@@ -148,13 +180,22 @@ class ChatMessageServiceTest {
     @Test
     @DisplayName("messageId가 0 이하이면 InvalidChatMessageIdException을 던져야 한다")
     void getMessages_InvalidCursor_ThrowsException() {
-        Long patternId = 10L;
+        Long roomId = 10L;
         User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
+        ChatRoomStatus roomStatus = ChatRoomStatus.builder()
+                .user(user)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .build();
 
-        when(patternRepository.existsById(patternId)).thenReturn(true);
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
         when(userService.getUserById(1L)).thenReturn(user);
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(1L, roomId)).thenReturn(Optional.of(roomStatus));
 
-        assertThatThrownBy(() -> chatMessageService.getMessages(user, patternId, 0L))
+        assertThatThrownBy(() -> chatMessageService.getMessages(user, roomId, 0L))
                 .isInstanceOf(InvalidChatMessageIdException.class);
     }
 

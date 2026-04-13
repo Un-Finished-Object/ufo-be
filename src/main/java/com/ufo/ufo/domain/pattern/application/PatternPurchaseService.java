@@ -1,9 +1,11 @@
 package com.ufo.ufo.domain.pattern.application;
 
+import com.ufo.ufo.domain.chat.application.ChatRoomProvisioningService;
+import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
+import com.ufo.ufo.domain.chat.domain.ChatRoom;
+import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.credit.domain.UnlockType;
-import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
-import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.dto.request.PatternPurchaseRequest;
@@ -27,6 +29,7 @@ public class PatternPurchaseService {
     private final PatternRepository patternRepository;
     private final CreditService creditService;
     private final UserService userService;
+    private final ChatRoomProvisioningService chatRoomProvisioningService;
     private final ChatRoomStatusRepository chatRoomStatusRepository;
 
     @Transactional
@@ -60,10 +63,15 @@ public class PatternPurchaseService {
 
     private void ensureChatRoomStatus(User user, Pattern pattern) {
         User loginUser = userService.getUserById(user.getId());
+        if (chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(loginUser.getId(), pattern.getId())) {
+            throw new ChatRoomAlreadyPurchasedException();
+        }
+
+        ChatRoom chatRoom = chatRoomProvisioningService.assignJoinableRoom(pattern);
         try {
             chatRoomStatusRepository.save(ChatRoomStatus.builder()
                     .user(loginUser)
-                    .pattern(pattern)
+                    .room(chatRoom)
                     .favorite(false)
                     .hidden(false)
                     .build());

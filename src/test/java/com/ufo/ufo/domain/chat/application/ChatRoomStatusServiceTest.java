@@ -5,18 +5,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
+import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.chat.dto.request.UpdateChatRoomStatusRequest;
 import com.ufo.ufo.domain.chat.dto.response.ChatRoomStatusResponse;
 import com.ufo.ufo.domain.chat.exception.InvalidChatRoomStatusUpdateException;
-import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.support.fixture.ChatRoomFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
-import java.lang.reflect.Field;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,7 +34,7 @@ class ChatRoomStatusServiceTest {
     private ChatRoomStatusRepository chatRoomStatusRepository;
 
     @Mock
-    private PatternRepository patternRepository;
+    private ChatRoomRepository chatRoomRepository;
 
     @Mock
     private UserService userService;
@@ -42,83 +43,45 @@ class ChatRoomStatusServiceTest {
     private ChatRoomStatusService chatRoomStatusService;
 
     @Test
-    @DisplayName("상태가 없으면 요청 값으로 생성하고 응답해야 한다")
-    void updateStatus_CreateNewStatus() {
-        Long patternId = 10L;
-        User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(patternId);
-        ChatRoomStatus saved = ChatRoomStatus.builder()
-                .user(user)
-                .pattern(pattern)
-                .favorite(true)
-                .hidden(false)
-                .build();
-        setId(saved, 100L);
-
-        when(patternRepository.findById(patternId)).thenReturn(Optional.of(pattern));
-        when(userService.getUserById(1L)).thenReturn(user);
-        when(chatRoomStatusRepository.findByUser_IdAndPattern_Id(1L, patternId)).thenReturn(Optional.empty());
-        when(chatRoomStatusRepository.save(org.mockito.ArgumentMatchers.any(ChatRoomStatus.class))).thenReturn(saved);
-
-        ChatRoomStatusResponse response = chatRoomStatusService.updateStatus(
-                user,
-                patternId,
-                new UpdateChatRoomStatusRequest(true, null)
-        );
-
-        assertThat(response.chatId()).isEqualTo(patternId);
-        assertThat(response.favorite()).isTrue();
-        assertThat(response.isHidden()).isFalse();
-    }
-
-    @Test
     @DisplayName("상태가 존재하면 요청한 필드만 업데이트해야 한다")
     void updateStatus_UpdateExistingStatus() {
-        Long patternId = 10L;
+        Long roomId = 10L;
         User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(patternId);
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
         ChatRoomStatus existing = ChatRoomStatus.builder()
                 .user(user)
-                .pattern(pattern)
+                .room(room)
                 .favorite(true)
                 .hidden(false)
                 .build();
 
-        when(patternRepository.findById(patternId)).thenReturn(Optional.of(pattern));
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
         when(userService.getUserById(1L)).thenReturn(user);
-        when(chatRoomStatusRepository.findByUser_IdAndPattern_Id(1L, patternId)).thenReturn(Optional.of(existing));
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(1L, roomId)).thenReturn(Optional.of(existing));
 
         ChatRoomStatusResponse response = chatRoomStatusService.updateStatus(
                 user,
-                patternId,
+                roomId,
                 new UpdateChatRoomStatusRequest(null, true)
         );
 
+        assertThat(response.chatId()).isEqualTo(roomId);
         assertThat(response.favorite()).isTrue();
         assertThat(response.isHidden()).isTrue();
-        verify(chatRoomStatusRepository).findByUser_IdAndPattern_Id(1L, patternId);
+        verify(chatRoomStatusRepository).findByUser_IdAndRoom_Id(1L, roomId);
     }
 
     @Test
     @DisplayName("요청 필드가 없으면 예외를 던져야 한다")
     void updateStatus_NoFields_ThrowsException() {
-        Long patternId = 10L;
+        Long roomId = 10L;
         User user = UserFixture.createUserWithId(1L);
 
         assertThatThrownBy(() -> chatRoomStatusService.updateStatus(
                 user,
-                patternId,
+                roomId,
                 new UpdateChatRoomStatusRequest(null, null)
         )).isInstanceOf(InvalidChatRoomStatusUpdateException.class);
-    }
-
-    private void setId(ChatRoomStatus status, Long id) {
-        try {
-            Field idField = ChatRoomStatus.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(status, id);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
-        }
     }
 }

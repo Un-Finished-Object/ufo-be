@@ -40,7 +40,7 @@ class ChatControllerTest {
     @DisplayName("채팅 메시지 조회 API는 서비스 응답을 data에 담아 반환해야 한다")
     void getMessages_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
-        Long patternId = 10L;
+        Long roomId = 10L;
         Long messageId = 50L;
         ChatMessagesResponse serviceResponse = new ChatMessagesResponse(
                 38L,
@@ -48,10 +48,10 @@ class ChatControllerTest {
                 20L,
                 List.of(new ChatMessageItemResponse("테스터", 49L, "안녕하세요", LocalDateTime.of(2026, 3, 9, 13, 20, 10)))
         );
-        when(chatMessageService.getMessages(user, patternId, messageId)).thenReturn(serviceResponse);
+        when(chatMessageService.getMessages(user, roomId, messageId)).thenReturn(serviceResponse);
 
         ResponseEntity<ApiResponse<ChatMessagesResponse>> response =
-                chatController.getMessages(user, patternId, messageId);
+                chatController.getMessages(user, roomId, messageId);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().lastMessageId()).isEqualTo(38L);
@@ -61,27 +61,27 @@ class ChatControllerTest {
         assertThat(response.getBody().data().messages().getFirst().userName()).isEqualTo("테스터");
         assertThat(response.getBody().data().messages().getFirst().messageId()).isEqualTo(49L);
         assertThat(response.getBody().error()).isNull();
-        verify(chatMessageService).getMessages(user, patternId, messageId);
+        verify(chatMessageService).getMessages(user, roomId, messageId);
     }
 
     @Test
     @DisplayName("채팅방 상태 변경 API는 변경된 상태를 반환해야 한다")
     void updateStatus_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
-        Long patternId = 10L;
+        Long roomId = 10L;
         UpdateChatRoomStatusRequest request = new UpdateChatRoomStatusRequest(true, false);
-        ChatRoomStatusResponse serviceResponse = ChatRoomStatusResponse.of(patternId, true, false);
+        ChatRoomStatusResponse serviceResponse = ChatRoomStatusResponse.of(roomId, true, false);
 
-        when(chatRoomStatusService.updateStatus(user, patternId, request)).thenReturn(serviceResponse);
+        when(chatRoomStatusService.updateStatus(user, roomId, request)).thenReturn(serviceResponse);
 
         ResponseEntity<ApiResponse<ChatRoomStatusResponse>> response =
-                chatController.updateStatus(user, patternId, request);
+                chatController.updateStatus(user, roomId, request);
 
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().data().chatId()).isEqualTo(patternId);
+        assertThat(response.getBody().data().chatId()).isEqualTo(roomId);
         assertThat(response.getBody().data().favorite()).isTrue();
         assertThat(response.getBody().data().isHidden()).isFalse();
         assertThat(response.getBody().error()).isNull();
-        verify(chatRoomStatusService).updateStatus(user, patternId, request);
+        verify(chatRoomStatusService).updateStatus(user, roomId, request);
     }
 }

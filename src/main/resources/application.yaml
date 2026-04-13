@@ -11,6 +11,8 @@ spring:
     show-sql: true
 
 app:
+  chat:
+    segment-days: 7
   image:
     max-file-count: 5
     max-bytes: 10485760

@@ -1,6 +1,5 @@
 package com.ufo.ufo.domain.chat.domain;
 
-import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.domain.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -29,8 +28,8 @@ public class ChatReadStatus {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pattern_id", nullable = false)
-    private Pattern pattern;
+    @JoinColumn(name = "chat_room_id", nullable = false)
+    private ChatRoom room;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -43,8 +42,8 @@ public class ChatReadStatus {
     private LocalDateTime readAt;
 
     @Builder
-    public ChatReadStatus(Pattern pattern, User user, Long lastReadMessageId, LocalDateTime readAt) {
-        this.pattern = pattern;
+    public ChatReadStatus(ChatRoom room, User user, Long lastReadMessageId, LocalDateTime readAt) {
+        this.room = room;
         this.user = user;
         this.lastReadMessageId = lastReadMessageId;
         this.readAt = readAt;

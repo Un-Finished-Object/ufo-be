@@ -3,19 +3,14 @@ package com.ufo.ufo.domain.chat.dao;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 public interface ChatRoomStatusRepository extends JpaRepository<ChatRoomStatus, Long> {
-    Optional<ChatRoomStatus> findByUser_IdAndPattern_Id(Long userId, Long patternId);
+    Optional<ChatRoomStatus> findByUser_IdAndRoom_Id(Long userId, Long roomId);
 
-    @Query("""
-            select crs from ChatRoomStatus crs
-            join fetch crs.pattern p
-            where crs.user.id = :userId
-              and p.deletedAt is null
-            order by crs.createdAt desc, crs.id desc
-            """)
-    List<ChatRoomStatus> findAllActiveByUserIdOrderByLatest(@Param("userId") Long userId);
+    boolean existsByUser_IdAndRoom_Pattern_Id(Long userId, Long patternId);
+
+    @EntityGraph(attributePaths = {"room", "room.pattern"})
+    List<ChatRoomStatus> findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(Long userId);
 }

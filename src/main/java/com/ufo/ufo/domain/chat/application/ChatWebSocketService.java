@@ -2,8 +2,11 @@ package com.ufo.ufo.domain.chat.application;
 
 import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
 import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
+import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
+import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatMessage;
 import com.ufo.ufo.domain.chat.domain.ChatReadStatus;
+import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.dto.websocket.request.ChatMessageSendRequest;
 import com.ufo.ufo.domain.chat.dto.websocket.request.ChatReadUpdateRequest;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatErrorPayload;
@@ -11,8 +14,6 @@ import com.ufo.ufo.domain.chat.dto.websocket.response.ChatEventType;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatMessageCreatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatSocketEvent;
-import com.ufo.ufo.domain.pattern.domain.Pattern;
-import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import java.security.Principal;
@@ -29,7 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class ChatWebSocketService {
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final PatternRepository patternRepository;
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatRoomStatusRepository chatRoomStatusRepository;
     private final UserRepository userRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatReadStatusRepository chatReadStatusRepository;
@@ -42,13 +44,20 @@ public class ChatWebSocketService {
         }
 
         String clientMessageId = request.clientMessageId();
-        if (!patternRepository.existsById(roomId)) {
+        Optional<User> maybeUser = resolveAuthenticatedUser(principal, roomId, clientMessageId);
+        if (maybeUser.isEmpty()) {
+            return;
+        }
+
+        Optional<ChatRoom> maybeRoom = chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId);
+        if (maybeRoom.isEmpty()) {
             sendError(roomId, "CHAT_ROOM_NOT_FOUND", "존재하지 않는 채팅방입니다.", clientMessageId);
             return;
         }
 
-        Optional<User> maybeUser = resolveAuthenticatedUser(principal, roomId, clientMessageId);
-        if (maybeUser.isEmpty()) {
+        User sender = maybeUser.get();
+        if (isNotJoinedRoom(sender.getId(), roomId)) {
+            sendError(roomId, "CHAT_ROOM_FORBIDDEN", "접근 권한이 없는 채팅방입니다.", clientMessageId);
             return;
         }
 
@@ -58,17 +67,9 @@ public class ChatWebSocketService {
             return;
         }
 
-        Optional<Pattern> maybePattern = patternRepository.findById(roomId);
-        if (maybePattern.isEmpty()) {
-            sendError(roomId, "CHAT_ROOM_NOT_FOUND", "존재하지 않는 채팅방입니다.", clientMessageId);
-            return;
-        }
-
-        User sender = maybeUser.get();
-        Pattern pattern = maybePattern.get();
         ChatMessage savedMessage = chatMessageRepository.save(
                 ChatMessage.builder()
-                        .pattern(pattern)
+                        .room(maybeRoom.get())
                         .user(sender)
                         .text(text)
                         .build()
@@ -92,13 +93,21 @@ public class ChatWebSocketService {
         if (roomId == null) {
             return;
         }
-        if (!patternRepository.existsById(roomId)) {
+
+        Optional<User> maybeUser = resolveAuthenticatedUser(principal, roomId, null);
+        if (maybeUser.isEmpty()) {
+            return;
+        }
+
+        Optional<ChatRoom> maybeRoom = chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId);
+        if (maybeRoom.isEmpty()) {
             sendError(roomId, "CHAT_ROOM_NOT_FOUND", "존재하지 않는 채팅방입니다.", null);
             return;
         }
 
-        Optional<User> maybeUser = resolveAuthenticatedUser(principal, roomId, null);
-        if (maybeUser.isEmpty()) {
+        User user = maybeUser.get();
+        if (isNotJoinedRoom(user.getId(), roomId)) {
+            sendError(roomId, "CHAT_ROOM_FORBIDDEN", "접근 권한이 없는 채팅방입니다.", null);
             return;
         }
 
@@ -108,21 +117,14 @@ public class ChatWebSocketService {
             return;
         }
 
-        Optional<Pattern> maybePattern = patternRepository.findById(roomId);
-        if (maybePattern.isEmpty()) {
-            sendError(roomId, "CHAT_ROOM_NOT_FOUND", "존재하지 않는 채팅방입니다.", null);
-            return;
-        }
-
-        User user = maybeUser.get();
-        Pattern pattern = maybePattern.get();
         LocalDateTime readAt = LocalDateTime.now();
 
-        chatReadStatusRepository.findByPattern_IdAndUser_Id(roomId, user.getId())
+        ChatRoom room = maybeRoom.get();
+        chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, user.getId())
                 .ifPresentOrElse(
                         readStatus -> readStatus.update(lastReadMessageId, readAt),
                         () -> chatReadStatusRepository.save(ChatReadStatus.builder()
-                                .pattern(pattern)
+                                .room(room)
                                 .user(user)
                                 .lastReadMessageId(lastReadMessageId)
                                 .readAt(readAt)
@@ -173,6 +175,10 @@ public class ChatWebSocketService {
             return null;
         }
         return trimmed;
+    }
+
+    private boolean isNotJoinedRoom(Long userId, Long roomId) {
+        return chatRoomStatusRepository.findByUser_IdAndRoom_Id(userId, roomId).isEmpty();
     }
 
     private void sendError(Long roomId, String code, String message, String clientMessageId) {

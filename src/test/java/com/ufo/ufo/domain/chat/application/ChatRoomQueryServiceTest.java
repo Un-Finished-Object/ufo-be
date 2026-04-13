@@ -1,16 +1,19 @@
 package com.ufo.ufo.domain.chat.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
+import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
 import com.ufo.ufo.domain.chat.dto.response.ChatUnreadCount;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.support.fixture.ChatRoomFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.util.List;
@@ -42,7 +45,8 @@ class ChatRoomQueryServiceTest {
     void getMyChats_NoChats_ReturnsEmpty() {
         User user = UserFixture.createUserWithId(1L);
         when(userService.getUserById(1L)).thenReturn(user);
-        when(chatRoomStatusRepository.findAllActiveByUserIdOrderByLatest(1L)).thenReturn(List.of());
+        when(chatRoomStatusRepository.findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L)))
+                .thenReturn(List.of());
 
         UserChatRoomListResponse response = chatRoomQueryService.getMyChats(user);
 
@@ -55,34 +59,37 @@ class ChatRoomQueryServiceTest {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern1 = PatternFixture.createPatternWithId(10L);
         Pattern pattern2 = PatternFixture.createPatternWithId(11L);
+        ChatRoom room1 = ChatRoomFixture.createRoomWithId(pattern1, 100L);
+        ChatRoom room2 = ChatRoomFixture.createRoomWithId(pattern2, 101L);
 
         ChatRoomStatus status1 = ChatRoomStatus.builder()
                 .user(user)
-                .pattern(pattern1)
+                .room(room1)
                 .favorite(true)
                 .hidden(false)
                 .build();
         ChatRoomStatus status2 = ChatRoomStatus.builder()
                 .user(user)
-                .pattern(pattern2)
+                .room(room2)
                 .favorite(false)
                 .hidden(true)
                 .build();
 
         when(userService.getUserById(1L)).thenReturn(user);
-        when(chatRoomStatusRepository.findAllActiveByUserIdOrderByLatest(1L)).thenReturn(List.of(status1, status2));
-        when(chatMessageRepository.countUnreadByPatternIds(1L, List.of(10L, 11L)))
-                .thenReturn(List.of(new ChatUnreadCount(10L, 3L)));
+        when(chatRoomStatusRepository.findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L)))
+                .thenReturn(List.of(status1, status2));
+        when(chatMessageRepository.countUnreadByRoomIds(1L, List.of(100L, 101L)))
+                .thenReturn(List.of(new ChatUnreadCount(100L, 3L)));
 
         UserChatRoomListResponse response = chatRoomQueryService.getMyChats(user);
 
         assertThat(response.chats()).hasSize(2);
-        assertThat(response.chats().getFirst().chatId()).isEqualTo(10L);
+        assertThat(response.chats().getFirst().chatId()).isEqualTo(100L);
         assertThat(response.chats().getFirst().favorite()).isTrue();
         assertThat(response.chats().getFirst().isHidden()).isFalse();
         assertThat(response.chats().getFirst().unRead()).isEqualTo(3);
         assertThat(response.chats().getFirst().chatImageUrl()).isEqualTo(pattern1.getThumbnailUrl());
-        assertThat(response.chats().get(1).chatId()).isEqualTo(11L);
+        assertThat(response.chats().get(1).chatId()).isEqualTo(101L);
         assertThat(response.chats().get(1).unRead()).isEqualTo(0);
         assertThat(response.chats().get(1).chatImageUrl()).isEqualTo(pattern2.getThumbnailUrl());
     }

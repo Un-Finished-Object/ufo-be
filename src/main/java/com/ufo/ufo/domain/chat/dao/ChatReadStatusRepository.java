@@ -5,5 +5,5 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ChatReadStatusRepository extends JpaRepository<ChatReadStatus, Long> {
-    Optional<ChatReadStatus> findByPattern_IdAndUser_Id(Long patternId, Long userId);
+    Optional<ChatReadStatus> findByRoom_IdAndUser_Id(Long roomId, Long userId);
 }

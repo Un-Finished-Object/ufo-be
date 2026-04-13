@@ -10,21 +10,21 @@ import org.springframework.data.repository.query.Param;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
-    List<ChatMessage> findByPattern_IdOrderByIdDesc(Long patternId, Pageable pageable);
+    List<ChatMessage> findByRoom_IdOrderByIdDesc(Long roomId, Pageable pageable);
 
-    List<ChatMessage> findByPattern_IdAndIdLessThanOrderByIdDesc(Long patternId, Long messageId, Pageable pageable);
+    List<ChatMessage> findByRoom_IdAndIdLessThanOrderByIdDesc(Long roomId, Long messageId, Pageable pageable);
 
     @Query("""
-            select new com.ufo.ufo.domain.chat.dto.response.ChatUnreadCount(cm.pattern.id, count(cm))
+            select new com.ufo.ufo.domain.chat.dto.response.ChatUnreadCount(cm.room.id, count(cm))
             from ChatMessage cm
             left join ChatReadStatus cr
-              on cr.pattern = cm.pattern and cr.user.id = :userId
-            where cm.pattern.id in :patternIds
+              on cr.room = cm.room and cr.user.id = :userId
+            where cm.room.id in :roomIds
               and cm.id > coalesce(cr.lastReadMessageId, 0)
-            group by cm.pattern.id
+            group by cm.room.id
             """)
-    List<ChatUnreadCount> countUnreadByPatternIds(
+    List<ChatUnreadCount> countUnreadByRoomIds(
             @Param("userId") Long userId,
-            @Param("patternIds") List<Long> patternIds
+            @Param("roomIds") List<Long> roomIds
     );
 }

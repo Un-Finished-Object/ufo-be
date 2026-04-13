@@ -3,7 +3,6 @@ package com.ufo.ufo.domain.chat.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,11 +15,15 @@ import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatSocketEvent;
 import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
 import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
+import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
+import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatMessage;
-import com.ufo.ufo.domain.pattern.dao.PatternRepository;
+import com.ufo.ufo.domain.chat.domain.ChatRoom;
+import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.support.fixture.ChatRoomFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.lang.reflect.Field;
@@ -44,7 +47,10 @@ class ChatWebSocketServiceTest {
     private SimpMessagingTemplate messagingTemplate;
 
     @Mock
-    private PatternRepository patternRepository;
+    private ChatRoomRepository chatRoomRepository;
+
+    @Mock
+    private ChatRoomStatusRepository chatRoomStatusRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -65,15 +71,26 @@ class ChatWebSocketServiceTest {
         String userEmail = "test@example.com";
         User user = UserFixture.createUser(userEmail, com.ufo.ufo.global.security.types.Role.ROLE_USER);
         UserFixture.setId(user, 21L);
-        Pattern pattern = PatternFixture.createPatternWithId(roomId);
-        ChatMessage savedMessage = ChatMessage.builder().pattern(pattern).user(user).text("안녕하세요").build();
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
+        ChatRoomStatus roomStatus = ChatRoomStatus.builder()
+            .user(user)
+            .room(room)
+            .favorite(false)
+            .hidden(false)
+            .build();
+        ChatMessage savedMessage = ChatMessage.builder()
+            .room(room)
+            .user(user)
+            .text("안녕하세요")
+            .build();
         setId(savedMessage, 1L);
         setCreatedAt(savedMessage, LocalDateTime.of(2026, 3, 9, 10, 0));
         Principal principal = () -> userEmail;
 
-        when(patternRepository.existsById(roomId)).thenReturn(true);
-        when(patternRepository.findById(roomId)).thenReturn(Optional.of(pattern));
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
         when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(savedMessage);
 
         chatWebSocketService.publishMessage(principal,
@@ -99,15 +116,17 @@ class ChatWebSocketServiceTest {
     @DisplayName("존재하지 않는 채팅방으로 메시지 전송 시 ERROR 이벤트를 브로드캐스트해야 한다")
     void publishMessage_InvalidRoom_BroadcastsErrorEvent() {
         Long roomId = 999L;
-        Principal principal = () -> "test@example.com";
-        when(patternRepository.existsById(roomId)).thenReturn(false);
+        String userEmail = "test@example.com";
+        Principal principal = () -> userEmail;
+        User user = UserFixture.createUser(userEmail, com.ufo.ufo.global.security.types.Role.ROLE_USER);
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.empty());
+        when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
 
         chatWebSocketService.publishMessage(principal,
                 new ChatMessageSendRequest(roomId, "안녕하세요", "temp-err-1"));
 
         ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
         verify(messagingTemplate).convertAndSend(eq("/sub/chat/rooms/999"), payloadCaptor.capture());
-        verify(userRepository, never()).findByEmail(any());
 
         ChatSocketEvent<?> event = (ChatSocketEvent<?>) payloadCaptor.getValue();
         assertThat(event.eventType()).isEqualTo(ChatEventType.ERROR);
@@ -126,13 +145,15 @@ class ChatWebSocketServiceTest {
         String userEmail = "test@example.com";
         User user = UserFixture.createUser(userEmail, com.ufo.ufo.global.security.types.Role.ROLE_USER);
         UserFixture.setId(user, 21L);
-        Pattern pattern = PatternFixture.createPatternWithId(roomId);
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
+        ChatRoomStatus roomStatus = ChatRoomStatus.builder().user(user).room(room).favorite(false).hidden(false).build();
         Principal principal = () -> userEmail;
 
-        when(patternRepository.existsById(roomId)).thenReturn(true);
-        when(patternRepository.findById(roomId)).thenReturn(Optional.of(pattern));
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
-        when(chatReadStatusRepository.findByPattern_IdAndUser_Id(roomId, 21L)).thenReturn(Optional.empty());
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
+        when(chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, 21L)).thenReturn(Optional.empty());
 
         chatWebSocketService.publishReadUpdate(principal, new ChatReadUpdateRequest(roomId, 53L));
 
@@ -153,14 +174,16 @@ class ChatWebSocketServiceTest {
     @DisplayName("존재하지 않는 채팅방으로 읽음 처리 전송 시 ERROR 이벤트를 브로드캐스트해야 한다")
     void publishReadUpdate_InvalidRoom_BroadcastsErrorEvent() {
         Long roomId = 999L;
-        Principal principal = () -> "test@example.com";
-        when(patternRepository.existsById(roomId)).thenReturn(false);
+        String userEmail = "test@example.com";
+        Principal principal = () -> userEmail;
+        User user = UserFixture.createUser(userEmail, com.ufo.ufo.global.security.types.Role.ROLE_USER);
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.empty());
+        when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
 
         chatWebSocketService.publishReadUpdate(principal, new ChatReadUpdateRequest(roomId, 53L));
 
         ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
         verify(messagingTemplate).convertAndSend(eq("/sub/chat/rooms/999"), payloadCaptor.capture());
-        verify(userRepository, never()).findByEmail(any());
 
         ChatSocketEvent<?> event = (ChatSocketEvent<?>) payloadCaptor.getValue();
         assertThat(event.eventType()).isEqualTo(ChatEventType.ERROR);

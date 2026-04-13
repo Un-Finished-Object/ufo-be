@@ -2,13 +2,15 @@ package com.ufo.ufo.domain.chat.application;
 
 import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
 import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
+import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
+import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatMessage;
 import com.ufo.ufo.domain.chat.domain.ChatReadStatus;
 import com.ufo.ufo.domain.chat.dto.response.ChatMessageItemResponse;
 import com.ufo.ufo.domain.chat.dto.response.ChatMessagesResponse;
+import com.ufo.ufo.domain.chat.exception.ChatRoomForbiddenException;
 import com.ufo.ufo.domain.chat.exception.ChatRoomNotFoundException;
 import com.ufo.ufo.domain.chat.exception.InvalidChatMessageIdException;
-import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import java.util.List;
@@ -26,18 +28,19 @@ public class ChatMessageService {
 
     private final ChatMessageRepository chatMessageRepository;
     private final ChatReadStatusRepository chatReadStatusRepository;
-    private final PatternRepository patternRepository;
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatRoomStatusRepository chatRoomStatusRepository;
     private final UserService userService;
 
-    public ChatMessagesResponse getMessages(User user, Long patternId, Long messageId) {
-        if (!patternRepository.existsById(patternId)) {
-            throw new ChatRoomNotFoundException();
-        }
+    public ChatMessagesResponse getMessages(User user, Long roomId, Long messageId) {
+        chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)
+                .orElseThrow(ChatRoomNotFoundException::new);
 
         User loginUser = userService.getUserById(user.getId());
+        validateRoomAccess(loginUser.getId(), roomId);
         PageRequest pageable = PageRequest.of(0, MESSAGE_PAGE_SIZE + 1);
 
-        List<ChatMessage> fetchedMessages = findMessages(patternId, messageId, pageable);
+        List<ChatMessage> fetchedMessages = findMessages(roomId, messageId, pageable);
         boolean hasNext = fetchedMessages.size() > MESSAGE_PAGE_SIZE;
         List<ChatMessage> pageMessages = hasNext
                 ? fetchedMessages.subList(0, MESSAGE_PAGE_SIZE)
@@ -50,20 +53,27 @@ public class ChatMessageService {
                 ? pageMessages.getLast().getId()
                 : null;
 
-        Long lastMessageId = chatReadStatusRepository.findByPattern_IdAndUser_Id(patternId, loginUser.getId())
+        Long lastMessageId = chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, loginUser.getId())
                 .map(ChatReadStatus::getLastReadMessageId)
                 .orElse(null);
 
         return ChatMessagesResponse.of(lastMessageId, hasNext, nextMessageId, messages);
     }
 
-    private List<ChatMessage> findMessages(Long patternId, Long messageId, PageRequest pageable) {
+    private List<ChatMessage> findMessages(Long roomId, Long messageId, PageRequest pageable) {
         if (messageId == null) {
-            return chatMessageRepository.findByPattern_IdOrderByIdDesc(patternId, pageable);
+            return chatMessageRepository.findByRoom_IdOrderByIdDesc(roomId, pageable);
         }
         if (messageId <= 0) {
             throw new InvalidChatMessageIdException();
         }
-        return chatMessageRepository.findByPattern_IdAndIdLessThanOrderByIdDesc(patternId, messageId, pageable);
+        return chatMessageRepository.findByRoom_IdAndIdLessThanOrderByIdDesc(roomId, messageId, pageable);
+    }
+
+    private void validateRoomAccess(Long userId, Long roomId) {
+        boolean hasAccess = chatRoomStatusRepository.findByUser_IdAndRoom_Id(userId, roomId).isPresent();
+        if (!hasAccess) {
+            throw new ChatRoomForbiddenException();
+        }
     }
 }

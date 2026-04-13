@@ -8,7 +8,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.chat.application.ChatRoomProvisioningService;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
+import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.credit.domain.UnlockType;
@@ -18,13 +20,13 @@ import com.ufo.ufo.domain.pattern.dto.request.PatternPurchaseRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseStatusResponse;
 import com.ufo.ufo.domain.pattern.exception.ChatRoomAlreadyPurchasedException;
-import com.ufo.ufo.global.exception.ApiException;
 import com.ufo.ufo.domain.user.application.UserService;
+import com.ufo.ufo.global.exception.ApiException;
+import com.ufo.ufo.support.fixture.ChatRoomFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,6 +48,9 @@ class PatternPurchaseServiceTest {
     private UserService userService;
 
     @Mock
+    private ChatRoomProvisioningService chatRoomProvisioningService;
+
+    @Mock
     private ChatRoomStatusRepository chatRoomStatusRepository;
 
     @InjectMocks
@@ -56,8 +61,13 @@ class PatternPurchaseServiceTest {
     void purchase_TypeChat_PurchasesChatOnly() {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, 20L);
+
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(userService.getUserById(1L)).thenReturn(user);
+        when(chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(false);
+        when(chatRoomProvisioningService.assignJoinableRoom(any(Pattern.class)))
+                .thenReturn(room);
         when(chatRoomStatusRepository.save(any(ChatRoomStatus.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -65,9 +75,9 @@ class PatternPurchaseServiceTest {
 
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.type()).isEqualTo("chat");
-        verify(creditService).purchaseUnlock(user, 10L, UnlockType.CHAT);
         verify(creditService, times(1)).purchaseUnlock(user, 10L, UnlockType.CHAT);
         verify(creditService, times(0)).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
+        verify(chatRoomProvisioningService, times(1)).assignJoinableRoom(any(Pattern.class));
         verify(chatRoomStatusRepository, times(1)).save(any(ChatRoomStatus.class));
     }
 
@@ -83,9 +93,9 @@ class PatternPurchaseServiceTest {
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.type()).isEqualTo("yarn");
         verify(creditService, times(0)).purchaseUnlock(user, 10L, UnlockType.CHAT);
-        verify(creditService).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
         verify(creditService, times(1)).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
         verifyNoInteractions(chatRoomStatusRepository);
+        verifyNoInteractions(chatRoomProvisioningService);
     }
 
     @Test
@@ -95,11 +105,11 @@ class PatternPurchaseServiceTest {
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(userService.getUserById(1L)).thenReturn(user);
-        when(chatRoomStatusRepository.save(any(ChatRoomStatus.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate"));
+        when(chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(true);
 
         assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))
                 .isInstanceOf(ChatRoomAlreadyPurchasedException.class);
+        verifyNoInteractions(chatRoomProvisioningService);
     }
 
     @Test
@@ -128,6 +138,7 @@ class PatternPurchaseServiceTest {
                 .isInstanceOf(ApiException.class);
         verifyNoInteractions(creditService);
         verifyNoInteractions(chatRoomStatusRepository);
+        verifyNoInteractions(chatRoomProvisioningService);
     }
 
     @Test
@@ -142,6 +153,7 @@ class PatternPurchaseServiceTest {
                 .isInstanceOf(ApiException.class);
         verifyNoInteractions(creditService);
         verifyNoInteractions(chatRoomStatusRepository);
+        verifyNoInteractions(chatRoomProvisioningService);
     }
 
     @Test
@@ -155,5 +167,6 @@ class PatternPurchaseServiceTest {
                 .isInstanceOf(ApiException.class);
         verifyNoInteractions(creditService);
         verifyNoInteractions(chatRoomStatusRepository);
+        verifyNoInteractions(chatRoomProvisioningService);
     }
 }
