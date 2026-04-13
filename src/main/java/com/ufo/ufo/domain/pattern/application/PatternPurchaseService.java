@@ -15,7 +15,6 @@ import com.ufo.ufo.domain.pattern.exception.ChatRoomAlreadyPurchasedException;
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
-import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -68,7 +67,7 @@ public class PatternPurchaseService {
             throw new ChatRoomAlreadyPurchasedException();
         }
 
-        ChatRoom chatRoom = chatRoomProvisioningService.assignJoinableRoom(pattern, LocalDateTime.now());
+        ChatRoom chatRoom = chatRoomProvisioningService.assignJoinableRoom(pattern);
         try {
             chatRoomStatusRepository.save(ChatRoomStatus.builder()
                     .user(loginUser)

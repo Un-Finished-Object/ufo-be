@@ -24,15 +24,16 @@ public class ChatRoomProvisioningService {
     private final PatternRepository patternRepository;
 
     @Transactional
-    public ChatRoom assignJoinableRoom(Pattern pattern, LocalDateTime joinedAt) {
+    public ChatRoom assignJoinableRoom(Pattern pattern) {
         Pattern lockedPattern = patternRepository.findByIdAndDeletedAtIsNull(pattern.getId())
                 .orElseThrow(PatternNotFoundException::new);
+        LocalDateTime anchorAt = LocalDateTime.now();
 
         return chatRoomRepository.findFirstByPattern_IdAndSegmentStartAtLessThanEqualAndSegmentEndAtGreaterThan(
                 lockedPattern.getId(),
-                joinedAt,
-                joinedAt
-        ).orElseGet(() -> createOrGetSegmentRoom(lockedPattern, joinedAt));
+                anchorAt,
+                anchorAt
+        ).orElseGet(() -> createOrGetSegmentRoom(lockedPattern, anchorAt));
     }
 
     @Transactional

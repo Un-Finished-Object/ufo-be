@@ -66,7 +66,7 @@ class PatternPurchaseServiceTest {
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(userService.getUserById(1L)).thenReturn(user);
         when(chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(false);
-        when(chatRoomProvisioningService.assignJoinableRoom(any(Pattern.class), any(LocalDateTime.class)))
+        when(chatRoomProvisioningService.assignJoinableRoom(any(Pattern.class)))
                 .thenReturn(room);
         when(chatRoomStatusRepository.save(any(ChatRoomStatus.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -77,7 +77,7 @@ class PatternPurchaseServiceTest {
         assertThat(response.type()).isEqualTo("chat");
         verify(creditService, times(1)).purchaseUnlock(user, 10L, UnlockType.CHAT);
         verify(creditService, times(0)).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
-        verify(chatRoomProvisioningService, times(1)).assignJoinableRoom(any(Pattern.class), any(LocalDateTime.class));
+        verify(chatRoomProvisioningService, times(1)).assignJoinableRoom(any(Pattern.class));
         verify(chatRoomStatusRepository, times(1)).save(any(ChatRoomStatus.class));
     }
 

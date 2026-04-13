@@ -40,18 +40,19 @@ class ChatRoomProvisioningServiceTest {
     void assignJoinableRoom_WhenCurrentRoomExists_ReturnsCurrentRoom() {
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         ChatRoom currentRoom = ChatRoomFixture.createRoomWithId(pattern, 100L);
-        LocalDateTime joinedAt = LocalDateTime.of(2026, 4, 13, 10, 0);
 
         when(patternRepository.findByIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(pattern));
         when(chatRoomRepository.findFirstByPattern_IdAndSegmentStartAtLessThanEqualAndSegmentEndAtGreaterThan(
-                10L, joinedAt, joinedAt
+                eq(10L), any(LocalDateTime.class), any(LocalDateTime.class)
         )).thenReturn(Optional.of(currentRoom));
 
-        ChatRoom result = chatRoomProvisioningService.assignJoinableRoom(pattern, joinedAt);
+        ChatRoom result = chatRoomProvisioningService.assignJoinableRoom(pattern);
 
         assertThat(result).isSameAs(currentRoom);
         verify(chatRoomRepository)
-                .findFirstByPattern_IdAndSegmentStartAtLessThanEqualAndSegmentEndAtGreaterThan(10L, joinedAt, joinedAt);
+                .findFirstByPattern_IdAndSegmentStartAtLessThanEqualAndSegmentEndAtGreaterThan(
+                        eq(10L), any(LocalDateTime.class), any(LocalDateTime.class)
+                );
     }
 
     @Test
@@ -59,7 +60,7 @@ class ChatRoomProvisioningServiceTest {
     void createOrGetSegmentRoom_WhenDuplicate_UsesExistingRoom() {
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         LocalDateTime targetAt = LocalDateTime.of(2026, 4, 13, 10, 0);
-      ChatRoom existingRoom = ChatRoomFixture.createRoomWithId(pattern, 200L);
+        ChatRoom existingRoom = ChatRoomFixture.createRoomWithId(pattern, 200L);
 
         when(chatRoomRepository.save(any(ChatRoom.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate room"));
