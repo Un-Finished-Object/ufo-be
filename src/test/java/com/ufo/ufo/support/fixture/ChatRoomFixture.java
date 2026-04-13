@@ -13,7 +13,6 @@ public final class ChatRoomFixture {
     public static ChatRoom createRoom(Pattern pattern) {
         return ChatRoom.builder()
                 .pattern(pattern)
-                .segmentNo(0)
                 .segmentStartAt(LocalDateTime.of(2026, 1, 1, 0, 0))
                 .segmentEndAt(LocalDateTime.of(2026, 1, 8, 0, 0))
                 .build();

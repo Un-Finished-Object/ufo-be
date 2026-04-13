@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 @Table(
         name = "chat_rooms",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_chat_room_pattern_segment", columnNames = {"pattern_id", "segment_no"})
+                @UniqueConstraint(name = "uk_chat_room_pattern_segment_start", columnNames = {"pattern_id", "segment_start_at"})
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -38,9 +38,6 @@ public class ChatRoom extends BaseEntity {
     @JoinColumn(name = "pattern_id")
     private Pattern pattern;
 
-    @Column(name = "segment_no", nullable = false)
-    private Integer segmentNo;
-
     @Column(name = "segment_start_at", nullable = false)
     private LocalDateTime segmentStartAt;
 
@@ -48,9 +45,8 @@ public class ChatRoom extends BaseEntity {
     private LocalDateTime segmentEndAt;
 
     @Builder
-    public ChatRoom(Pattern pattern, Integer segmentNo, LocalDateTime segmentStartAt, LocalDateTime segmentEndAt) {
+    public ChatRoom(Pattern pattern, LocalDateTime segmentStartAt, LocalDateTime segmentEndAt) {
         this.pattern = pattern;
-        this.segmentNo = segmentNo;
         this.segmentStartAt = segmentStartAt;
         this.segmentEndAt = segmentEndAt;
     }
