@@ -1,11 +1,11 @@
 package com.ufo.ufo.domain.pattern.application;
 
-import com.ufo.ufo.domain.credit.application.CreditService;
-import com.ufo.ufo.domain.credit.domain.UnlockType;
-import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
+import com.ufo.ufo.domain.chat.application.ChatRoomProvisioningService;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
+import com.ufo.ufo.domain.credit.application.CreditService;
+import com.ufo.ufo.domain.credit.domain.UnlockType;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.dto.request.PatternPurchaseRequest;
@@ -15,12 +15,10 @@ import com.ufo.ufo.domain.pattern.exception.ChatRoomAlreadyPurchasedException;
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
-import java.time.Duration;
-import java.util.List;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,13 +26,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PatternPurchaseService {
-    @Value("${app.chat.segment-days}")
-    private int chatSegmentDays;
 
     private final PatternRepository patternRepository;
     private final CreditService creditService;
     private final UserService userService;
-    private final ChatRoomRepository chatRoomRepository;
+    private final ChatRoomProvisioningService chatRoomProvisioningService;
     private final ChatRoomStatusRepository chatRoomStatusRepository;
 
     @Transactional
@@ -72,8 +68,7 @@ public class PatternPurchaseService {
             throw new ChatRoomAlreadyPurchasedException();
         }
 
-        LocalDateTime joinedAt = LocalDateTime.now();
-        ChatRoom chatRoom = resolveChatRoom(pattern, joinedAt);
+        ChatRoom chatRoom = chatRoomProvisioningService.assignJoinableRoom(pattern, LocalDateTime.now());
         try {
             chatRoomStatusRepository.save(ChatRoomStatus.builder()
                     .user(loginUser)
@@ -84,41 +79,5 @@ public class PatternPurchaseService {
         } catch (DataIntegrityViolationException exception) {
             throw new ChatRoomAlreadyPurchasedException();
         }
-    }
-
-    private ChatRoom resolveChatRoom(Pattern pattern, LocalDateTime joinedAt) {
-        return chatRoomRepository.findFirstByPattern_IdAndSegmentStartAtLessThanEqualAndSegmentEndAtGreaterThan(
-                pattern.getId(),
-                joinedAt,
-                joinedAt
-        ).orElseGet(() -> createOrGetSegmentRoom(pattern, joinedAt));
-    }
-
-    private ChatRoom createSegmentRoom(Pattern pattern, LocalDateTime joinedAt) {
-        LocalDateTime segmentStartAt = calculateSegmentStartAt(pattern, joinedAt);
-        LocalDateTime segmentEndAt = segmentStartAt.plusDays(chatSegmentDays);
-
-        return chatRoomRepository.save(ChatRoom.builder()
-                .pattern(pattern)
-                .segmentStartAt(segmentStartAt)
-                .segmentEndAt(segmentEndAt)
-                .build());
-    }
-
-    private ChatRoom createOrGetSegmentRoom(Pattern pattern, LocalDateTime joinedAt) {
-        LocalDateTime segmentStartAt = calculateSegmentStartAt(pattern, joinedAt);
-        try {
-            return createSegmentRoom(pattern, joinedAt);
-        } catch (DataIntegrityViolationException exception) {
-            return chatRoomRepository.findByPattern_IdAndSegmentStartAt(pattern.getId(), segmentStartAt)
-                    .orElseThrow(() -> exception);
-        }
-    }
-
-    private LocalDateTime calculateSegmentStartAt(Pattern pattern, LocalDateTime joinedAt) {
-        LocalDateTime baseAt = pattern.getCreatedAt() != null ? pattern.getCreatedAt() : joinedAt;
-        long days = Math.max(0, Duration.between(baseAt, joinedAt).toDays());
-        int segmentNo = Math.toIntExact(days / chatSegmentDays);
-        return baseAt.plusDays((long) segmentNo * chatSegmentDays);
     }
 }
