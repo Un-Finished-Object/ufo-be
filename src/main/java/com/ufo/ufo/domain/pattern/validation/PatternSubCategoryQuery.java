@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public enum PatternSubCategoryQuery {
+    ALL("all"),
     OUTER("outer"),
     SWEATER("sweater"),
     VEST("vest"),

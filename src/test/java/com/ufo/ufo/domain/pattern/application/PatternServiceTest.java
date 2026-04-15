@@ -101,6 +101,21 @@ class PatternServiceTest {
     }
 
     @Test
+    @DisplayName("도안 목록 조회에서 category가 apparel이고 subCategory가 all이면 subCategory 필터 없이 조회해야 한다")
+    void getPatterns_ApparelWithAllSubCategory_UsesNullSubCategoryFilter() {
+        User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(1L);
+        when(patternRepository.findAllByCategory(any(), any(), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(pattern)));
+        when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 1L)).thenReturn(false);
+
+        PatternListResponse response = patternService.getPatterns(user, "apparel", "all", "news", 1);
+
+        assertThat(response.items()).hasSize(1);
+        verify(patternRepository).findAllByCategory(eq("apparel"), eq(null), any(PageRequest.class));
+    }
+
+    @Test
     @DisplayName("비로그인 도안 목록 조회는 찜 여부를 false로 반환해야 한다")
     void getPatterns_AnonymousUser_ReturnsUnscrapped() {
         Pattern pattern = PatternFixture.createPatternWithId(1L);

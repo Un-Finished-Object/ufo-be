@@ -109,15 +109,33 @@ class PatternControllerValidationTest {
     @Test
     @DisplayName("subCategory가 허용값이 아니면 400을 반환하고 서비스를 호출하지 않는다")
     void getPatterns_InvalidSubCategory_ReturnsBadRequest() throws Exception {
-        mockMvc.perform(get("/v1/patterns")
+                mockMvc.perform(get("/v1/patterns")
                         .param("category", "apparel")
                         .param("subCategory", "shirt")
                         .param("sort", "news")
                         .param("page", "1"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.message").value("subCategory는 outer, sweater, vest, dress, others 중 하나여야 합니다."));
+                .andExpect(jsonPath("$.error.message").value("subCategory는 all, outer, sweater, vest, dress, others 중 하나여야 합니다."));
 
         verify(patternService, never()).getPatterns(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("category가 apparel이고 subCategory가 all이면 200을 반환한다")
+    void getPatterns_ApparelWithAllSubCategory_ReturnsOk() throws Exception {
+        when(patternService.getPatterns(any(), eq("apparel"), eq("all"), eq("news"), eq(1)))
+                .thenReturn(new PatternListResponse(List.of(), 1, 0));
+
+        mockMvc.perform(get("/v1/patterns")
+                        .param("category", "apparel")
+                        .param("subCategory", "all")
+                        .param("sort", "news")
+                        .param("page", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.error").isEmpty());
+
+        verify(patternService).getPatterns(any(), eq("apparel"), eq("all"), eq("news"), eq(1));
     }
 
     @Test

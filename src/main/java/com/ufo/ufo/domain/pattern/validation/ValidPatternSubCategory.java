@@ -14,7 +14,7 @@ import java.lang.annotation.Target;
 @Constraint(validatedBy = ValidPatternSubCategoryValidator.class)
 public @interface ValidPatternSubCategory {
 
-    String message() default "subCategory는 outer, sweater, vest, dress, others 중 하나여야 합니다.";
+    String message() default "subCategory는 all, outer, sweater, vest, dress, others 중 하나여야 합니다.";
 
     Class<?>[] groups() default {};
 
