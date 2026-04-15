@@ -1,8 +1,9 @@
 package com.ufo.ufo.domain.scrap.dao;
 
 import com.ufo.ufo.domain.scrap.domain.Scrap;
-import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,10 +16,10 @@ public interface ScrapRepository extends JpaRepository<Scrap, Long> {
 
     @Query("""
             select s from Scrap s
-            join fetch s.pattern p
+            join s.pattern p
             where s.user.id = :userId
               and p.deletedAt is null
             order by s.createdAt desc, s.id desc
             """)
-    List<Scrap> findAllPatternsByUserIdOrderByLatest(@Param("userId") Long userId);
+    Page<Scrap> findAllPatternsByUserIdOrderByLatest(@Param("userId") Long userId, Pageable pageable);
 }

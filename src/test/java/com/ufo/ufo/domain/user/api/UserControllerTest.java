@@ -92,14 +92,14 @@ class UserControllerTest {
     @DisplayName("내 찜 목록 조회는 서비스 결과를 data에 담아 응답해야 한다")
     void getMyScraps_ReturnsServiceResponse() {
         User user = UserFixture.createUser();
-        MyScrapsResponse serviceResponse = MyScrapsResponse.from(List.of());
-        when(scrapService.getMyScraps(user)).thenReturn(serviceResponse);
+        MyScrapsResponse serviceResponse = MyScrapsResponse.from(List.of(), 1, 0);
+        when(scrapService.getMyScraps(user, 1)).thenReturn(serviceResponse);
 
-        ResponseEntity<ApiResponse<MyScrapsResponse>> response = userController.getMyScraps(user);
+        ResponseEntity<ApiResponse<MyScrapsResponse>> response = userController.getMyScraps(user, 1);
 
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().data().scraps()).isEmpty();
-        verify(scrapService).getMyScraps(user);
+        assertThat(response.getBody().data().items()).isEmpty();
+        verify(scrapService).getMyScraps(user, 1);
     }
 
     @Test

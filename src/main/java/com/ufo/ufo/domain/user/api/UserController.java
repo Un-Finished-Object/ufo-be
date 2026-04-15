@@ -12,17 +12,21 @@ import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("v1/users")
 @RequiredArgsConstructor
+@Validated
 public class UserController {
 
     private final InterestService interestService;
@@ -40,8 +44,13 @@ public class UserController {
     }
 
     @GetMapping("/me/scraps")
-    public ResponseEntity<ApiResponse<MyScrapsResponse>> getMyScraps(@LoginUser User user) {
-        return ResponseEntity.ok(ApiResponse.success(scrapService.getMyScraps(user)));
+    public ResponseEntity<ApiResponse<MyScrapsResponse>> getMyScraps(
+            @LoginUser User user,
+            @RequestParam("page")
+            @Min(value = 1, message = "page는 1 이상이어야 합니다.")
+            Integer page
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(scrapService.getMyScraps(user, page)));
     }
 
     @GetMapping("/me/chats")

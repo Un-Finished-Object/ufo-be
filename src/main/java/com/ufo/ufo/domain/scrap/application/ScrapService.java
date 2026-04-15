@@ -11,6 +11,9 @@ import com.ufo.ufo.domain.scrap.dto.response.PatternScrapResponse;
 import com.ufo.ufo.domain.user.domain.User;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ScrapService {
+
+    private static final int PAGE_SIZE = 20;
 
     private final PatternRepository patternRepository;
     private final ScrapRepository scrapRepository;
@@ -47,13 +52,19 @@ public class ScrapService {
         return PatternScrapResponse.from(false, pattern.getScrapsCount());
     }
 
-    public MyScrapsResponse getMyScraps(User user) {
-        List<Item> scraps = scrapRepository.findAllPatternsByUserIdOrderByLatest(user.getId())
+    public MyScrapsResponse getMyScraps(User user, Integer page) {
+        int pageNumber = normalizePage(page);
+        Page<Scrap> scrapPage = scrapRepository.findAllPatternsByUserIdOrderByLatest(
+                user.getId(),
+                PageRequest.of(pageNumber - 1, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")))
+        );
+        List<Item> scraps = scrapPage.getContent()
                 .stream()
                 .map(Scrap::getPattern)
                 .map(MyScrapsResponse.Item::from)
                 .toList();
-        return MyScrapsResponse.from(scraps);
+        int nextPage = resolveNextPage(pageNumber, scrapPage.getTotalPages());
+        return MyScrapsResponse.from(scraps, pageNumber, nextPage);
     }
 
     private Pattern findActivePattern(Long patternId) {
@@ -63,5 +74,20 @@ public class ScrapService {
             throw new PatternNotFoundException();
         }
         return pattern;
+    }
+
+    private int normalizePage(Integer page) {
+        if (page == null || page < 1) {
+            return 1;
+        }
+        return page;
+    }
+
+    private int resolveNextPage(int currentPage, int totalPages) {
+        int remainingPages = totalPages - currentPage;
+        if (remainingPages <= 0) {
+            return 0;
+        }
+        return Math.min(remainingPages, 5);
     }
 }
