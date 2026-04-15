@@ -101,6 +101,20 @@ class PatternServiceTest {
     }
 
     @Test
+    @DisplayName("비로그인 도안 목록 조회는 찜 여부를 false로 반환해야 한다")
+    void getPatterns_AnonymousUser_ReturnsUnscrapped() {
+        Pattern pattern = PatternFixture.createPatternWithId(1L);
+        when(patternRepository.findAllByCategory(any(), any(), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(pattern)));
+
+        PatternListResponse response = patternService.getPatterns(null, "all", null, "news", 1);
+
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().getFirst().my().scrapped()).isFalse();
+        verifyNoInteractions(scrapRepository);
+    }
+
+    @Test
     @DisplayName("도안 목록 조회에서 sort가 scraps면 인기순 조회 리포지토리를 사용해야 한다")
     void getPatterns_ScrapsSort_UsesPopularityQuery() {
         User user = UserFixture.createUserWithId(1L);

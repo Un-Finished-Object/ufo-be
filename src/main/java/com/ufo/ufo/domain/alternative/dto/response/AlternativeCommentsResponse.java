@@ -7,15 +7,17 @@ import java.util.List;
 public record AlternativeCommentsResponse(
         Long altId,
         List<Comment> comments,
-        int page
+        int page,
+        int nextPage
 ) {
-    public static AlternativeCommentsResponse from(Long altId, List<AlternativeComment> comments, int page) {
+    public static AlternativeCommentsResponse from(Long altId, List<AlternativeComment> comments, int page, int nextPage) {
         return new AlternativeCommentsResponse(
                 altId,
                 comments.stream()
                     .map(Comment::from)
                     .toList(),
-                page
+                page,
+                nextPage
         );
     }
 

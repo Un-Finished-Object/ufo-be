@@ -244,6 +244,7 @@ class AlternativeServiceTest {
         AlternativeCommentsResponse response = alternativeService.getComments(user, 21L, 0);
 
         assertThat(response.page()).isEqualTo(1);
+        assertThat(response.nextPage()).isEqualTo(0);
         assertThat(response.comments()).hasSize(1);
         assertThat(response.comments().getFirst().content()).isEqualTo("hello");
     }

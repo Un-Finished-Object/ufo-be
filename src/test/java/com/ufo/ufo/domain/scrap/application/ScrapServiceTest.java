@@ -3,6 +3,7 @@ package com.ufo.ufo.domain.scrap.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -27,6 +28,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("찜 서비스 테스트")
@@ -118,17 +121,20 @@ class ScrapServiceTest {
         Pattern older = PatternFixture.createPatternWithId(10L);
         Scrap newScrap = Scrap.builder().user(user).pattern(newer).build();
         Scrap oldScrap = Scrap.builder().user(user).pattern(older).build();
-        when(scrapRepository.findAllPatternsByUserIdOrderByLatest(1L))
-                .thenReturn(List.of(newScrap, oldScrap));
+        when(scrapRepository.findAllByUser_IdAndPattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(newScrap, oldScrap)));
 
-        MyScrapsResponse response = scrapService.getMyScraps(user);
+        MyScrapsResponse response = scrapService.getMyScraps(user, 1);
 
-        assertThat(response.scraps()).hasSize(2);
-        assertThat(response.scraps().get(0).id()).isEqualTo(20L);
-        assertThat(response.scraps().get(0).title()).isEqualTo(newer.getTitle());
-        assertThat(response.scraps().get(0).thumbnailUrl()).isEqualTo(newer.getThumbnailUrl());
-        assertThat(response.scraps().get(0).author()).isEqualTo(newer.getDesigner());
-        assertThat(response.scraps().get(1).id()).isEqualTo(10L);
+        assertThat(response.page()).isEqualTo(1);
+        assertThat(response.nextPage()).isEqualTo(0);
+        assertThat(response.items()).hasSize(2);
+        assertThat(response.items().get(0).id()).isEqualTo(20L);
+        assertThat(response.items().get(0).title()).isEqualTo(newer.getTitle());
+        assertThat(response.items().get(0).thumbnailUrl()).isEqualTo(newer.getThumbnailUrl());
+        assertThat(response.items().get(0).author()).isEqualTo(newer.getDesigner());
+        assertThat(response.items().get(0).my().scrapped()).isTrue();
+        assertThat(response.items().get(1).id()).isEqualTo(10L);
     }
 
     @Test
