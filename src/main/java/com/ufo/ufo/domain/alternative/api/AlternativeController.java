@@ -11,7 +11,7 @@ import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
+import com.ufo.ufo.global.validation.ValidPage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -54,7 +54,7 @@ public class AlternativeController {
         @LoginUser User user,
         @PathVariable("altId") Long altId,
         @RequestParam("page")
-        @Min(value = 1, message = "page는 1 이상이어야 합니다.")
+        @ValidPage
         Integer page
     ) {
         return ResponseEntity.ok(ApiResponse.success(alternativeService.getComments(user, altId, page)));
@@ -69,3 +69,4 @@ public class AlternativeController {
         return ResponseEntity.ok(ApiResponse.success(alternativeService.createComment(user, altId, request)));
     }
 }
+

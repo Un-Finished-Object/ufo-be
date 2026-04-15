@@ -12,7 +12,7 @@ import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
+import com.ufo.ufo.global.validation.ValidPage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -47,7 +47,7 @@ public class UserController {
     public ResponseEntity<ApiResponse<MyScrapsResponse>> getMyScraps(
             @LoginUser User user,
             @RequestParam("page")
-            @Min(value = 1, message = "page는 1 이상이어야 합니다.")
+            @ValidPage
             Integer page
     ) {
         return ResponseEntity.ok(ApiResponse.success(scrapService.getMyScraps(user, page)));
@@ -66,3 +66,4 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(interestService.updateMyInterests(user, request)));
     }
 }
+
