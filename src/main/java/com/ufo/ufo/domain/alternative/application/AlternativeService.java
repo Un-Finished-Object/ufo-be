@@ -21,9 +21,9 @@ import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -78,16 +78,16 @@ public class AlternativeService {
     public AlternativeCommentsResponse getComments(User user, Long altId, Integer page) {
         findAlternativeById(altId);
         int pageNumber = normalizePage(page);
-        List<AlternativeComment> comments = alternativeCommentRepository.findAllByAlternative_Id(
+        Page<AlternativeComment> commentPage = alternativeCommentRepository.findAllByAlternative_Id(
                         altId,
                         PageRequest.of(
                                 pageNumber - 1,
                                 COMMENTS_PAGE_SIZE,
                                 Sort.by(Sort.Direction.ASC, "createdAt").and(Sort.by(Sort.Direction.ASC, "id"))
                         )
-                )
-                .getContent();
-        return AlternativeCommentsResponse.from(altId, comments, pageNumber);
+                );
+        int nextPage = resolveNextPage(pageNumber, commentPage.getTotalPages());
+        return AlternativeCommentsResponse.from(altId, commentPage.getContent(), pageNumber, nextPage);
     }
 
     @Transactional
@@ -119,6 +119,14 @@ public class AlternativeService {
             return 1;
         }
         return page;
+    }
+
+    private int resolveNextPage(int currentPage, int totalPages) {
+        int remainingPages = totalPages - currentPage;
+        if (remainingPages <= 0) {
+            return 0;
+        }
+        return Math.min(remainingPages, 5);
     }
 
     private void rewardAlternativeAuthorIfEligible(

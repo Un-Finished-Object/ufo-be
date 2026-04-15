@@ -11,8 +11,10 @@ import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/v1/alternatives")
 @RequiredArgsConstructor
+@Validated
 public class AlternativeController {
 
     private final AlternativeService alternativeService;
@@ -50,7 +53,9 @@ public class AlternativeController {
     public ResponseEntity<ApiResponse<AlternativeCommentsResponse>> getComments(
         @LoginUser User user,
         @PathVariable("altId") Long altId,
-        @RequestParam("page") Integer page
+        @RequestParam("page")
+        @Min(value = 1, message = "page는 1 이상이어야 합니다.")
+        Integer page
     ) {
         return ResponseEntity.ok(ApiResponse.success(alternativeService.getComments(user, altId, page)));
     }

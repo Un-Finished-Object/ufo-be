@@ -70,7 +70,7 @@ class AlternativeControllerTest {
         User user = UserFixture.createUserWithId(1L);
         AlternativeCommentsResponse.Comment item = new AlternativeCommentsResponse.Comment("hello", "tester", LocalDateTime.now());
         when(alternativeService.getComments(user, 7L, 1))
-                .thenReturn(new AlternativeCommentsResponse(7L, java.util.List.of(item), 1));
+                .thenReturn(new AlternativeCommentsResponse(7L, java.util.List.of(item), 1, 0));
 
         ResponseEntity<ApiResponse<AlternativeCommentsResponse>> response =
                 alternativeController.getComments(user, 7L, 1);
@@ -78,6 +78,7 @@ class AlternativeControllerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().comments()).hasSize(1);
         assertThat(response.getBody().data().page()).isEqualTo(1);
+        assertThat(response.getBody().data().nextPage()).isEqualTo(0);
         verify(alternativeService).getComments(user, 7L, 1);
     }
 
