@@ -257,8 +257,15 @@ public class PatternService {
     }
 
     private PatternListItemResponse toListItemResponse(Pattern pattern, User user) {
-        boolean scrapped = scrapRepository.existsByUser_IdAndPattern_Id(user.getId(), pattern.getId());
+        boolean scrapped = isScrapped(user, pattern.getId());
         return PatternListItemResponse.from(pattern, scrapped);
+    }
+
+    private boolean isScrapped(User user, Long patternId) {
+        if (user == null || user.getId() == null) {
+            return false;
+        }
+        return scrapRepository.existsByUser_IdAndPattern_Id(user.getId(), patternId);
     }
 
     private List<Pattern> findRecommendedPatternsByUserInterest(User user) {
