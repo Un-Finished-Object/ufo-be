@@ -59,4 +59,12 @@ class UserControllerValidationTest {
 
         verify(scrapService).getMyScraps(any(), eq(1));
     }
+
+    @Test
+    @DisplayName("내 찜 목록 조회에서 page가 숫자가 아니면 400을 반환해야 한다")
+    void getMyScraps_NonNumericPage_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/v1/users/me/scraps").param("page", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("page 파라미터 형식이 올바르지 않습니다."));
+    }
 }
