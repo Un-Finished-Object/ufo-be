@@ -13,7 +13,6 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,9 +53,9 @@ public class ScrapService {
 
     public MyScrapsResponse getMyScraps(User user, Integer page) {
         int pageNumber = normalizePage(page);
-        Page<Scrap> scrapPage = scrapRepository.findAllPatternsByUserIdOrderByLatest(
+        Page<Scrap> scrapPage = scrapRepository.findAllByUser_IdAndPattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(
                 user.getId(),
-                PageRequest.of(pageNumber - 1, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")))
+                PageRequest.of(pageNumber - 1, PAGE_SIZE)
         );
         List<Item> scraps = scrapPage.getContent()
                 .stream()

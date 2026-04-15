@@ -121,7 +121,7 @@ class ScrapServiceTest {
         Pattern older = PatternFixture.createPatternWithId(10L);
         Scrap newScrap = Scrap.builder().user(user).pattern(newer).build();
         Scrap oldScrap = Scrap.builder().user(user).pattern(older).build();
-        when(scrapRepository.findAllPatternsByUserIdOrderByLatest(eq(1L), any(Pageable.class)))
+        when(scrapRepository.findAllByUser_IdAndPattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(newScrap, oldScrap)));
 
         MyScrapsResponse response = scrapService.getMyScraps(user, 1);
