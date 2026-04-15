@@ -46,7 +46,7 @@ public class UserController {
     @GetMapping("/me/scraps")
     public ResponseEntity<ApiResponse<MyScrapsResponse>> getMyScraps(
             @LoginUser User user,
-            @RequestParam("page")
+            @RequestParam(value = "page", defaultValue = "1")
             @ValidPage
             Integer page
     ) {
