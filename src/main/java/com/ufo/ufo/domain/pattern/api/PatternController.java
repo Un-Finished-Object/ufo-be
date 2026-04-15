@@ -73,7 +73,9 @@ public class PatternController {
     public ResponseEntity<ApiResponse<PatternListResponse>> searchPatterns(
             @LoginUser User user,
             @RequestParam(name = "keyword") String keyword,
-            @RequestParam(name = "page") Integer page
+            @RequestParam(name = "page")
+            @Min(value = 1, message = "page는 1 이상이어야 합니다.")
+            Integer page
     ) {
         return ResponseEntity.ok(ApiResponse.success(patternService.searchPatterns(user, keyword, page)));
     }

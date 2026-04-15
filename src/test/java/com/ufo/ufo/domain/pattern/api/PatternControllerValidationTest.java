@@ -136,4 +136,16 @@ class PatternControllerValidationTest {
 
         verify(patternService).getPatterns(any(), eq("all"), eq("sweater"), eq("news"), eq(1));
     }
+
+    @Test
+    @DisplayName("도안 검색에서 page가 1 미만이면 400을 반환하고 서비스를 호출하지 않는다")
+    void searchPatterns_InvalidPage_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/v1/patterns/search")
+                        .param("keyword", "니트")
+                        .param("page", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("page는 1 이상이어야 합니다."));
+
+        verify(patternService, never()).searchPatterns(any(), any(), any());
+    }
 }
