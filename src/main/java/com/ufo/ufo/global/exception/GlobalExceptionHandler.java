@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -39,6 +40,13 @@ public class GlobalExceptionHandler {
                 .findFirst()
                 .map(violation -> violation.getMessage() == null ? "잘못된 요청입니다." : violation.getMessage())
                 .orElse("잘못된 요청입니다.");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(String.valueOf(HttpStatus.BAD_REQUEST.value()), message));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingServletRequestParameter(MissingServletRequestParameterException e) {
+        String message = e.getParameterName() + " 파라미터는 필수입니다.";
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(String.valueOf(HttpStatus.BAD_REQUEST.value()), message));
     }
