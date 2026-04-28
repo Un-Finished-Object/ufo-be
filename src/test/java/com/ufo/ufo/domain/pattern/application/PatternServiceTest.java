@@ -206,7 +206,6 @@ class PatternServiceTest {
                         "알파카 90%, 나일론 10%",
                         "store",
                         "2",
-                        "Worsted",
                         180,
                         List.of(new AlternativeGaugeRequest("5.5", 17, 24))
                 )))
@@ -238,7 +237,6 @@ class PatternServiceTest {
                         "메리노 100%",
                         "newStore",
                         "1",
-                        "Sock",
                         140,
                         List.of(new AlternativeGaugeRequest("4.0", 22, 30))
                 )
@@ -279,7 +277,6 @@ class PatternServiceTest {
                         "메리노 100%",
                         "newStore",
                         "1",
-                        "Sock",
                         140,
                         List.of(new AlternativeGaugeRequest("4.0", 22, 30))
                 )))
@@ -292,11 +289,36 @@ class PatternServiceTest {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(patternAlternativeYarnRepository.findAllByPatternIdAndThicknessCategory(10L, "Worsted")).thenReturn(List.of());
 
-      PatternAlternativesResponse response = patternService.getAlternatives(user, 10L, "Worsted");
+      PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
 
       assertThat(response.items()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("대체 실 조회는 도안 기준 실의 굵기 분류를 서버에서 계산해 동일 분류만 조회해야 한다")
+    void getAlternatives_UsesPatternOriginalYarnThicknessCategory() {
+        User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(10L);
+        PatternFixture.setOriginalYarn(pattern, "Base Yarn");
+        Yarn baseYarn = Yarn.builder().name("Base Yarn").thicknessCategory("Worsted").build();
+        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
+                30L,
+                pattern,
+                UserFixture.createUserWithId(2L),
+                YarnFixture.createYarnWithId(20L)
+        );
+
+        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(yarnRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNullOrderByYarnIdAsc("Base Yarn"))
+                .thenReturn(Optional.of(baseYarn));
+        when(patternAlternativeYarnRepository.findAllByPatternIdAndThicknessCategory(10L, "Worsted"))
+                .thenReturn(List.of(alternative));
+
+        PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
+
+        assertThat(response.items()).hasSize(1);
+        verify(patternAlternativeYarnRepository).findAllByPatternIdAndThicknessCategory(10L, "Worsted");
     }
 
     @Test
