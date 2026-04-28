@@ -91,9 +91,10 @@ public class PatternController {
     @GetMapping("/{patternId}/alternatives")
     public ResponseEntity<ApiResponse<PatternAlternativesResponse>> getAlternatives(
             @LoginUser User user,
-            @PathVariable("patternId") Long patternId
+            @PathVariable("patternId") Long patternId,
+            @RequestParam(name = "thicknessCategory") String thicknessCategory
     ) {
-        return ResponseEntity.ok(ApiResponse.success(patternService.getAlternatives(user, patternId)));
+        return ResponseEntity.ok(ApiResponse.success(patternService.getAlternatives(user, patternId, thicknessCategory)));
     }
 
     @PostMapping("/{patternId}/purchase")

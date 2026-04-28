@@ -21,6 +21,20 @@ public interface PatternAlternativeYarnRepository extends JpaRepository<PatternA
             """)
     List<PatternAlternativeYarn> findAllByPattern_IdOrderByIdAsc(@Param("patternId") Long patternId);
 
+    @Query("""
+            select distinct a
+            from PatternAlternativeYarn a
+            join fetch a.yarn
+            join fetch a.user
+            left join fetch a.gauges
+            where a.pattern.id = :patternId
+            and lower(a.yarn.thicknessCategory) = lower(:thicknessCategory)
+            """)
+    List<PatternAlternativeYarn> findAllByPatternIdAndThicknessCategory(
+            @Param("patternId") Long patternId,
+            @Param("thicknessCategory") String thicknessCategory
+    );
+
     Optional<PatternAlternativeYarn> findByIdAndPattern_Id(Long id, Long patternId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

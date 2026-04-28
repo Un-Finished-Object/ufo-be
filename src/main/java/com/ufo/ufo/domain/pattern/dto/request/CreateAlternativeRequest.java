@@ -23,6 +23,8 @@ public record CreateAlternativeRequest(
         String store,
         @NotBlank(message = "thickness 필드의 정보가 올바르지 않습니다.")
         String thickness,
+        @NotBlank(message = "thicknessCategory 필드의 정보가 올바르지 않습니다.")
+        String thicknessCategory,
         @NotNull(message = "length 필드의 정보가 올바르지 않습니다.")
         Integer length,
         @NotEmpty(message = "gauges 필드의 정보가 올바르지 않습니다.")

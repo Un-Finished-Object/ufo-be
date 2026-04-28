@@ -23,6 +23,7 @@ public record PatternAlternativesResponse(List<Item> items) {
             String subComponent,
             String store,
             String thickness,
+            String thicknessCategory,
             Integer length,
             List<Gauge> gauges,
             String username
@@ -53,6 +54,7 @@ public record PatternAlternativesResponse(List<Item> items) {
                     alternative.getYarn().getSubComponent() == null ? "" : alternative.getYarn().getSubComponent(),
                     alternative.getYarn().getVendor() == null ? "" : alternative.getYarn().getVendor(),
                     alternative.getYarn().getThickness() == null ? "" : alternative.getYarn().getThickness(),
+                    alternative.getYarn().getThicknessCategory() == null ? "" : alternative.getYarn().getThicknessCategory(),
                     alternative.getYarn().getLength() == null ? 0 : alternative.getYarn().getLength(),
                     alternative.getGauges().stream().map(Gauge::from).toList(),
                     alternative.getUser() == null ? "" : alternative.getUser().getNickname()
