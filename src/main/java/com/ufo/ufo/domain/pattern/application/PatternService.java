@@ -170,7 +170,7 @@ public class PatternService {
                 .mainComponent(request.mainComponent())
                 .subComponent(request.subComponent())
                 .thickness(request.thickness())
-                .thicknessCategory(toThicknessCategory(request.thickness()))
+                .thicknessCategory(null)
                 .build());
     }
 
@@ -205,17 +205,9 @@ public class PatternService {
                 request.mainComponent(),
                 request.subComponent(),
                 request.thickness(),
-                toThicknessCategory(request.thickness())
+                yarn.getThicknessCategory()
         );
         alternative.update(yarn, request.yarnUri(), toGaugeEntities(request.gauges()));
-    }
-
-    private String toThicknessCategory(String thickness) {
-        if (thickness == null) {
-            return null;
-        }
-        String normalized = thickness.trim();
-        return normalized.isEmpty() ? null : normalized;
     }
 
     private Optional<String> resolveReferenceThicknessCategory(Pattern pattern) {
