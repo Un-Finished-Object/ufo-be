@@ -206,6 +206,7 @@ class PatternServiceTest {
                         "알파카 90%, 나일론 10%",
                         "store",
                         "2",
+                        "Worsted",
                         180,
                         List.of(new AlternativeGaugeRequest("5.5", 17, 24))
                 )))
@@ -237,6 +238,7 @@ class PatternServiceTest {
                         "메리노 100%",
                         "newStore",
                         "1",
+                        "Sock",
                         140,
                         List.of(new AlternativeGaugeRequest("4.0", 22, 30))
                 )
@@ -277,6 +279,7 @@ class PatternServiceTest {
                         "메리노 100%",
                         "newStore",
                         "1",
+                        "Sock",
                         140,
                         List.of(new AlternativeGaugeRequest("4.0", 22, 30))
                 )))
@@ -289,9 +292,9 @@ class PatternServiceTest {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(patternAlternativeYarnRepository.findAllByPattern_IdOrderByIdAsc(10L)).thenReturn(List.of());
+        when(patternAlternativeYarnRepository.findAllByPatternIdAndThicknessCategory(10L, "Worsted")).thenReturn(List.of());
 
-      PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
+      PatternAlternativesResponse response = patternService.getAlternatives(user, 10L, "Worsted");
 
       assertThat(response.items()).isEmpty();
     }

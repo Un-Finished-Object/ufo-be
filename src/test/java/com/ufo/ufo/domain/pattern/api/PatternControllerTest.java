@@ -106,14 +106,14 @@ class PatternControllerTest {
     @DisplayName("대체 실 조회 API는 서비스 응답을 data에 담아 반환해야 한다")
     void getAlternatives_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
-        when(patternService.getAlternatives(user, 10L))
+        when(patternService.getAlternatives(user, 10L, "Worsted"))
                 .thenReturn(new PatternAlternativesResponse(List.of()));
 
-        ResponseEntity<ApiResponse<PatternAlternativesResponse>> response = patternController.getAlternatives(user, 10L);
+        ResponseEntity<ApiResponse<PatternAlternativesResponse>> response = patternController.getAlternatives(user, 10L, "Worsted");
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().items()).isEmpty();
-        verify(patternService).getAlternatives(user, 10L);
+        verify(patternService).getAlternatives(user, 10L, "Worsted");
     }
 
     @Test
@@ -245,6 +245,7 @@ class PatternControllerTest {
                 "알파카 90%, 나일론 10%",
                 "s",
                 "2",
+                "Worsted",
                 180,
                 List.of(new AlternativeGaugeRequest("5.5", 17, 24))
         );
@@ -260,6 +261,7 @@ class PatternControllerTest {
                 "알파카 90%, 나일론 10%",
                 "s",
                 "2",
+                "Worsted",
                 180,
                 List.of(new AlternativeGaugeRequest("5.5", 17, 24))
         );
@@ -277,6 +279,7 @@ class PatternControllerTest {
                 "알파카 90%, 나일론 10%",
                 "s",
                 "2",
+                "Worsted",
                 180,
                 List.of(new PatternAlternativesResponse.Item.Gauge("5.5", 17, 24)),
                 "admin"

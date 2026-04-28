@@ -17,6 +17,7 @@ public final class YarnFixture {
                 .price(1000)
                 .length(120)
                 .thickness("oldT")
+                .thicknessCategory("Worsted")
                 .build();
     }
 
