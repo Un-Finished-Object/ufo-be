@@ -214,9 +214,11 @@ public class PatternService {
         if (pattern.getOriginalYarn() == null || pattern.getOriginalYarn().isBlank()) {
             return Optional.empty();
         }
-        return yarnRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNullOrderByYarnIdAsc(pattern.getOriginalYarn())
+        String originalYarn = pattern.getOriginalYarn().trim();
+        return yarnRepository.findCategorizedByNameOrderByYarnIdAsc(originalYarn).stream()
+                .findFirst()
                 .map(Yarn::getThicknessCategory)
-                .filter(value -> !value.isBlank());
+                .map(String::trim);
     }
 
     private List<AlternativeYarnGauge> toGaugeEntities(List<AlternativeGaugeRequest> gauges) {
