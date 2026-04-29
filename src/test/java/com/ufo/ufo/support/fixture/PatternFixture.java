@@ -58,4 +58,14 @@ public final class PatternFixture {
             throw new IllegalStateException(e);
         }
     }
+
+    public static void setOriginalYarn(Pattern pattern, String originalYarn) {
+        try {
+            Field originalYarnField = Pattern.class.getDeclaredField("originalYarn");
+            originalYarnField.setAccessible(true);
+            originalYarnField.set(pattern, originalYarn);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
 }

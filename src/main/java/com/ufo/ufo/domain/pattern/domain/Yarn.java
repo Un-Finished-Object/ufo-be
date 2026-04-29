@@ -48,6 +48,9 @@ public class Yarn extends BaseEntity {
     @Column(name = "thickness")
     private String thickness;
 
+    @Column(name = "thickness_category")
+    private String thicknessCategory;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -60,7 +63,8 @@ public class Yarn extends BaseEntity {
             Integer length,
             String mainComponent,
             String subComponent,
-            String thickness
+            String thickness,
+            String thicknessCategory
     ) {
         this.name = name;
         this.vendor = vendor;
@@ -70,6 +74,7 @@ public class Yarn extends BaseEntity {
         this.mainComponent = mainComponent;
         this.subComponent = subComponent;
         this.thickness = thickness;
+        this.thicknessCategory = thicknessCategory;
     }
 
     public void update(
@@ -80,7 +85,8 @@ public class Yarn extends BaseEntity {
             Integer length,
             String mainComponent,
             String subComponent,
-            String thickness
+            String thickness,
+            String thicknessCategory
     ) {
         this.name = name;
         this.vendor = vendor;
@@ -90,5 +96,6 @@ public class Yarn extends BaseEntity {
         this.mainComponent = mainComponent;
         this.subComponent = subComponent;
         this.thickness = thickness;
+        this.thicknessCategory = thicknessCategory;
     }
 }

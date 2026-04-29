@@ -25,7 +25,9 @@ import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryNotAllowedException;
 import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryRequiredException;
 import com.ufo.ufo.domain.user.domain.User;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -86,10 +88,15 @@ public class PatternService {
 
     @Transactional
     public PatternAlternativesResponse getAlternatives(User user, Long patternId) {
-        findActivePattern(patternId);
-        return PatternAlternativesResponse.fromAlternatives(
-                patternAlternativeYarnRepository.findAllByPattern_IdOrderByIdAsc(patternId)
-        );
+        Pattern pattern = findActivePattern(patternId);
+        Optional<String> thicknessCategory = resolveReferenceThicknessCategory(pattern);
+        if (thicknessCategory.isEmpty()) {
+            return PatternAlternativesResponse.fromAlternatives(List.of());
+        }
+        List<PatternAlternativeYarn> alternatives = patternAlternativeYarnRepository
+                .findAllByPatternIdAndThicknessCategory(patternId, thicknessCategory.get());
+        Collections.shuffle(alternatives);
+        return PatternAlternativesResponse.fromAlternatives(alternatives);
     }
 
     @Transactional
@@ -163,6 +170,7 @@ public class PatternService {
                 .mainComponent(request.mainComponent())
                 .subComponent(request.subComponent())
                 .thickness(request.thickness())
+                .thicknessCategory(null)
                 .build());
     }
 
@@ -196,9 +204,21 @@ public class PatternService {
                 request.length(),
                 request.mainComponent(),
                 request.subComponent(),
-                request.thickness()
+                request.thickness(),
+                yarn.getThicknessCategory()
         );
         alternative.update(yarn, request.yarnUri(), toGaugeEntities(request.gauges()));
+    }
+
+    private Optional<String> resolveReferenceThicknessCategory(Pattern pattern) {
+        if (pattern.getOriginalYarn() == null || pattern.getOriginalYarn().isBlank()) {
+            return Optional.empty();
+        }
+        String originalYarn = pattern.getOriginalYarn().trim();
+        return yarnRepository.findCategorizedByNameOrderByYarnIdAsc(originalYarn).stream()
+                .findFirst()
+                .map(Yarn::getThicknessCategory)
+                .map(String::trim);
     }
 
     private List<AlternativeYarnGauge> toGaugeEntities(List<AlternativeGaugeRequest> gauges) {
