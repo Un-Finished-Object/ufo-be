@@ -212,7 +212,8 @@ public class PatternService {
 
     private Optional<String> resolveReferenceThicknessCategory(Pattern pattern) {
         Yarn yarn = pattern.getYarn();
-        if (yarn == null || yarn.getThicknessCategory() == null || yarn.getThicknessCategory().isBlank()) {
+        if (yarn == null || yarn.getDeletedAt() != null
+                || yarn.getThicknessCategory() == null || yarn.getThicknessCategory().isBlank()) {
             return Optional.empty();
         }
         return Optional.of(yarn.getThicknessCategory().trim());

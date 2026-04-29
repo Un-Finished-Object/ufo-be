@@ -30,6 +30,7 @@ import com.ufo.ufo.support.fixture.PatternAlternativeYarnFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import com.ufo.ufo.support.fixture.YarnFixture;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -343,6 +344,27 @@ class PatternServiceTest {
         assertThat(response.items()).hasSize(1);
         verifyNoInteractions(yarnRepository);
         verify(patternAlternativeYarnRepository).findAllByPatternIdAndThicknessCategory(10L, "Worsted");
+    }
+
+    @Test
+    @DisplayName("대체 실 조회는 삭제된 원작 실을 기준으로 사용하지 않아야 한다")
+    void getAlternatives_DeletedPatternYarn_ReturnsEmpty() {
+        User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(10L);
+        Yarn baseYarn = Yarn.builder()
+                .name("Base Yarn")
+                .thicknessCategory("Worsted")
+                .build();
+        YarnFixture.setDeletedAt(baseYarn, LocalDateTime.now());
+        PatternFixture.setYarn(pattern, baseYarn);
+
+        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+
+        PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
+
+        assertThat(response.items()).isEmpty();
+        verifyNoInteractions(yarnRepository);
+        verifyNoInteractions(patternAlternativeYarnRepository);
     }
 
     @Test
