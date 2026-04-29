@@ -296,12 +296,12 @@ class PatternServiceTest {
     }
 
     @Test
-    @DisplayName("대체 실 조회는 도안 기준 실의 굵기 분류를 서버에서 계산해 동일 분류만 조회해야 한다")
-    void getAlternatives_UsesPatternOriginalYarnThicknessCategory() {
+    @DisplayName("대체 실 조회는 도안에 연결된 원작 실의 굵기 분류로 동일 분류만 조회해야 한다")
+    void getAlternatives_UsesPatternYarnThicknessCategory() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
-        PatternFixture.setOriginalYarn(pattern, "Base Yarn");
-        Yarn baseYarn = Yarn.builder().name("Base Yarn").thicknessCategory("Worsted").build();
+        Yarn baseYarn = Yarn.builder().name("Different Display Name").thicknessCategory("Worsted").build();
+        PatternFixture.setYarn(pattern, baseYarn);
         PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
                 30L,
                 pattern,
@@ -310,25 +310,23 @@ class PatternServiceTest {
         );
 
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(yarnRepository.findCategorizedByNameOrderByYarnIdAsc("Base Yarn"))
-                .thenReturn(List.of(baseYarn));
         when(patternAlternativeYarnRepository.findAllByPatternIdAndThicknessCategory(10L, "Worsted"))
                 .thenReturn(List.of(alternative));
 
         PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
 
         assertThat(response.items()).hasSize(1);
-        verify(yarnRepository).findCategorizedByNameOrderByYarnIdAsc("Base Yarn");
+        verifyNoInteractions(yarnRepository);
         verify(patternAlternativeYarnRepository).findAllByPatternIdAndThicknessCategory(10L, "Worsted");
     }
 
     @Test
-    @DisplayName("대체 실 조회는 도안 기준 실 이름의 앞뒤 공백을 제거하고 분류가 있는 실을 조회해야 한다")
-    void getAlternatives_TrimsOriginalYarnAndUsesCategorizedYarn() {
+    @DisplayName("대체 실 조회는 도안에 연결된 원작 실의 굵기 분류 앞뒤 공백을 제거해야 한다")
+    void getAlternatives_TrimsPatternYarnThicknessCategory() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
-        PatternFixture.setOriginalYarn(pattern, "  Base Yarn  ");
         Yarn baseYarn = Yarn.builder().name("Base Yarn").thicknessCategory(" Worsted ").build();
+        PatternFixture.setYarn(pattern, baseYarn);
         PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
                 30L,
                 pattern,
@@ -337,15 +335,13 @@ class PatternServiceTest {
         );
 
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(yarnRepository.findCategorizedByNameOrderByYarnIdAsc("Base Yarn"))
-                .thenReturn(List.of(baseYarn));
         when(patternAlternativeYarnRepository.findAllByPatternIdAndThicknessCategory(10L, "Worsted"))
                 .thenReturn(List.of(alternative));
 
         PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
 
         assertThat(response.items()).hasSize(1);
-        verify(yarnRepository).findCategorizedByNameOrderByYarnIdAsc("Base Yarn");
+        verifyNoInteractions(yarnRepository);
         verify(patternAlternativeYarnRepository).findAllByPatternIdAndThicknessCategory(10L, "Worsted");
     }
 

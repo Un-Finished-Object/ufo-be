@@ -39,7 +39,7 @@ public record PatternDetailResponse(
                     pattern.getCategoryMain(),
                     pattern.getCategorySub(),
                     pattern.getGauge(),
-                    pattern.getOriginalYarn(),
+                    pattern.getOriginalYarnName(),
                     pattern.getNeedleSize(),
                     pattern.getRequiredYarnAmount(),
                     pattern.getSize(),

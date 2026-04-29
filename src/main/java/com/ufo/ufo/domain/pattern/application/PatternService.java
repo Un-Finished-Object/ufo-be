@@ -211,14 +211,11 @@ public class PatternService {
     }
 
     private Optional<String> resolveReferenceThicknessCategory(Pattern pattern) {
-        if (pattern.getOriginalYarn() == null || pattern.getOriginalYarn().isBlank()) {
+        Yarn yarn = pattern.getYarn();
+        if (yarn == null || yarn.getThicknessCategory() == null || yarn.getThicknessCategory().isBlank()) {
             return Optional.empty();
         }
-        String originalYarn = pattern.getOriginalYarn().trim();
-        return yarnRepository.findCategorizedByNameOrderByYarnIdAsc(originalYarn).stream()
-                .findFirst()
-                .map(Yarn::getThicknessCategory)
-                .map(String::trim);
+        return Optional.of(yarn.getThicknessCategory().trim());
     }
 
     private List<AlternativeYarnGauge> toGaugeEntities(List<AlternativeGaugeRequest> gauges) {
