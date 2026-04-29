@@ -310,14 +310,42 @@ class PatternServiceTest {
         );
 
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(yarnRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNullOrderByYarnIdAsc("Base Yarn"))
-                .thenReturn(Optional.of(baseYarn));
+        when(yarnRepository.findCategorizedByNameOrderByYarnIdAsc("Base Yarn"))
+                .thenReturn(List.of(baseYarn));
         when(patternAlternativeYarnRepository.findAllByPatternIdAndThicknessCategory(10L, "Worsted"))
                 .thenReturn(List.of(alternative));
 
         PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
 
         assertThat(response.items()).hasSize(1);
+        verify(yarnRepository).findCategorizedByNameOrderByYarnIdAsc("Base Yarn");
+        verify(patternAlternativeYarnRepository).findAllByPatternIdAndThicknessCategory(10L, "Worsted");
+    }
+
+    @Test
+    @DisplayName("대체 실 조회는 도안 기준 실 이름의 앞뒤 공백을 제거하고 분류가 있는 실을 조회해야 한다")
+    void getAlternatives_TrimsOriginalYarnAndUsesCategorizedYarn() {
+        User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(10L);
+        PatternFixture.setOriginalYarn(pattern, "  Base Yarn  ");
+        Yarn baseYarn = Yarn.builder().name("Base Yarn").thicknessCategory(" Worsted ").build();
+        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
+                30L,
+                pattern,
+                UserFixture.createUserWithId(2L),
+                YarnFixture.createYarnWithId(20L)
+        );
+
+        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(yarnRepository.findCategorizedByNameOrderByYarnIdAsc("Base Yarn"))
+                .thenReturn(List.of(baseYarn));
+        when(patternAlternativeYarnRepository.findAllByPatternIdAndThicknessCategory(10L, "Worsted"))
+                .thenReturn(List.of(alternative));
+
+        PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
+
+        assertThat(response.items()).hasSize(1);
+        verify(yarnRepository).findCategorizedByNameOrderByYarnIdAsc("Base Yarn");
         verify(patternAlternativeYarnRepository).findAllByPatternIdAndThicknessCategory(10L, "Worsted");
     }
 
