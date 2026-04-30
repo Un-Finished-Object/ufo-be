@@ -46,7 +46,15 @@ class ChatControllerTest {
                 38L,
                 true,
                 20L,
-                List.of(new ChatMessageItemResponse("테스터", 49L, "안녕하세요", LocalDateTime.of(2026, 3, 9, 13, 20, 10)))
+                List.of(new ChatMessageItemResponse(
+                        1L,
+                        "테스터",
+                        49L,
+                        "안녕하세요",
+                        null,
+                        null,
+                        LocalDateTime.of(2026, 3, 9, 13, 20, 10)
+                ))
         );
         when(chatMessageService.getMessages(user, roomId, messageId)).thenReturn(serviceResponse);
 
@@ -58,8 +66,10 @@ class ChatControllerTest {
         assertThat(response.getBody().data().hasNext()).isTrue();
         assertThat(response.getBody().data().nextMessageId()).isEqualTo(20L);
         assertThat(response.getBody().data().messages()).hasSize(1);
-        assertThat(response.getBody().data().messages().getFirst().userName()).isEqualTo("테스터");
+        assertThat(response.getBody().data().messages().getFirst().senderId()).isEqualTo(1L);
+        assertThat(response.getBody().data().messages().getFirst().senderName()).isEqualTo("테스터");
         assertThat(response.getBody().data().messages().getFirst().messageId()).isEqualTo(49L);
+        assertThat(response.getBody().data().messages().getFirst().replyMessageId()).isNull();
         assertThat(response.getBody().error()).isNull();
         verify(chatMessageService).getMessages(user, roomId, messageId);
     }

@@ -67,20 +67,30 @@ public class ChatWebSocketService {
             return;
         }
 
+        Optional<ChatMessage> maybeReplyMessage = resolveReplyMessage(request, roomId, clientMessageId);
+        if (request.replyRequested() && maybeReplyMessage.isEmpty()) {
+            return;
+        }
+
         ChatMessage savedMessage = chatMessageRepository.save(
                 ChatMessage.builder()
                         .room(maybeRoom.get())
                         .user(sender)
                         .text(text)
+                        .replyMessage(maybeReplyMessage.orElse(null))
                         .build()
         );
 
+        ChatMessage replyMessage = savedMessage.getReplyMessage();
         ChatMessageCreatedPayload payload = new ChatMessageCreatedPayload(
                 savedMessage.getId(),
                 clientMessageId,
                 sender.getId(),
+                sender.getProfileImage(),
                 sender.getNickname(),
                 text,
+                replyMessage == null ? null : replyMessage.getUser().getNickname(),
+                replyMessage == null ? null : replyMessage.getId(),
                 savedMessage.getCreatedAt()
         );
         messagingTemplate.convertAndSend(roomDestination(roomId),
@@ -175,6 +185,26 @@ public class ChatWebSocketService {
             return null;
         }
         return trimmed;
+    }
+
+    private Optional<ChatMessage> resolveReplyMessage(ChatMessageSendRequest request, Long roomId, String clientMessageId) {
+        if (!request.replyRequested()) {
+            return Optional.empty();
+        }
+
+        Long replyMessageId = request.replyMessageId();
+        if (replyMessageId == null || replyMessageId <= 0) {
+            sendError(roomId, "CHAT_REPLY_MESSAGE_NOT_FOUND", "답장 대상 메시지를 찾을 수 없습니다.", clientMessageId);
+            return Optional.empty();
+        }
+
+        Optional<ChatMessage> maybeReplyMessage = chatMessageRepository.findByIdAndRoom_Id(replyMessageId, roomId);
+        if (maybeReplyMessage.isEmpty()) {
+            sendError(roomId, "CHAT_REPLY_MESSAGE_NOT_FOUND", "답장 대상 메시지를 찾을 수 없습니다.", clientMessageId);
+            return Optional.empty();
+        }
+
+        return maybeReplyMessage;
     }
 
     private boolean isNotJoinedRoom(Long userId, Long roomId) {

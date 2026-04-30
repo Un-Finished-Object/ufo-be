@@ -38,10 +38,15 @@ public class ChatMessage extends BaseEntity {
     @Column(name = "text", nullable = false, length = 1000)
     private String text;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reply_to_message_id")
+    private ChatMessage replyMessage;
+
     @Builder
-    public ChatMessage(ChatRoom room, User user, String text) {
+    public ChatMessage(ChatRoom room, User user, String text, ChatMessage replyMessage) {
         this.room = room;
         this.user = user;
         this.text = text;
+        this.replyMessage = replyMessage;
     }
 }
