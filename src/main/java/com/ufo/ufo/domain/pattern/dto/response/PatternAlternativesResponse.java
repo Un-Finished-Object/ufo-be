@@ -1,6 +1,8 @@
 package com.ufo.ufo.domain.pattern.dto.response;
 
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
+import com.ufo.ufo.domain.pattern.domain.Yarn;
+import com.ufo.ufo.domain.pattern.domain.YarnGauge;
 import java.util.List;
 
 public record PatternAlternativesResponse(List<Item> items) {
@@ -8,8 +10,8 @@ public record PatternAlternativesResponse(List<Item> items) {
         return new PatternAlternativesResponse(items);
     }
 
-    public static PatternAlternativesResponse fromAlternatives(List<PatternAlternativeYarn> alternatives) {
-        return new PatternAlternativesResponse(alternatives.stream().map(Item::from).toList());
+    public static PatternAlternativesResponse fromYarns(List<Yarn> yarns) {
+        return new PatternAlternativesResponse(yarns.stream().map(Item::from).toList());
     }
 
     public record Item(
@@ -32,7 +34,7 @@ public record PatternAlternativesResponse(List<Item> items) {
                 Integer stitch,
                 Integer row
         ) {
-            public static Gauge from(com.ufo.ufo.domain.pattern.domain.AlternativeYarnGauge gauge) {
+            public static Gauge from(YarnGauge gauge) {
                 return new Gauge(
                         gauge.getNeedleSize(),
                         gauge.getStitch(),
@@ -42,20 +44,30 @@ public record PatternAlternativesResponse(List<Item> items) {
         }
 
         public static Item from(PatternAlternativeYarn alternative) {
+            Yarn yarn = alternative.getYarn();
+            return from(yarn, alternative.getId(), alternative.getImageUrl(),
+                    alternative.getUser() == null ? "" : alternative.getUser().getNickname());
+        }
+
+        public static Item from(Yarn yarn) {
+            return from(yarn, null, "", "");
+        }
+
+        private static Item from(Yarn yarn, Long altId, String yarnUri, String username) {
             return new Item(
-                    alternative.getId(),
-                    alternative.getYarn().getYarnId(),
-                    alternative.getYarn().getName(),
-                    alternative.getImageUrl(),
-                    alternative.getYarn().getWeightG() == null ? 0 : alternative.getYarn().getWeightG(),
-                    alternative.getYarn().getPrice() == null ? 0 : alternative.getYarn().getPrice(),
-                    alternative.getYarn().getMainComponent() == null ? "" : alternative.getYarn().getMainComponent(),
-                    alternative.getYarn().getSubComponent() == null ? "" : alternative.getYarn().getSubComponent(),
-                    alternative.getYarn().getVendor() == null ? "" : alternative.getYarn().getVendor(),
-                    alternative.getYarn().getThickness() == null ? "" : alternative.getYarn().getThickness(),
-                    alternative.getYarn().getLength() == null ? 0 : alternative.getYarn().getLength(),
-                    alternative.getGauges().stream().map(Gauge::from).toList(),
-                    alternative.getUser() == null ? "" : alternative.getUser().getNickname()
+                    altId,
+                    yarn.getYarnId(),
+                    yarn.getName(),
+                    yarnUri == null ? "" : yarnUri,
+                    yarn.getWeightG() == null ? 0 : yarn.getWeightG(),
+                    yarn.getPrice() == null ? 0 : yarn.getPrice(),
+                    yarn.getMainComponent() == null ? "" : yarn.getMainComponent(),
+                    yarn.getSubComponent() == null ? "" : yarn.getSubComponent(),
+                    yarn.getVendor() == null ? "" : yarn.getVendor(),
+                    yarn.getThickness() == null ? "" : yarn.getThickness(),
+                    yarn.getLength() == null ? 0 : yarn.getLength(),
+                    yarn.getGauges().stream().map(Gauge::from).toList(),
+                    username
             );
         }
     }
