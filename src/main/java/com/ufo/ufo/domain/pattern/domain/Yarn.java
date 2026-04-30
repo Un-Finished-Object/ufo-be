@@ -1,13 +1,17 @@
 package com.ufo.ufo.domain.pattern.domain;
 
 import com.ufo.ufo.global.base.BaseEntity;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -51,6 +55,9 @@ public class Yarn extends BaseEntity {
     @Column(name = "thickness_category")
     private String thicknessCategory;
 
+    @OneToMany(mappedBy = "yarn", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<YarnGauge> gauges = new ArrayList<>();
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -64,7 +71,8 @@ public class Yarn extends BaseEntity {
             String mainComponent,
             String subComponent,
             String thickness,
-            String thicknessCategory
+            String thicknessCategory,
+            List<YarnGauge> gauges
     ) {
         this.name = name;
         this.vendor = vendor;
@@ -75,6 +83,7 @@ public class Yarn extends BaseEntity {
         this.subComponent = subComponent;
         this.thickness = thickness;
         this.thicknessCategory = thicknessCategory;
+        replaceGauges(gauges);
     }
 
     public void update(
@@ -86,7 +95,8 @@ public class Yarn extends BaseEntity {
             String mainComponent,
             String subComponent,
             String thickness,
-            String thicknessCategory
+            String thicknessCategory,
+            List<YarnGauge> gauges
     ) {
         this.name = name;
         this.vendor = vendor;
@@ -97,5 +107,22 @@ public class Yarn extends BaseEntity {
         this.subComponent = subComponent;
         this.thickness = thickness;
         this.thicknessCategory = thicknessCategory;
+        replaceGauges(gauges);
+    }
+
+    public void replaceGauges(List<YarnGauge> gauges) {
+        this.gauges.clear();
+        if (gauges == null) {
+            return;
+        }
+        gauges.forEach(this::addGauge);
+    }
+
+    public void addGauge(YarnGauge gauge) {
+        if (gauge == null) {
+            return;
+        }
+        gauge.assignYarn(this);
+        this.gauges.add(gauge);
     }
 }
