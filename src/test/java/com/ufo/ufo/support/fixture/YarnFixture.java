@@ -2,6 +2,7 @@ package com.ufo.ufo.support.fixture;
 
 import com.ufo.ufo.domain.pattern.domain.Yarn;
 import java.lang.reflect.Field;
+import java.time.LocalDateTime;
 
 public final class YarnFixture {
 
@@ -32,6 +33,16 @@ public final class YarnFixture {
             Field idField = Yarn.class.getDeclaredField("yarnId");
             idField.setAccessible(true);
             idField.set(yarn, id);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public static void setDeletedAt(Yarn yarn, LocalDateTime deletedAt) {
+        try {
+            Field deletedAtField = Yarn.class.getDeclaredField("deletedAt");
+            deletedAtField.setAccessible(true);
+            deletedAtField.set(yarn, deletedAt);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }

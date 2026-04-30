@@ -1,6 +1,7 @@
 package com.ufo.ufo.support.fixture;
 
 import com.ufo.ufo.domain.pattern.domain.Pattern;
+import com.ufo.ufo.domain.pattern.domain.Yarn;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 
@@ -59,11 +60,11 @@ public final class PatternFixture {
         }
     }
 
-    public static void setOriginalYarn(Pattern pattern, String originalYarn) {
+    public static void setYarn(Pattern pattern, Yarn yarn) {
         try {
-            Field originalYarnField = Pattern.class.getDeclaredField("originalYarn");
-            originalYarnField.setAccessible(true);
-            originalYarnField.set(pattern, originalYarn);
+            Field yarnField = Pattern.class.getDeclaredField("yarn");
+            yarnField.setAccessible(true);
+            yarnField.set(pattern, yarn);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }

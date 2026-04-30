@@ -33,6 +33,10 @@ public class Pattern extends BaseEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "yarn_id")
+    private Yarn yarn;
+
     @Column(name = "title", nullable = false)
     private String title;
 
@@ -57,9 +61,6 @@ public class Pattern extends BaseEntity {
     @Column(name = "needle_size")
     private String needleSize;
 
-    @Column(name = "original_yarn")
-    private String originalYarn;
-
     @Column(name = "required_yarn_amount")
     private String requiredYarnAmount;
 
@@ -82,8 +83,9 @@ public class Pattern extends BaseEntity {
     @Builder
     public Pattern(User user, String title, String designer, String categoryMain, String categorySub,
                    String thumbnailUrl, String size, String actualSize, String needleSize,
-                   String originalYarn, String requiredYarnAmount, String gauge, Integer scrapsCount, Integer viewCount) {
+                   Yarn yarn, String requiredYarnAmount, String gauge, Integer scrapsCount, Integer viewCount) {
         this.user = user;
+        this.yarn = yarn;
         this.title = title;
         this.designer = designer;
         this.categoryMain = categoryMain;
@@ -92,7 +94,6 @@ public class Pattern extends BaseEntity {
         this.size = size;
         this.actualSize = actualSize;
         this.needleSize = needleSize;
-        this.originalYarn = originalYarn;
         this.requiredYarnAmount = requiredYarnAmount;
         this.gauge = gauge;
         this.scrapsCount = (scrapsCount == null) ? 0 : scrapsCount;
@@ -111,5 +112,12 @@ public class Pattern extends BaseEntity {
         if (this.scrapsCount > 0) {
             this.scrapsCount -= 1;
         }
+    }
+
+    public String getOriginalYarnName() {
+        if (yarn != null) {
+            return yarn.getName();
+        }
+        return null;
     }
 }
