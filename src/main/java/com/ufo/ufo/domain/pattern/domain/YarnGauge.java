@@ -10,18 +10,18 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Getter
-@Table(name = "pattern_alternative_yarn_gauges")
+@Table(name = "yarn_gauges")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class AlternativeYarnGauge extends BaseEntity {
+public class YarnGauge extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,9 +29,9 @@ public class AlternativeYarnGauge extends BaseEntity {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "alternative_id")
+    @JoinColumn(name = "yarn_id")
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private PatternAlternativeYarn alternative;
+    private Yarn yarn;
 
     @Column(name = "needle_size")
     private String needleSize;
@@ -43,13 +43,13 @@ public class AlternativeYarnGauge extends BaseEntity {
     private Integer rowCount;
 
     @Builder
-    public AlternativeYarnGauge(String needleSize, Integer stitch, Integer rowCount) {
+    public YarnGauge(String needleSize, Integer stitch, Integer rowCount) {
         this.needleSize = needleSize;
         this.stitch = stitch;
         this.rowCount = rowCount;
     }
 
-    void assignAlternative(PatternAlternativeYarn alternative) {
-        this.alternative = alternative;
+    void assignYarn(Yarn yarn) {
+        this.yarn = yarn;
     }
 }

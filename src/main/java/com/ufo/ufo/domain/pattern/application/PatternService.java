@@ -4,13 +4,13 @@ import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.dao.YarnRepository;
-import com.ufo.ufo.domain.pattern.domain.AlternativeYarnGauge;
 import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.pattern.domain.PatternImage;
 import com.ufo.ufo.domain.pattern.domain.PatternSort;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
+import com.ufo.ufo.domain.pattern.domain.YarnGauge;
 import com.ufo.ufo.domain.pattern.dto.request.AlternativeGaugeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
@@ -91,12 +91,11 @@ public class PatternService {
         Pattern pattern = findActivePattern(patternId);
         Optional<String> thicknessCategory = resolveReferenceThicknessCategory(pattern);
         if (thicknessCategory.isEmpty()) {
-            return PatternAlternativesResponse.fromAlternatives(List.of());
+            return PatternAlternativesResponse.fromYarns(List.of());
         }
-        List<PatternAlternativeYarn> alternatives = patternAlternativeYarnRepository
-                .findAllByPatternIdAndThicknessCategory(patternId, thicknessCategory.get());
-        Collections.shuffle(alternatives);
-        return PatternAlternativesResponse.fromAlternatives(alternatives);
+        List<Yarn> yarns = yarnRepository.findAllActiveByThicknessCategory(thicknessCategory.get());
+        Collections.shuffle(yarns);
+        return PatternAlternativesResponse.fromYarns(yarns);
     }
 
     @Transactional
@@ -171,6 +170,7 @@ public class PatternService {
                 .subComponent(request.subComponent())
                 .thickness(request.thickness())
                 .thicknessCategory(null)
+                .gauges(toGaugeEntities(request.gauges()))
                 .build());
     }
 
@@ -185,7 +185,6 @@ public class PatternService {
                 .user(user)
                 .yarn(yarn)
                 .imageUrl(request.yarnUri())
-                .gauges(toGaugeEntities(request.gauges()))
                 .build());
     }
 
@@ -205,9 +204,10 @@ public class PatternService {
                 request.mainComponent(),
                 request.subComponent(),
                 request.thickness(),
-                yarn.getThicknessCategory()
+                yarn.getThicknessCategory(),
+                toGaugeEntities(request.gauges())
         );
-        alternative.update(yarn, request.yarnUri(), toGaugeEntities(request.gauges()));
+        alternative.update(yarn, request.yarnUri());
     }
 
     private Optional<String> resolveReferenceThicknessCategory(Pattern pattern) {
@@ -219,9 +219,9 @@ public class PatternService {
         return Optional.of(yarn.getThicknessCategory().trim());
     }
 
-    private List<AlternativeYarnGauge> toGaugeEntities(List<AlternativeGaugeRequest> gauges) {
+    private List<YarnGauge> toGaugeEntities(List<AlternativeGaugeRequest> gauges) {
         return gauges.stream()
-                .map(gauge -> AlternativeYarnGauge.builder()
+                .map(gauge -> YarnGauge.builder()
                         .needleSize(gauge.needleSize())
                         .stitch(gauge.stitch())
                         .rowCount(gauge.row())

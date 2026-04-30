@@ -303,22 +303,18 @@ class PatternServiceTest {
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         Yarn baseYarn = Yarn.builder().name("Different Display Name").thicknessCategory("Worsted").build();
         PatternFixture.setYarn(pattern, baseYarn);
-        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
-                30L,
-                pattern,
-                UserFixture.createUserWithId(2L),
-                YarnFixture.createYarnWithId(20L)
-        );
+        Yarn recommendedYarn = YarnFixture.createYarnWithId(20L);
 
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(patternAlternativeYarnRepository.findAllByPatternIdAndThicknessCategory(10L, "Worsted"))
-                .thenReturn(List.of(alternative));
+        when(yarnRepository.findAllActiveByThicknessCategory("Worsted"))
+                .thenReturn(List.of(recommendedYarn));
 
         PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
 
         assertThat(response.items()).hasSize(1);
-        verifyNoInteractions(yarnRepository);
-        verify(patternAlternativeYarnRepository).findAllByPatternIdAndThicknessCategory(10L, "Worsted");
+        assertThat(response.items().getFirst().yarnId()).isEqualTo(20L);
+        verifyNoInteractions(patternAlternativeYarnRepository);
+        verify(yarnRepository).findAllActiveByThicknessCategory("Worsted");
     }
 
     @Test
@@ -328,22 +324,17 @@ class PatternServiceTest {
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         Yarn baseYarn = Yarn.builder().name("Base Yarn").thicknessCategory(" Worsted ").build();
         PatternFixture.setYarn(pattern, baseYarn);
-        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
-                30L,
-                pattern,
-                UserFixture.createUserWithId(2L),
-                YarnFixture.createYarnWithId(20L)
-        );
+        Yarn recommendedYarn = YarnFixture.createYarnWithId(20L);
 
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(patternAlternativeYarnRepository.findAllByPatternIdAndThicknessCategory(10L, "Worsted"))
-                .thenReturn(List.of(alternative));
+        when(yarnRepository.findAllActiveByThicknessCategory("Worsted"))
+                .thenReturn(List.of(recommendedYarn));
 
         PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
 
         assertThat(response.items()).hasSize(1);
-        verifyNoInteractions(yarnRepository);
-        verify(patternAlternativeYarnRepository).findAllByPatternIdAndThicknessCategory(10L, "Worsted");
+        verifyNoInteractions(patternAlternativeYarnRepository);
+        verify(yarnRepository).findAllActiveByThicknessCategory("Worsted");
     }
 
     @Test

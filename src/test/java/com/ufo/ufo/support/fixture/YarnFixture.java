@@ -1,8 +1,10 @@
 package com.ufo.ufo.support.fixture;
 
 import com.ufo.ufo.domain.pattern.domain.Yarn;
+import com.ufo.ufo.domain.pattern.domain.YarnGauge;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public final class YarnFixture {
 
@@ -19,6 +21,11 @@ public final class YarnFixture {
                 .length(120)
                 .thickness("oldT")
                 .thicknessCategory("Worsted")
+                .gauges(List.of(YarnGauge.builder()
+                        .needleSize("5.5")
+                        .stitch(17)
+                        .rowCount(24)
+                        .build()))
                 .build();
     }
 
