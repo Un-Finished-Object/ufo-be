@@ -99,10 +99,59 @@ class ChatMessageServiceTest {
         assertThat(response.hasNext()).isFalse();
         assertThat(response.nextMessageId()).isNull();
         assertThat(response.messages()).hasSize(1);
-        assertThat(response.messages().getFirst().userName()).isEqualTo("tester");
+        assertThat(response.messages().getFirst().senderId()).isEqualTo(1L);
+        assertThat(response.messages().getFirst().senderName()).isEqualTo("tester");
         assertThat(response.messages().getFirst().messageId()).isEqualTo(50L);
         assertThat(response.messages().getFirst().text()).isEqualTo("안녕하세요");
+        assertThat(response.messages().getFirst().replySenderName()).isNull();
+        assertThat(response.messages().getFirst().replyMessageId()).isNull();
         assertThat(response.messages().getFirst().createdAt()).isEqualTo(LocalDateTime.of(2026, 3, 9, 12, 0));
+    }
+
+    @Test
+    @DisplayName("답장 메시지는 원본 메시지 ID와 원본 발신자 이름을 함께 반환해야 한다")
+    void getMessages_WithReply_ReturnsReplyMetadata() {
+        Long roomId = 10L;
+        User user = UserFixture.createUserWithId(1L);
+        User replySender = UserFixture.createUserWithId(2L);
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
+        ChatRoomStatus roomStatus = ChatRoomStatus.builder()
+                .user(user)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .build();
+
+        ChatMessage replyMessage = ChatMessage.builder()
+                .room(room)
+                .user(replySender)
+                .text("원본 메시지")
+                .build();
+        setId(replyMessage, 49L);
+
+        ChatMessage message = ChatMessage.builder()
+                .room(room)
+                .user(user)
+                .text("답장 메시지")
+                .replyMessage(replyMessage)
+                .build();
+        setId(message, 50L);
+        setCreatedAt(message, LocalDateTime.of(2026, 3, 9, 12, 0));
+
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
+        when(userService.getUserById(1L)).thenReturn(user);
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(1L, roomId)).thenReturn(Optional.of(roomStatus));
+        when(chatMessageRepository.findByRoom_IdOrderByIdDesc(roomId, PageRequest.of(0, 31)))
+                .thenReturn(List.of(message));
+        when(chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, 1L))
+                .thenReturn(Optional.empty());
+
+        ChatMessagesResponse response = chatMessageService.getMessages(user, roomId, null);
+
+        assertThat(response.messages()).hasSize(1);
+        assertThat(response.messages().getFirst().replySenderName()).isEqualTo("tester");
+        assertThat(response.messages().getFirst().replyMessageId()).isEqualTo(49L);
     }
 
     @Test

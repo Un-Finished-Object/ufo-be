@@ -3,6 +3,7 @@ package com.ufo.ufo.domain.chat.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -94,7 +95,7 @@ class ChatWebSocketServiceTest {
         when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(savedMessage);
 
         chatWebSocketService.publishMessage(principal,
-                new ChatMessageSendRequest(roomId, " 안녕하세요 ", "temp-123456"));
+                new ChatMessageSendRequest(roomId, " 안녕하세요 ", "temp-123456", null, null));
 
         ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
         verify(messagingTemplate).convertAndSend(eq("/sub/chat/rooms/10"), payloadCaptor.capture());
@@ -107,9 +108,143 @@ class ChatWebSocketServiceTest {
         assertThat(payload.messageId()).isEqualTo(1L);
         assertThat(payload.clientMessageId()).isEqualTo("temp-123456");
         assertThat(payload.senderId()).isEqualTo(21L);
+        assertThat(payload.senderProfile()).isEqualTo(user.getProfileImage());
         assertThat(payload.senderName()).isEqualTo(user.getNickname());
         assertThat(payload.text()).isEqualTo("안녕하세요");
+        assertThat(payload.replySenderName()).isNull();
+        assertThat(payload.replyMessageId()).isNull();
         assertThat(payload.createdAt()).isEqualTo(LocalDateTime.of(2026, 3, 9, 10, 0));
+    }
+
+    @Test
+    @DisplayName("답장 메시지 전송 시 MESSAGE_CREATED 이벤트에 답장 정보를 포함해야 한다")
+    void publishMessage_WithReply_BroadcastsReplyMetadata() {
+        Long roomId = 10L;
+        String userEmail = "test@example.com";
+        User user = UserFixture.createUser(userEmail, com.ufo.ufo.global.security.types.Role.ROLE_USER);
+        UserFixture.setId(user, 21L);
+        User replySender = UserFixture.createUser("reply@example.com", com.ufo.ufo.global.security.types.Role.ROLE_USER);
+        UserFixture.setId(replySender, 22L);
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
+        ChatRoomStatus roomStatus = ChatRoomStatus.builder()
+                .user(user)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .build();
+        ChatMessage replyMessage = ChatMessage.builder()
+                .room(room)
+                .user(replySender)
+                .text("원본 메시지")
+                .build();
+        setId(replyMessage, 38L);
+        ChatMessage savedMessage = ChatMessage.builder()
+                .room(room)
+                .user(user)
+                .text("답장입니다")
+                .replyMessage(replyMessage)
+                .build();
+        setId(savedMessage, 52L);
+        setCreatedAt(savedMessage, LocalDateTime.of(2026, 3, 9, 10, 0));
+        Principal principal = () -> userEmail;
+
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
+        when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
+        when(chatMessageRepository.findById(38L)).thenReturn(Optional.of(replyMessage));
+        when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(savedMessage);
+
+        chatWebSocketService.publishMessage(principal,
+                new ChatMessageSendRequest(roomId, " 답장입니다 ", "temp-reply-1", true, 38L));
+
+        ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(messagingTemplate).convertAndSend(eq("/sub/chat/rooms/10"), payloadCaptor.capture());
+
+        ChatSocketEvent<?> event = (ChatSocketEvent<?>) payloadCaptor.getValue();
+        ChatMessageCreatedPayload payload = (ChatMessageCreatedPayload) event.payload();
+        assertThat(payload.messageId()).isEqualTo(52L);
+        assertThat(payload.replySenderName()).isEqualTo(replySender.getNickname());
+        assertThat(payload.replyMessageId()).isEqualTo(38L);
+    }
+
+    @Test
+    @DisplayName("다른 채팅방 메시지를 답장 대상으로 지정하면 ERROR 이벤트를 브로드캐스트해야 한다")
+    void publishMessage_ReplyMessageInOtherRoom_BroadcastsErrorEvent() {
+        Long roomId = 10L;
+        String userEmail = "test@example.com";
+        User user = UserFixture.createUser(userEmail, com.ufo.ufo.global.security.types.Role.ROLE_USER);
+        UserFixture.setId(user, 21L);
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
+        ChatRoom otherRoom = ChatRoomFixture.createRoomWithId(pattern, 11L);
+        ChatRoomStatus roomStatus = ChatRoomStatus.builder()
+                .user(user)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .build();
+        ChatMessage replyMessage = ChatMessage.builder()
+                .room(otherRoom)
+                .user(user)
+                .text("다른 방 메시지")
+                .build();
+        setId(replyMessage, 38L);
+        Principal principal = () -> userEmail;
+
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
+        when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
+        when(chatMessageRepository.findById(38L)).thenReturn(Optional.of(replyMessage));
+
+        chatWebSocketService.publishMessage(principal,
+                new ChatMessageSendRequest(roomId, "답장입니다", "temp-reply-2", true, 38L));
+
+        ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(messagingTemplate).convertAndSend(eq("/sub/chat/rooms/10"), payloadCaptor.capture());
+        verify(chatMessageRepository, never()).save(any(ChatMessage.class));
+
+        ChatSocketEvent<?> event = (ChatSocketEvent<?>) payloadCaptor.getValue();
+        assertThat(event.eventType()).isEqualTo(ChatEventType.ERROR);
+        ChatErrorPayload payload = (ChatErrorPayload) event.payload();
+        assertThat(payload.code()).isEqualTo("CHAT_REPLY_MESSAGE_FORBIDDEN");
+        assertThat(payload.clientMessageId()).isEqualTo("temp-reply-2");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 메시지를 답장 대상으로 지정하면 ERROR 이벤트를 브로드캐스트해야 한다")
+    void publishMessage_ReplyMessageNotFound_BroadcastsErrorEvent() {
+        Long roomId = 10L;
+        String userEmail = "test@example.com";
+        User user = UserFixture.createUser(userEmail, com.ufo.ufo.global.security.types.Role.ROLE_USER);
+        UserFixture.setId(user, 21L);
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
+        ChatRoomStatus roomStatus = ChatRoomStatus.builder()
+                .user(user)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .build();
+        Principal principal = () -> userEmail;
+
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
+        when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
+        when(chatMessageRepository.findById(999L)).thenReturn(Optional.empty());
+
+        chatWebSocketService.publishMessage(principal,
+                new ChatMessageSendRequest(roomId, "답장입니다", "temp-reply-3", true, 999L));
+
+        ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(messagingTemplate).convertAndSend(eq("/sub/chat/rooms/10"), payloadCaptor.capture());
+        verify(chatMessageRepository, never()).save(any(ChatMessage.class));
+
+        ChatSocketEvent<?> event = (ChatSocketEvent<?>) payloadCaptor.getValue();
+        assertThat(event.eventType()).isEqualTo(ChatEventType.ERROR);
+        ChatErrorPayload payload = (ChatErrorPayload) event.payload();
+        assertThat(payload.code()).isEqualTo("CHAT_REPLY_MESSAGE_NOT_FOUND");
+        assertThat(payload.clientMessageId()).isEqualTo("temp-reply-3");
     }
 
     @Test
@@ -123,7 +258,7 @@ class ChatWebSocketServiceTest {
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
 
         chatWebSocketService.publishMessage(principal,
-                new ChatMessageSendRequest(roomId, "안녕하세요", "temp-err-1"));
+                new ChatMessageSendRequest(roomId, "안녕하세요", "temp-err-1", false, null));
 
         ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
         verify(messagingTemplate).convertAndSend(eq("/sub/chat/rooms/999"), payloadCaptor.capture());
