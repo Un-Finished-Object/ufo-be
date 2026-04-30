@@ -198,17 +198,12 @@ public class ChatWebSocketService {
             return Optional.empty();
         }
 
-        Optional<ChatMessage> maybeReplyMessage = chatMessageRepository.findById(replyMessageId);
+        Optional<ChatMessage> maybeReplyMessage = chatMessageRepository.findByIdAndRoom_Id(replyMessageId, roomId);
         if (maybeReplyMessage.isEmpty()) {
             sendError(roomId, "CHAT_REPLY_MESSAGE_NOT_FOUND", "답장 대상 메시지를 찾을 수 없습니다.", clientMessageId);
             return Optional.empty();
         }
 
-        ChatMessage replyMessage = maybeReplyMessage.get();
-        if (!replyMessage.getRoom().getId().equals(roomId)) {
-            sendError(roomId, "CHAT_REPLY_MESSAGE_FORBIDDEN", "다른 채팅방의 메시지에는 답장할 수 없습니다.", clientMessageId);
-            return Optional.empty();
-        }
         return maybeReplyMessage;
     }
 

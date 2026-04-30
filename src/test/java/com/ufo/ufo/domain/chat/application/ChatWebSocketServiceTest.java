@@ -152,7 +152,7 @@ class ChatWebSocketServiceTest {
         when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
-        when(chatMessageRepository.findById(38L)).thenReturn(Optional.of(replyMessage));
+        when(chatMessageRepository.findByIdAndRoom_Id(38L, roomId)).thenReturn(Optional.of(replyMessage));
         when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(savedMessage);
 
         chatWebSocketService.publishMessage(principal,
@@ -177,25 +177,18 @@ class ChatWebSocketServiceTest {
         UserFixture.setId(user, 21L);
         Pattern pattern = PatternFixture.createPatternWithId(100L);
         ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
-        ChatRoom otherRoom = ChatRoomFixture.createRoomWithId(pattern, 11L);
         ChatRoomStatus roomStatus = ChatRoomStatus.builder()
                 .user(user)
                 .room(room)
                 .favorite(false)
                 .hidden(false)
                 .build();
-        ChatMessage replyMessage = ChatMessage.builder()
-                .room(otherRoom)
-                .user(user)
-                .text("다른 방 메시지")
-                .build();
-        setId(replyMessage, 38L);
         Principal principal = () -> userEmail;
 
         when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
-        when(chatMessageRepository.findById(38L)).thenReturn(Optional.of(replyMessage));
+        when(chatMessageRepository.findByIdAndRoom_Id(38L, roomId)).thenReturn(Optional.empty());
 
         chatWebSocketService.publishMessage(principal,
                 new ChatMessageSendRequest(roomId, "답장입니다", "temp-reply-2", true, 38L));
@@ -207,7 +200,7 @@ class ChatWebSocketServiceTest {
         ChatSocketEvent<?> event = (ChatSocketEvent<?>) payloadCaptor.getValue();
         assertThat(event.eventType()).isEqualTo(ChatEventType.ERROR);
         ChatErrorPayload payload = (ChatErrorPayload) event.payload();
-        assertThat(payload.code()).isEqualTo("CHAT_REPLY_MESSAGE_FORBIDDEN");
+        assertThat(payload.code()).isEqualTo("CHAT_REPLY_MESSAGE_NOT_FOUND");
         assertThat(payload.clientMessageId()).isEqualTo("temp-reply-2");
     }
 
@@ -231,7 +224,7 @@ class ChatWebSocketServiceTest {
         when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
-        when(chatMessageRepository.findById(999L)).thenReturn(Optional.empty());
+        when(chatMessageRepository.findByIdAndRoom_Id(999L, roomId)).thenReturn(Optional.empty());
 
         chatWebSocketService.publishMessage(principal,
                 new ChatMessageSendRequest(roomId, "답장입니다", "temp-reply-3", true, 999L));
