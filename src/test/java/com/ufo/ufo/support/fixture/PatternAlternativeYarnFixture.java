@@ -5,7 +5,6 @@ import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
 import com.ufo.ufo.domain.user.domain.User;
 import java.lang.reflect.Field;
-import java.util.List;
 
 public final class PatternAlternativeYarnFixture {
 
@@ -18,7 +17,6 @@ public final class PatternAlternativeYarnFixture {
                 .user(user)
                 .yarn(yarn)
                 .imageUrl("./yarns/20.png")
-                .gauges(List.of())
                 .build();
     }
 
