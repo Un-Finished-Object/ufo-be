@@ -1,10 +1,8 @@
 package com.ufo.ufo.domain.chat.dto.response;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 public record ChatMessagesResponse(
-        @JsonProperty("lastmessageId")
         Long lastMessageId,
         Boolean hasNext,
         Long nextMessageId,

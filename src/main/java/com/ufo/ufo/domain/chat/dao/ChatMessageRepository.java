@@ -3,6 +3,7 @@ package com.ufo.ufo.domain.chat.dao;
 import com.ufo.ufo.domain.chat.domain.ChatMessage;
 import com.ufo.ufo.domain.chat.dto.response.ChatUnreadCount;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -10,9 +11,34 @@ import org.springframework.data.repository.query.Param;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
-    List<ChatMessage> findByRoom_IdOrderByIdDesc(Long roomId, Pageable pageable);
+    @Query("""
+            select cm
+            from ChatMessage cm
+            join fetch cm.user
+            left join fetch cm.replyMessage rm
+            left join fetch rm.user
+            where cm.room.id = :roomId
+            order by cm.id desc
+            """)
+    List<ChatMessage> findByRoom_IdOrderByIdDesc(@Param("roomId") Long roomId, Pageable pageable);
 
-    List<ChatMessage> findByRoom_IdAndIdLessThanOrderByIdDesc(Long roomId, Long messageId, Pageable pageable);
+    @Query("""
+            select cm
+            from ChatMessage cm
+            join fetch cm.user
+            left join fetch cm.replyMessage rm
+            left join fetch rm.user
+            where cm.room.id = :roomId
+              and cm.id < :messageId
+            order by cm.id desc
+            """)
+    List<ChatMessage> findByRoom_IdAndIdLessThanOrderByIdDesc(
+            @Param("roomId") Long roomId,
+            @Param("messageId") Long messageId,
+            Pageable pageable
+    );
+
+    Optional<ChatMessage> findByIdAndRoom_Id(Long id, Long roomId);
 
     @Query("""
             select new com.ufo.ufo.domain.chat.dto.response.ChatUnreadCount(cm.room.id, count(cm))
