@@ -45,10 +45,15 @@ public class PatternPurchaseService {
 
     public PatternPurchaseStatusResponse getStatus(User user, Long patternId) {
         findActivePattern(patternId);
+        Long chatRoomId = chatRoomStatusRepository
+                .findFirstByUser_IdAndRoom_Pattern_IdOrderByCreatedAtDescIdDesc(user.getId(), patternId)
+                .map(chatRoomStatus -> chatRoomStatus.getRoom().getId())
+                .orElse(null);
         return PatternPurchaseStatusResponse.from(
                 user.getId(),
                 creditService.isUnlocked(user.getId(), patternId, UnlockType.CHAT),
-                creditService.isUnlocked(user.getId(), patternId, UnlockType.YARN_INFO)
+                creditService.isUnlocked(user.getId(), patternId, UnlockType.YARN_INFO),
+                chatRoomId
         );
     }
 
