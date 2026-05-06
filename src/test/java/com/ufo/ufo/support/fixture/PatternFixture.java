@@ -4,6 +4,7 @@ import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public final class PatternFixture {
 
@@ -27,6 +28,24 @@ public final class PatternFixture {
                 .categoryMain(categoryMain)
                 .categorySub(categorySub)
                 .thumbnailUrl(thumbnailUrl)
+                .build();
+    }
+
+    public static Pattern createPatternWithInterestNumbers(
+            String title,
+            String designer,
+            String categoryMain,
+            String categorySub,
+            String thumbnailUrl,
+            List<Integer> interestNumbers
+    ) {
+        return Pattern.builder()
+                .title(title)
+                .designer(designer)
+                .categoryMain(categoryMain)
+                .categorySub(categorySub)
+                .thumbnailUrl(thumbnailUrl)
+                .interestNumbers(interestNumbers)
                 .build();
     }
 
