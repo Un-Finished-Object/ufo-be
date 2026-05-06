@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.interest.dao.UserInterestRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
@@ -28,6 +29,7 @@ import com.ufo.ufo.global.exception.ApiException;
 import com.ufo.ufo.global.security.types.Role;
 import com.ufo.ufo.support.fixture.PatternAlternativeYarnFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
+import com.ufo.ufo.support.fixture.UserInterestFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import com.ufo.ufo.support.fixture.YarnFixture;
 import java.time.LocalDateTime;
@@ -61,6 +63,9 @@ class PatternServiceTest {
 
     @Mock
     private YarnRepository yarnRepository;
+
+    @Mock
+    private UserInterestRepository userInterestRepository;
 
     @InjectMocks
     private PatternService patternService;
@@ -372,19 +377,29 @@ class PatternServiceTest {
     }
 
     @Test
-    @DisplayName("추천 도안 조회는 유저 관심사와 매칭된 도안을 우선 반환해야 한다")
+    @DisplayName("추천 도안 조회는 사용자 관심사 번호와 매칭된 도안을 우선 반환해야 한다")
     void getRecommendedPatterns_ReturnsInterestMatchedFirst() {
         User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPattern("빈티지 니트", "artist", "apparel", "sweater", "./patterns/1.png");
+        Pattern pattern = PatternFixture.createPatternWithInterestNumbers(
+                "올드무드 니트",
+                "artist",
+                "apparel",
+                "sweater",
+                "./patterns/1.png",
+                List.of(1)
+        );
         PatternFixture.setId(pattern, 11L);
 
-        when(patternRepository.findRecommendedByUserInterest(1L)).thenReturn(List.of(pattern));
+        when(userInterestRepository.findAllByUser_Id(1L))
+                .thenReturn(List.of(UserInterestFixture.createUserInterest(user, "빈티지")));
+        when(patternRepository.findRecommendedByInterestNumbers(List.of(1))).thenReturn(List.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 11L)).thenReturn(false);
 
         PatternItemsResponse response = patternService.getRecommendedPatterns(user);
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().id()).isEqualTo(11L);
+        verify(patternRepository).findRecommendedByInterestNumbers(List.of(1));
     }
 
     @Test
@@ -393,7 +408,7 @@ class PatternServiceTest {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPattern("기본 추천", "artist", "apparel", "sweater", "./patterns/1.png");
         PatternFixture.setId(pattern, 12L);
-        when(patternRepository.findRecommendedByUserInterest(1L)).thenReturn(List.of());
+        when(userInterestRepository.findAllByUser_Id(1L)).thenReturn(List.of());
         when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 12L)).thenReturn(false);
 
@@ -410,7 +425,9 @@ class PatternServiceTest {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPattern("fallback 추천", "artist", "apparel", "sweater", "./patterns/1.png");
         PatternFixture.setId(pattern, 13L);
-        when(patternRepository.findRecommendedByUserInterest(1L)).thenReturn(List.of());
+        when(userInterestRepository.findAllByUser_Id(1L))
+                .thenReturn(List.of(UserInterestFixture.createUserInterest(user, "빈티지")));
+        when(patternRepository.findRecommendedByInterestNumbers(List.of(1))).thenReturn(List.of());
         when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 13L)).thenReturn(false);
 
@@ -418,7 +435,7 @@ class PatternServiceTest {
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().id()).isEqualTo(13L);
-        verify(patternRepository).findRecommendedByUserInterest(1L);
+        verify(patternRepository).findRecommendedByInterestNumbers(List.of(1));
         verify(patternRepository).findRecommended();
     }
 

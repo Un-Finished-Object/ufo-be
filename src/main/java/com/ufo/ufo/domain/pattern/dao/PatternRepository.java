@@ -57,18 +57,10 @@ public interface PatternRepository extends JpaRepository<Pattern, Long> {
     List<Pattern> findRecommended();
 
     @Query("""
-            select p from Pattern p
+            select distinct p from Pattern p
+            join p.interestNumbers interestNumber
             where p.deletedAt is null
-              and exists (
-                  select 1 from UserInterest ui
-                  where ui.user.id = :userId
-                    and (
-                        lower(p.title) like lower(concat('%', ui.keyword, '%'))
-                        or lower(coalesce(p.categoryMain, '')) like lower(concat('%', ui.keyword, '%'))
-                        or lower(coalesce(p.categorySub, '')) like lower(concat('%', ui.keyword, '%'))
-                    )
-              )
-            order by p.scrapsCount desc, p.id desc
+              and interestNumber in :interestNumbers
             """)
-    List<Pattern> findRecommendedByUserInterest(@Param("userId") Long userId);
+    List<Pattern> findRecommendedByInterestNumbers(@Param("interestNumbers") List<Integer> interestNumbers);
 }
