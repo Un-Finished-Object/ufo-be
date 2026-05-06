@@ -10,7 +10,7 @@ public interface ChatRoomStatusRepository extends JpaRepository<ChatRoomStatus, 
     Optional<ChatRoomStatus> findByUser_IdAndRoom_Id(Long userId, Long roomId);
 
     @EntityGraph(attributePaths = {"room"})
-    Optional<ChatRoomStatus> findByUser_IdAndRoom_Pattern_Id(Long userId, Long patternId);
+    Optional<ChatRoomStatus> findFirstByUser_IdAndRoom_Pattern_IdOrderByCreatedAtDescIdDesc(Long userId, Long patternId);
 
     boolean existsByUser_IdAndRoom_Pattern_Id(Long userId, Long patternId);
 

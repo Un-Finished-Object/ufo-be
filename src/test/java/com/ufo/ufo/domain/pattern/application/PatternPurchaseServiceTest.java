@@ -125,7 +125,8 @@ class PatternPurchaseServiceTest {
                 .hidden(false)
                 .build();
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(chatRoomStatusRepository.findByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(Optional.of(status));
+        when(chatRoomStatusRepository.findFirstByUser_IdAndRoom_Pattern_IdOrderByCreatedAtDescIdDesc(1L, 10L))
+                .thenReturn(Optional.of(status));
         when(creditService.isUnlocked(1L, 10L, UnlockType.CHAT)).thenReturn(true);
         when(creditService.isUnlocked(1L, 10L, UnlockType.YARN_INFO)).thenReturn(false);
 
@@ -143,7 +144,8 @@ class PatternPurchaseServiceTest {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(chatRoomStatusRepository.findByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(Optional.empty());
+        when(chatRoomStatusRepository.findFirstByUser_IdAndRoom_Pattern_IdOrderByCreatedAtDescIdDesc(1L, 10L))
+                .thenReturn(Optional.empty());
         when(creditService.isUnlocked(1L, 10L, UnlockType.CHAT)).thenReturn(false);
         when(creditService.isUnlocked(1L, 10L, UnlockType.YARN_INFO)).thenReturn(false);
 

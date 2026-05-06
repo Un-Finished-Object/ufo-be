@@ -45,7 +45,8 @@ public class PatternPurchaseService {
 
     public PatternPurchaseStatusResponse getStatus(User user, Long patternId) {
         findActivePattern(patternId);
-        Long chatRoomId = chatRoomStatusRepository.findByUser_IdAndRoom_Pattern_Id(user.getId(), patternId)
+        Long chatRoomId = chatRoomStatusRepository
+                .findFirstByUser_IdAndRoom_Pattern_IdOrderByCreatedAtDescIdDesc(user.getId(), patternId)
                 .map(chatRoomStatus -> chatRoomStatus.getRoom().getId())
                 .orElse(null);
         return PatternPurchaseStatusResponse.from(
