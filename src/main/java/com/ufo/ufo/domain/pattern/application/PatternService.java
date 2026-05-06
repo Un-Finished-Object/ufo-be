@@ -1,5 +1,8 @@
 package com.ufo.ufo.domain.pattern.application;
 
+import com.ufo.ufo.domain.interest.dao.UserInterestRepository;
+import com.ufo.ufo.domain.interest.domain.InterestKeyword;
+import com.ufo.ufo.domain.interest.domain.UserInterest;
 import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
@@ -25,6 +28,7 @@ import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryNotAllowedException;
 import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryRequiredException;
 import com.ufo.ufo.domain.user.domain.User;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -47,6 +51,7 @@ public class PatternService {
     private final PatternImageRepository patternImageRepository;
     private final PatternAlternativeYarnRepository patternAlternativeYarnRepository;
     private final YarnRepository yarnRepository;
+    private final UserInterestRepository userInterestRepository;
 
     public PatternListResponse getPatterns(User user, String category, String subCategory, String sort, Integer page) {
         validateCategoryAndSubCategory(category, subCategory);
@@ -287,9 +292,23 @@ public class PatternService {
     }
 
     private List<Pattern> findRecommendedPatternsByUserInterest(User user) {
-        List<Pattern> interestMatched = patternRepository.findRecommendedByUserInterest(user.getId());
+        if (user == null || user.getId() == null) {
+            return patternRepository.findRecommended();
+        }
+        List<Integer> interestNumbers = userInterestRepository.findAllByUser_Id(user.getId())
+                .stream()
+                .map(UserInterest::getKeyword)
+                .flatMap(keyword -> InterestKeyword.findNumberByKeyword(keyword).stream())
+                .distinct()
+                .toList();
+        if (interestNumbers.isEmpty()) {
+            return patternRepository.findRecommended();
+        }
+        List<Pattern> interestMatched = patternRepository.findRecommendedByInterestNumbers(interestNumbers);
         if (!interestMatched.isEmpty()) {
-            return interestMatched;
+            List<Pattern> shuffled = new ArrayList<>(interestMatched);
+            Collections.shuffle(shuffled);
+            return shuffled;
         }
         return patternRepository.findRecommended();
     }
