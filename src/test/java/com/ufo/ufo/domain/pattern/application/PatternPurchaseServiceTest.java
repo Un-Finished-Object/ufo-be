@@ -117,7 +117,15 @@ class PatternPurchaseServiceTest {
     void getStatus_ReturnsUnlockStatus() {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, 20L);
+        ChatRoomStatus status = ChatRoomStatus.builder()
+                .user(user)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .build();
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(Optional.of(status));
         when(creditService.isUnlocked(1L, 10L, UnlockType.CHAT)).thenReturn(true);
         when(creditService.isUnlocked(1L, 10L, UnlockType.YARN_INFO)).thenReturn(false);
 
@@ -126,6 +134,25 @@ class PatternPurchaseServiceTest {
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.chat()).isTrue();
         assertThat(response.alternative()).isFalse();
+        assertThat(response.chatRoomId()).isEqualTo(20L);
+    }
+
+    @Test
+    @DisplayName("구매 여부 조회에서 채팅방 구매 내역이 없으면 채팅방 ID는 null이어야 한다")
+    void getStatus_ChatRoomStatusNotFound_ReturnsNullChatRoomId() {
+        var user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(10L);
+        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(Optional.empty());
+        when(creditService.isUnlocked(1L, 10L, UnlockType.CHAT)).thenReturn(false);
+        when(creditService.isUnlocked(1L, 10L, UnlockType.YARN_INFO)).thenReturn(false);
+
+        PatternPurchaseStatusResponse response = patternPurchaseService.getStatus(user, 10L);
+
+        assertThat(response.userId()).isEqualTo(1L);
+        assertThat(response.chat()).isFalse();
+        assertThat(response.alternative()).isFalse();
+        assertThat(response.chatRoomId()).isNull();
     }
 
     @Test

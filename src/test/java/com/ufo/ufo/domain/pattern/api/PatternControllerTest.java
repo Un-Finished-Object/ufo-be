@@ -194,7 +194,7 @@ class PatternControllerTest {
     void getPurchaseStatus_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
         when(patternPurchaseService.getStatus(user, 10L))
-                .thenReturn(PatternPurchaseStatusResponse.from(1L, true, false));
+                .thenReturn(PatternPurchaseStatusResponse.from(1L, true, false, 20L));
 
         ResponseEntity<ApiResponse<PatternPurchaseStatusResponse>> response = patternController.getPurchaseStatus(user, 10L);
 
@@ -202,6 +202,7 @@ class PatternControllerTest {
         assertThat(response.getBody().data().userId()).isEqualTo(1L);
         assertThat(response.getBody().data().chat()).isTrue();
         assertThat(response.getBody().data().alternative()).isFalse();
+        assertThat(response.getBody().data().chatRoomId()).isEqualTo(20L);
         verify(patternPurchaseService).getStatus(user, 10L);
     }
 
