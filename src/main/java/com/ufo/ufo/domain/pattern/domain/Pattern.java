@@ -2,7 +2,9 @@ package com.ufo.ufo.domain.pattern.domain;
 
 import com.ufo.ufo.global.base.BaseEntity;
 import com.ufo.ufo.domain.user.domain.User;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -12,6 +14,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -67,6 +71,11 @@ public class Pattern extends BaseEntity {
     @Column(name = "gauge")
     private String gauge;
 
+    @ElementCollection
+    @CollectionTable(name = "pattern_interest_numbers", joinColumns = @JoinColumn(name = "pattern_id"))
+    @Column(name = "interest_number", nullable = false)
+    private List<Integer> interestNumbers = new ArrayList<>();
+
     @Column(name = "scraps_count", nullable = false)
     private Integer scrapsCount;
 
@@ -83,7 +92,8 @@ public class Pattern extends BaseEntity {
     @Builder
     public Pattern(User user, String title, String designer, String categoryMain, String categorySub,
                    String thumbnailUrl, String size, String actualSize, String needleSize,
-                   Yarn yarn, String requiredYarnAmount, String gauge, Integer scrapsCount, Integer viewCount) {
+                   Yarn yarn, String requiredYarnAmount, String gauge, List<Integer> interestNumbers,
+                   Integer scrapsCount, Integer viewCount) {
         this.user = user;
         this.yarn = yarn;
         this.title = title;
@@ -96,6 +106,7 @@ public class Pattern extends BaseEntity {
         this.needleSize = needleSize;
         this.requiredYarnAmount = requiredYarnAmount;
         this.gauge = gauge;
+        this.interestNumbers = (interestNumbers == null) ? new ArrayList<>() : new ArrayList<>(interestNumbers);
         this.scrapsCount = (scrapsCount == null) ? 0 : scrapsCount;
         this.viewCount = (viewCount == null) ? 0 : viewCount;
     }
