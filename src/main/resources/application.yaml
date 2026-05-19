@@ -10,6 +10,9 @@ spring:
         format_sql: true
     show-sql: true
 
+server:
+  forward-headers-strategy: framework
+
 app:
   chat:
     segment-days: 7
