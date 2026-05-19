@@ -13,6 +13,11 @@ spring:
 app:
   chat:
     segment-days: 7
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+      - http://localhost:5173
+      - ${DOMAIN_URL:}
   image:
     max-file-count: 5
     max-bytes: 10485760

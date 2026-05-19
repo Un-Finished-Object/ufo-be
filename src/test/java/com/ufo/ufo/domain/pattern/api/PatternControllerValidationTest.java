@@ -139,20 +139,37 @@ class PatternControllerValidationTest {
     }
 
     @Test
+    @DisplayName("category가 apparel이고 subCategory가 없으면 200을 반환한다")
+    void getPatterns_ApparelWithoutSubCategory_ReturnsOk() throws Exception {
+        when(patternService.getPatterns(any(), eq("apparel"), eq(null), eq("news"), eq(1)))
+                .thenReturn(new PatternListResponse(List.of(), 1, 0));
+
+        mockMvc.perform(get("/v1/patterns")
+                        .param("category", "apparel")
+                        .param("sort", "news")
+                        .param("page", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.error").isEmpty());
+
+        verify(patternService).getPatterns(any(), eq("apparel"), eq(null), eq("news"), eq(1));
+    }
+
+    @Test
     @DisplayName("category가 apparel이 아닌데 subCategory가 있으면 400을 반환한다")
     void getPatterns_SubCategoryProvidedForNonApparel_ReturnsBadRequest() throws Exception {
-        when(patternService.getPatterns(any(), eq("all"), eq("sweater"), eq("news"), eq(1)))
+        when(patternService.getPatterns(any(), eq("all"), eq("all"), eq("news"), eq(1)))
                 .thenThrow(new PatternSubCategoryNotAllowedException());
 
         mockMvc.perform(get("/v1/patterns")
                         .param("category", "all")
-                        .param("subCategory", "sweater")
+                        .param("subCategory", "all")
                         .param("sort", "news")
                         .param("page", "1"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value("subCategory는 category가 apparel일 때만 사용할 수 있습니다."));
 
-        verify(patternService).getPatterns(any(), eq("all"), eq("sweater"), eq("news"), eq(1));
+        verify(patternService).getPatterns(any(), eq("all"), eq("all"), eq("news"), eq(1));
     }
 
     @Test

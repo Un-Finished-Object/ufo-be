@@ -2,17 +2,21 @@ package com.ufo.ufo.global.config;
 
 import com.ufo.ufo.global.security.resolver.LoginUserArgumentResolver;
 import java.util.List;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
+@EnableConfigurationProperties(CorsProperties.class)
 @RequiredArgsConstructor
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final LoginUserArgumentResolver loginUserArgumentResolver;
+    private final CorsProperties corsProperties;
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
@@ -22,14 +26,20 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins(
-                        "http://localhost:3000",
-                        "http://localhost:5173",
-                        "https://www.knit-ufo.co.kr",
-                        "https://api.knit-ufo.co.kr"
-                )
-                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                .allowedOrigins(corsProperties.allowedOriginArray())
+                .allowedMethods(allowedMethodNames())
                 .allowedHeaders("*")
                 .allowCredentials(true);
+    }
+
+    private String[] allowedMethodNames() {
+        return new String[] {
+                HttpMethod.GET.name(),
+                HttpMethod.POST.name(),
+                HttpMethod.PUT.name(),
+                HttpMethod.PATCH.name(),
+                HttpMethod.DELETE.name(),
+                HttpMethod.OPTIONS.name()
+        };
     }
 }
