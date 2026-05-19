@@ -122,6 +122,21 @@ class PatternServiceTest {
     }
 
     @Test
+    @DisplayName("도안 목록 조회에서 category가 apparel이고 subCategory가 없으면 의류 전체를 조회해야 한다")
+    void getPatterns_ApparelWithoutSubCategory_ReturnsAllApparel() {
+        User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(1L);
+        when(patternRepository.findAllByCategory(any(), any(), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(pattern)));
+        when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 1L)).thenReturn(false);
+
+        PatternListResponse response = patternService.getPatterns(user, "apparel", null, "news", 1);
+
+        assertThat(response.items()).hasSize(1);
+        verify(patternRepository).findAllByCategory(eq("apparel"), eq(null), any(PageRequest.class));
+    }
+
+    @Test
     @DisplayName("비로그인 도안 목록 조회는 찜 여부를 false로 반환해야 한다")
     void getPatterns_AnonymousUser_ReturnsUnscrapped() {
         Pattern pattern = PatternFixture.createPatternWithId(1L);
@@ -165,6 +180,20 @@ class PatternServiceTest {
         assertThat(response.my().scrapped()).isTrue();
         assertThat(response.author()).isEqualTo("artist");
         assertThat(response.stats().views()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("비로그인 도안 상세 조회는 찜 여부를 false로 반환해야 한다")
+    void getPatternDetail_AnonymousUser_ReturnsUnscrapped() {
+        Pattern pattern = PatternFixture.createPatternWithId(2L);
+        when(patternRepository.findById(2L)).thenReturn(Optional.of(pattern));
+        when(patternImageRepository.findAllByPattern_IdOrderByImageOrderAscIdAsc(2L)).thenReturn(List.of());
+
+        PatternDetailResponse response = patternService.getPatternDetail(null, 2L);
+
+        assertThat(response.id()).isEqualTo(2L);
+        assertThat(response.my().scrapped()).isFalse();
+        verifyNoInteractions(scrapRepository);
     }
 
     @Test
