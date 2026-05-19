@@ -9,6 +9,8 @@ public record CorsProperties(
 ) {
 
     public String[] allowedOriginArray() {
-        return allowedOrigins.toArray(String[]::new);
+        return allowedOrigins.stream()
+                .filter(origin -> origin != null && !origin.isBlank())
+                .toArray(String[]::new);
     }
 }
