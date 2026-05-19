@@ -69,8 +69,11 @@ public class PatternService {
     }
 
     public PatternItemsResponse getRecommendedPatterns(User user) {
-        List<Pattern> result = findRecommendedPatternsByUserInterest(user);
-        return new PatternItemsResponse(result.stream().map(pattern -> toListItemResponse(pattern, user)).toList());
+        List<Pattern> result = findRecommendedPatterns(user);
+        List<PatternListItemResponse> items = result.stream()
+                .map(pattern -> toListItemResponse(pattern, user))
+                .toList();
+        return new PatternItemsResponse(items);
     }
 
     public PatternListResponse searchPatterns(User user, String keyword, Integer page) {
@@ -287,7 +290,7 @@ public class PatternService {
         return scrapRepository.existsByUser_IdAndPattern_Id(user.getId(), patternId);
     }
 
-    private List<Pattern> findRecommendedPatternsByUserInterest(User user) {
+    private List<Pattern> findRecommendedPatterns(User user) {
         if (user == null || user.getId() == null) {
             return patternRepository.findRecommended();
         }
