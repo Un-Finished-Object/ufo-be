@@ -16,6 +16,8 @@ server:
 app:
   chat:
     segment-days: 7
+  oauth:
+    redirect-url: ${OAUTH_REDIRECT_URL:}
   cors:
     allowed-origins:
       - http://localhost:3000

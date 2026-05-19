@@ -3,6 +3,7 @@ package com.ufo.ufo.global.security.handler;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import com.ufo.ufo.global.security.oauth.CustomOAuth2User;
 import com.ufo.ufo.global.security.oauth.OAuthCookieManager;
+import com.ufo.ufo.global.security.oauth.OAuthRedirectProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -20,6 +21,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     private final JwtTokenProvider jwtTokenProvider;
     private final OAuthCookieManager oAuthCookieManager;
+    private final OAuthRedirectProperties oAuthRedirectProperties;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -33,7 +35,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         log.info("Social Login Success: email={}, role={}", email, role);
 
-        String targetUrl = oAuthCookieManager.extractRedirectUri(request);
+        String targetUrl = oAuthRedirectProperties.requiredRedirectUrl();
 
         response.addHeader(HttpHeaders.SET_COOKIE,
                 oAuthCookieManager.createRefreshTokenCookie(
@@ -41,8 +43,6 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                         jwtTokenProvider.getRefreshTokenExpireTime() / 1000,
                         request.isSecure()
                 ).toString());
-        response.addHeader(HttpHeaders.SET_COOKIE,
-                oAuthCookieManager.expireRedirectUriCookie(request.isSecure()).toString());
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
