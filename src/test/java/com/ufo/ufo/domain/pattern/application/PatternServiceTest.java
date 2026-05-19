@@ -406,6 +406,22 @@ class PatternServiceTest {
     }
 
     @Test
+    @DisplayName("비로그인 추천 도안 조회는 기본 추천 목록을 반환해야 한다")
+    void getRecommendedPatterns_AnonymousUser_ReturnsDefaultRecommend() {
+        Pattern pattern = PatternFixture.createPatternWithId(11L);
+        when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
+
+        PatternItemsResponse response = patternService.getRecommendedPatterns(null);
+
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().getFirst().id()).isEqualTo(11L);
+        assertThat(response.items().getFirst().my().scrapped()).isFalse();
+        verify(patternRepository).findRecommended();
+        verifyNoInteractions(userInterestRepository);
+        verifyNoInteractions(scrapRepository);
+    }
+
+    @Test
     @DisplayName("추천 도안 조회는 사용자 관심사 번호와 매칭된 도안을 우선 반환해야 한다")
     void getRecommendedPatterns_ReturnsInterestMatchedFirst() {
         User user = UserFixture.createUserWithId(1L);
