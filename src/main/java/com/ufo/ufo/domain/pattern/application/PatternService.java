@@ -26,7 +26,6 @@ import com.ufo.ufo.domain.pattern.exception.AlternativeYarnNotFoundException;
 import com.ufo.ufo.domain.pattern.exception.PatternAlternativePermissionDeniedException;
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryNotAllowedException;
-import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryRequiredException;
 import com.ufo.ufo.domain.user.domain.User;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -86,7 +85,7 @@ public class PatternService {
     public PatternDetailResponse getPatternDetail(User user, Long patternId) {
         Pattern pattern = findActivePattern(patternId);
         pattern.increaseViewCount();
-        boolean isScrapped = scrapRepository.existsByUser_IdAndPattern_Id(user.getId(), patternId);
+        boolean isScrapped = isScrapped(user, patternId);
         List<String> images = resolvePatternImages(patternId, pattern.getThumbnailUrl());
         return PatternDetailResponse.from(pattern, images, isScrapped);
     }
@@ -253,9 +252,6 @@ public class PatternService {
     }
 
     private void validateCategoryAndSubCategory(String category, String subCategory) {
-        if ("apparel".equalsIgnoreCase(category) && subCategory == null) {
-            throw new PatternSubCategoryRequiredException();
-        }
         if (!"apparel".equalsIgnoreCase(category) && subCategory != null) {
             throw new PatternSubCategoryNotAllowedException();
         }
