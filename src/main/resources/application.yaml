@@ -18,6 +18,7 @@ app:
     segment-days: 7
   oauth:
     redirect-url: ${OAUTH_REDIRECT_URL:}
+    cookie-domain: ${OAUTH_COOKIE_DOMAIN:}
   cors:
     allowed-origins:
       - http://localhost:3000
