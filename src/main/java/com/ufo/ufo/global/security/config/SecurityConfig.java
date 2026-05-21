@@ -3,6 +3,7 @@ package com.ufo.ufo.global.security.config;
 import com.ufo.ufo.global.security.filter.JwtAuthenticationFilter;
 import com.ufo.ufo.global.security.handler.OAuth2SuccessHandler;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
+import com.ufo.ufo.global.security.oauth.CookieOAuth2AuthorizationRequestRepository;
 import com.ufo.ufo.global.security.oauth.CustomOidcUserService;
 import com.ufo.ufo.global.security.oauth.CustomOAuth2UserService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class SecurityConfig {
     private final CustomOidcUserService customOidcUserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final JwtTokenProvider jwtTokenProvider;
+    private final CookieOAuth2AuthorizationRequestRepository cookieOAuth2AuthorizationRequestRepository;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -46,6 +48,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(authorization -> authorization
+                                .authorizationRequestRepository(cookieOAuth2AuthorizationRequestRepository))
                         .redirectionEndpoint(redirection ->
                                 redirection.baseUri("/v1/auth/oauth/*/callback"))
                         .userInfoEndpoint(userInfo -> userInfo
