@@ -44,6 +44,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PatternService {
 
     private static final int PAGE_SIZE = 20;
+    private static final int ALTERNATIVE_RANDOM_LIMIT = 5;
 
     private final PatternRepository patternRepository;
     private final ScrapRepository scrapRepository;
@@ -96,13 +97,18 @@ public class PatternService {
     @Transactional
     public PatternAlternativesResponse getAlternatives(User user, Long patternId) {
         Pattern pattern = findActivePattern(patternId);
-        Optional<String> thicknessCategory = resolveReferenceThicknessCategory(pattern);
-        if (thicknessCategory.isEmpty()) {
+        Optional<AlternativeFilter> alternativeFilter = resolveAlternativeFilter(pattern);
+        if (alternativeFilter.isEmpty()) {
             return PatternAlternativesResponse.fromYarns(List.of());
         }
-        List<Yarn> yarns = yarnRepository.findAllActiveByThicknessCategory(thicknessCategory.get());
+        AlternativeFilter filter = alternativeFilter.get();
+        List<Yarn> yarns = new ArrayList<>(yarnRepository.findAllActiveByThicknessCategoryAndMainComponentExcludingYarnId(
+                filter.thicknessCategory(),
+                filter.mainComponent(),
+                filter.excludedYarnId()
+        ));
         Collections.shuffle(yarns);
-        return PatternAlternativesResponse.fromYarns(yarns);
+        return PatternAlternativesResponse.fromYarns(yarns.stream().limit(ALTERNATIVE_RANDOM_LIMIT).toList());
     }
 
     @Transactional
@@ -217,13 +223,19 @@ public class PatternService {
         alternative.update(yarn, request.yarnUri());
     }
 
-    private Optional<String> resolveReferenceThicknessCategory(Pattern pattern) {
+    private Optional<AlternativeFilter> resolveAlternativeFilter(Pattern pattern) {
         Yarn yarn = pattern.getYarn();
         if (yarn == null || yarn.getDeletedAt() != null
-                || yarn.getThicknessCategory() == null || yarn.getThicknessCategory().isBlank()) {
+                || yarn.getYarnId() == null
+                || yarn.getThicknessCategory() == null || yarn.getThicknessCategory().isBlank()
+                || yarn.getMainComponent() == null || yarn.getMainComponent().isBlank()) {
             return Optional.empty();
         }
-        return Optional.of(yarn.getThicknessCategory().trim());
+        return Optional.of(new AlternativeFilter(
+                yarn.getThicknessCategory().trim(),
+                yarn.getMainComponent().trim(),
+                yarn.getYarnId()
+        ));
     }
 
     private List<YarnGauge> toGaugeEntities(List<AlternativeGaugeRequest> gauges) {
@@ -310,6 +322,13 @@ public class PatternService {
             return shuffled;
         }
         return patternRepository.findRecommended();
+    }
+
+    private record AlternativeFilter(
+            String thicknessCategory,
+            String mainComponent,
+            Long excludedYarnId
+    ) {
     }
 
 }
