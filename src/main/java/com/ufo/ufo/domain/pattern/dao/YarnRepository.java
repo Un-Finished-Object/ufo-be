@@ -13,8 +13,14 @@ public interface YarnRepository extends JpaRepository<Yarn, Long> {
             from Yarn y
             left join fetch y.gauges
             where y.deletedAt is null
+            and y.yarnId <> :excludedYarnId
             and lower(y.thicknessCategory) = lower(:thicknessCategory)
+            and lower(y.mainComponent) = lower(:mainComponent)
             order by y.yarnId asc
             """)
-    List<Yarn> findAllActiveByThicknessCategory(@Param("thicknessCategory") String thicknessCategory);
+    List<Yarn> findAllActiveByThicknessCategoryAndMainComponentExcludingYarnId(
+            @Param("thicknessCategory") String thicknessCategory,
+            @Param("mainComponent") String mainComponent,
+            @Param("excludedYarnId") Long excludedYarnId
+    );
 }
