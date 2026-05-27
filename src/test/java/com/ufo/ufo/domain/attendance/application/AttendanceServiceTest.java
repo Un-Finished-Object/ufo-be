@@ -13,6 +13,7 @@ import com.ufo.ufo.domain.attendance.dto.response.AttendanceCheckResponse;
 import com.ufo.ufo.domain.attendance.dto.response.AttendanceStatusResponse;
 import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
+import com.ufo.ufo.domain.credit.policy.CreditPolicy;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.UserFixture;
@@ -45,7 +46,7 @@ class AttendanceServiceTest {
     private AttendanceService attendanceService;
 
     @Test
-    @DisplayName("당일 첫 출석 체크는 출석 저장과 크레딧 1 지급을 수행해야 한다")
+    @DisplayName("당일 첫 출석 체크는 출석 저장과 크레딧 지급을 수행해야 한다")
     void check_FirstCheck_SavesAttendanceAndAddsCredits() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
@@ -57,16 +58,16 @@ class AttendanceServiceTest {
             Integer amount = invocation.getArgument(1);
             target.addCredits(amount);
             return null;
-        }).when(creditService).addCredits(loginUser, 1, CreditTransactionType.ATTENDANCE_DAILY);
+        }).when(creditService).addCredits(loginUser, CreditPolicy.ATTENDANCE_DAILY_BALLS, CreditTransactionType.ATTENDANCE_DAILY);
 
         AttendanceCheckResponse response = attendanceService.check(requestUser);
 
         assertThat(response.date()).isEqualTo(today);
         assertThat(response.rewarded()).isTrue();
-        assertThat(response.rewardAmount()).isEqualTo(1);
-        assertThat(response.balance()).isEqualTo(1);
+        assertThat(response.rewardAmount()).isEqualTo(CreditPolicy.ATTENDANCE_DAILY_BALLS);
+        assertThat(response.balance()).isEqualTo(CreditPolicy.ATTENDANCE_DAILY_BALLS);
         verify(attendanceCheckRepository).save(any(AttendanceCheck.class));
-        verify(creditService).addCredits(loginUser, 1, CreditTransactionType.ATTENDANCE_DAILY);
+        verify(creditService).addCredits(loginUser, CreditPolicy.ATTENDANCE_DAILY_BALLS, CreditTransactionType.ATTENDANCE_DAILY);
     }
 
     @Test
