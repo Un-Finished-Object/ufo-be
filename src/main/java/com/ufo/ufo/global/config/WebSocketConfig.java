@@ -15,6 +15,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final StompJwtAuthChannelInterceptor stompJwtAuthChannelInterceptor;
+    private final CorsProperties corsProperties;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
@@ -30,6 +31,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws/chat")
-                .setAllowedOriginPatterns("*");
+                .setAllowedOriginPatterns(corsProperties.allowedOriginArray());
     }
 }
