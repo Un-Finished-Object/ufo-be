@@ -48,8 +48,6 @@ class ChatRoomQueryServiceTest {
         when(userService.getUserById(1L)).thenReturn(user);
         when(chatRoomStatusRepository.findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L)))
                 .thenReturn(List.of());
-        when(chatRoomStatusRepository.countUfoUsersByRoomIds(List.of()))
-                .thenReturn(List.of());
 
         UserChatRoomListResponse response = chatRoomQueryService.getMyChats(user);
 
