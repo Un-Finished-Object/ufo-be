@@ -2,10 +2,13 @@ package com.ufo.ufo.domain.chat.application;
 
 import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
+import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
+import com.ufo.ufo.domain.chat.dto.response.ChatRoomUserCount;
 import com.ufo.ufo.domain.chat.dto.response.UserChatRoomItemResponse;
 import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
 import com.ufo.ufo.domain.chat.dto.response.ChatUnreadCount;
+import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import java.util.Collections;
@@ -40,18 +43,27 @@ public class ChatRoomQueryService {
         Map<Long, Long> unreadMap = chatMessageRepository.countUnreadByRoomIds(loginUser.getId(), roomIds)
                 .stream()
                 .collect(Collectors.toMap(ChatUnreadCount::chatId, ChatUnreadCount::unRead));
+        Map<Long, Long> userCountMap = chatRoomStatusRepository.countUfoUsersByRoomIds(roomIds)
+                .stream()
+                .collect(Collectors.toMap(ChatRoomUserCount::chatId, ChatRoomUserCount::userCount));
 
         List<UserChatRoomItemResponse> chats = statuses.stream()
                 .map(status -> {
                     Long chatId = status.getChatId();
                     int unRead = unreadMap.getOrDefault(chatId, 0L).intValue();
+                    int userCount = userCountMap.getOrDefault(chatId, 0L).intValue();
+                    ChatRoom room = status.getRoom();
+                    Pattern pattern = room.getPattern();
                     return UserChatRoomItemResponse.of(
+                            pattern.getId(),
                             chatId,
-                            status.getRoom().getPattern().getTitle(),
-                            status.getRoom().getPattern().getThumbnailUrl(),
+                            pattern.getTitle(),
+                            pattern.getThumbnailUrl(),
                             status.isFavorite(),
                             status.isHidden(),
-                            unRead
+                            unRead,
+                            userCount,
+                            room.getCreatedAt()
                     );
                 })
                 .toList();
