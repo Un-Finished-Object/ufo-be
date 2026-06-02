@@ -8,6 +8,7 @@ import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
+import com.ufo.ufo.domain.chat.dto.response.ChatRoomUserCount;
 import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
 import com.ufo.ufo.domain.chat.dto.response.ChatUnreadCount;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
@@ -78,19 +79,27 @@ class ChatRoomQueryServiceTest {
         when(userService.getUserById(1L)).thenReturn(user);
         when(chatRoomStatusRepository.findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L)))
                 .thenReturn(List.of(status1, status2));
+        when(chatRoomStatusRepository.countUfoUsersByRoomIds(List.of(100L, 101L)))
+                .thenReturn(List.of(new ChatRoomUserCount(100L, 2L), new ChatRoomUserCount(101L, 1L)));
         when(chatMessageRepository.countUnreadByRoomIds(1L, List.of(100L, 101L)))
                 .thenReturn(List.of(new ChatUnreadCount(100L, 3L)));
 
         UserChatRoomListResponse response = chatRoomQueryService.getMyChats(user);
 
         assertThat(response.chats()).hasSize(2);
+        assertThat(response.chats().getFirst().patternId()).isEqualTo(10L);
         assertThat(response.chats().getFirst().chatId()).isEqualTo(100L);
         assertThat(response.chats().getFirst().favorite()).isTrue();
         assertThat(response.chats().getFirst().isHidden()).isFalse();
         assertThat(response.chats().getFirst().unRead()).isEqualTo(3);
+        assertThat(response.chats().getFirst().userCount()).isEqualTo(2);
         assertThat(response.chats().getFirst().chatImageUrl()).isEqualTo(pattern1.getThumbnailUrl());
+        assertThat(response.chats().getFirst().createdAt()).isEqualTo(room1.getCreatedAt());
+        assertThat(response.chats().get(1).patternId()).isEqualTo(11L);
         assertThat(response.chats().get(1).chatId()).isEqualTo(101L);
         assertThat(response.chats().get(1).unRead()).isEqualTo(0);
+        assertThat(response.chats().get(1).userCount()).isEqualTo(1);
         assertThat(response.chats().get(1).chatImageUrl()).isEqualTo(pattern2.getThumbnailUrl());
+        assertThat(response.chats().get(1).createdAt()).isEqualTo(room2.getCreatedAt());
     }
 }
