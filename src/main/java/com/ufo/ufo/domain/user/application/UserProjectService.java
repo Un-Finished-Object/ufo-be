@@ -47,8 +47,12 @@ public class UserProjectService {
                 .toList();
 
         int totalPages = (int) Math.ceil((double) sortedProjects.size() / PAGE_SIZE);
+        if (pageNumber > totalPages && totalPages > 0) {
+            return PurchasedProjectsResponse.from(List.of(), 0);
+        }
         int nextPage = resolveNextPage(pageNumber, totalPages);
-        int fromIndex = Math.min((pageNumber - 1) * PAGE_SIZE, sortedProjects.size());
+        long offset = (long) (pageNumber - 1) * PAGE_SIZE;
+        int fromIndex = (int) Math.min(offset, sortedProjects.size());
         int toIndex = Math.min(fromIndex + PAGE_SIZE, sortedProjects.size());
 
         return PurchasedProjectsResponse.from(sortedProjects.subList(fromIndex, toIndex), nextPage);

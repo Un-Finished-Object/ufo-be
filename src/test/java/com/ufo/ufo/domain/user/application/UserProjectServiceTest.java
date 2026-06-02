@@ -126,6 +126,33 @@ class UserProjectServiceTest {
         assertThat(response.nextPage()).isEqualTo(5);
     }
 
+    @Test
+    @DisplayName("매우 큰 page 값이 들어와도 overflow 없이 빈 목록을 반환해야 한다")
+    void getPurchasedProjects_VeryLargePage_ReturnsEmptyWithoutOverflow() {
+        User user = UserFixture.createUserWithId(1L);
+        List<Unlock> unlocks = java.util.stream.LongStream.rangeClosed(1, 2)
+                .mapToObj(patternId -> yarnUnlock(
+                        user,
+                        patternId,
+                        LocalDateTime.of(2026, 4, 1, 10, 0).plusDays(patternId)
+                ))
+                .toList();
+        List<Pattern> patterns = java.util.stream.LongStream.rangeClosed(1, 2)
+                .mapToObj(PatternFixture::createPatternWithId)
+                .toList();
+        List<Long> patternIds = java.util.stream.LongStream.rangeClosed(1, 2).boxed().toList();
+        when(unlockRepository.findAllByUser_IdAndTypeOrderByCreatedAtDescIdDesc(1L, UnlockType.YARN_INFO))
+                .thenReturn(unlocks);
+        when(patternRepository.findAllById(patternIds)).thenReturn(patterns);
+        when(chatRoomStatusRepository.findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(1L))
+                .thenReturn(List.of());
+
+        PurchasedProjectsResponse response = userProjectService.getPurchasedProjects(user, 300000000);
+
+        assertThat(response.projects()).isEmpty();
+        assertThat(response.nextPage()).isEqualTo(0);
+    }
+
     private Unlock yarnUnlock(User user, Long patternId, LocalDateTime createdAt) {
         Unlock unlock = Unlock.builder()
                 .user(user)
