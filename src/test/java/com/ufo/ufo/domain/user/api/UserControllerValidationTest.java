@@ -12,6 +12,7 @@ import com.ufo.ufo.domain.chat.application.ChatRoomQueryService;
 import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.scrap.application.ScrapService;
 import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse;
+import com.ufo.ufo.domain.user.application.UserProjectService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -39,6 +40,9 @@ class UserControllerValidationTest {
 
     @MockitoBean
     private ChatRoomQueryService chatRoomQueryService;
+
+    @MockitoBean
+    private UserProjectService userProjectService;
 
     @MockitoBean
     private UserRepository userRepository;

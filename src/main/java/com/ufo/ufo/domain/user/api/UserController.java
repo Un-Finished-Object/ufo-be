@@ -7,7 +7,9 @@ import com.ufo.ufo.domain.chat.application.ChatRoomQueryService;
 import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
 import com.ufo.ufo.domain.scrap.application.ScrapService;
 import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse;
+import com.ufo.ufo.domain.user.application.UserProjectService;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.domain.user.dto.response.PurchasedProjectsResponse;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
@@ -32,6 +34,7 @@ public class UserController {
     private final InterestService interestService;
     private final ScrapService scrapService;
     private final ChatRoomQueryService chatRoomQueryService;
+    private final UserProjectService userProjectService;
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(@LoginUser User user) {
@@ -56,6 +59,16 @@ public class UserController {
     @GetMapping("/me/chats")
     public ResponseEntity<ApiResponse<UserChatRoomListResponse>> getMyChats(@LoginUser User user) {
         return ResponseEntity.ok(ApiResponse.success(chatRoomQueryService.getMyChats(user)));
+    }
+
+    @GetMapping("/me/projects")
+    public ResponseEntity<ApiResponse<PurchasedProjectsResponse>> getMyProjects(
+            @LoginUser User user,
+            @RequestParam(value = "page", defaultValue = "1")
+            @ValidPage
+            Integer page
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(userProjectService.getPurchasedProjects(user, page)));
     }
 
     @PatchMapping("/me/interests")
