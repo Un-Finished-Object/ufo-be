@@ -1,6 +1,5 @@
 package com.ufo.ufo.domain.user.api;
 
-import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,7 +12,10 @@ import com.ufo.ufo.domain.interest.dto.request.UpdateMyInterestsRequest;
 import com.ufo.ufo.domain.interest.dto.response.MyInterestsResponse;
 import com.ufo.ufo.domain.scrap.application.ScrapService;
 import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse;
+import com.ufo.ufo.domain.user.application.UserProjectService;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.domain.user.dto.response.PurchasedProjectsResponse;
+import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.time.LocalDate;
@@ -38,6 +40,9 @@ class UserControllerTest {
 
     @Mock
     private ChatRoomQueryService chatRoomQueryService;
+
+    @Mock
+    private UserProjectService userProjectService;
 
     @InjectMocks
     private UserController userController;
@@ -118,5 +123,20 @@ class UserControllerTest {
         assertThat(response.getBody().data().chats().getFirst().chatId()).isEqualTo(1L);
         assertThat(response.getBody().data().chats().getFirst().unRead()).isEqualTo(30);
         verify(chatRoomQueryService).getMyChats(user);
+    }
+
+    @Test
+    @DisplayName("구매한 프로젝트 목록 조회는 서비스 결과를 data에 담아 응답해야 한다")
+    void getMyProjects_ReturnsServiceResponse() {
+        User user = UserFixture.createUser();
+        PurchasedProjectsResponse serviceResponse = PurchasedProjectsResponse.from(List.of(), 0);
+        when(userProjectService.getPurchasedProjects(user, 1)).thenReturn(serviceResponse);
+
+        ResponseEntity<ApiResponse<PurchasedProjectsResponse>> response = userController.getMyProjects(user, 1);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().projects()).isEmpty();
+        assertThat(response.getBody().data().nextPage()).isEqualTo(0);
+        verify(userProjectService).getPurchasedProjects(user, 1);
     }
 }
