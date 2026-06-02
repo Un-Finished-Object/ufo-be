@@ -19,6 +19,7 @@ import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -112,7 +113,17 @@ class UserControllerTest {
     void getMyChats_ReturnsServiceResponse() {
         User user = UserFixture.createUser();
         UserChatRoomListResponse serviceResponse = UserChatRoomListResponse.of(
-                List.of(UserChatRoomItemResponse.of(1L, "가디건", "chatRoom1.png", true, false, 30))
+                List.of(UserChatRoomItemResponse.of(
+                        10L,
+                        1L,
+                        "가디건",
+                        "chatRoom1.png",
+                        true,
+                        false,
+                        30,
+                        2,
+                        LocalDateTime.of(2026, 4, 1, 0, 0)
+                ))
         );
         when(chatRoomQueryService.getMyChats(user)).thenReturn(serviceResponse);
 
@@ -122,6 +133,8 @@ class UserControllerTest {
         assertThat(response.getBody().data().chats()).hasSize(1);
         assertThat(response.getBody().data().chats().getFirst().chatId()).isEqualTo(1L);
         assertThat(response.getBody().data().chats().getFirst().unRead()).isEqualTo(30);
+        assertThat(response.getBody().data().chats().getFirst().patternId()).isEqualTo(10L);
+        assertThat(response.getBody().data().chats().getFirst().userCount()).isEqualTo(2);
         verify(chatRoomQueryService).getMyChats(user);
     }
 
