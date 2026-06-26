@@ -1,9 +1,11 @@
 package com.ufo.ufo.support.fixture;
 
 import com.ufo.ufo.domain.pattern.domain.Pattern;
+import com.ufo.ufo.domain.pattern.domain.PatternOriginalYarn;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class PatternFixture {
@@ -80,10 +82,45 @@ public final class PatternFixture {
     }
 
     public static void setYarn(Pattern pattern, Yarn yarn) {
+        setOriginalYarn(pattern, yarn, null, null);
+    }
+
+    public static void setOriginalYarn(Pattern pattern, Yarn mainYarn, Yarn secondYarn, Yarn subYarn) {
+        PatternOriginalYarn originalYarn = PatternOriginalYarn.builder()
+                .mainYarn(mainYarn)
+                .secondYarn(secondYarn)
+                .subYarn(subYarn)
+                .build();
+        setOriginalPattern(originalYarn, pattern);
+        List<PatternOriginalYarn> originalYarns = new ArrayList<>(pattern.getOriginalYarns());
+        originalYarns.add(originalYarn);
+        setOriginalYarns(pattern, originalYarns);
+    }
+
+    public static void replaceOriginalYarns(Pattern pattern, List<PatternOriginalYarn> originalYarns) {
+        if (originalYarns == null) {
+            setOriginalYarns(pattern, List.of());
+            return;
+        }
+        originalYarns.forEach(originalYarn -> setOriginalPattern(originalYarn, pattern));
+        setOriginalYarns(pattern, originalYarns);
+    }
+
+    private static void setOriginalPattern(PatternOriginalYarn originalYarn, Pattern pattern) {
         try {
-            Field yarnField = Pattern.class.getDeclaredField("yarn");
-            yarnField.setAccessible(true);
-            yarnField.set(pattern, yarn);
+            Field patternField = PatternOriginalYarn.class.getDeclaredField("pattern");
+            patternField.setAccessible(true);
+            patternField.set(originalYarn, pattern);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static void setOriginalYarns(Pattern pattern, List<PatternOriginalYarn> originalYarns) {
+        try {
+            Field originalYarnsField = Pattern.class.getDeclaredField("originalYarns");
+            originalYarnsField.setAccessible(true);
+            originalYarnsField.set(pattern, originalYarns);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }

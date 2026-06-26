@@ -212,6 +212,32 @@ class PatternServiceTest {
     }
 
     @Test
+    @DisplayName("도안 상세 조회는 원작실 세트를 배열로 반환해야 한다")
+    void getPatternDetail_ReturnsOriginalYarns() {
+        User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(2L);
+        Yarn mainYarn1 = YarnFixture.createYarnWithId(10L);
+        Yarn mainYarn2 = YarnFixture.createYarnWithId(11L);
+        Yarn secondYarn = YarnFixture.createYarnWithId(13L);
+        Yarn subYarn = YarnFixture.createYarnWithId(12L);
+        PatternFixture.setOriginalYarn(pattern, mainYarn1, secondYarn, null);
+        PatternFixture.setOriginalYarn(pattern, mainYarn2, null, subYarn);
+        when(patternRepository.findById(2L)).thenReturn(Optional.of(pattern));
+        when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 2L)).thenReturn(false);
+        when(patternImageRepository.findAllByPattern_IdOrderByImageOrderAscIdAsc(2L)).thenReturn(List.of());
+
+        PatternDetailResponse response = patternService.getPatternDetail(user, 2L);
+
+        assertThat(response.meta().originalYarn()).hasSize(2);
+        assertThat(response.meta().originalYarn().get(0).firstYarnId()).isEqualTo(10L);
+        assertThat(response.meta().originalYarn().get(0).secondYarnId()).isEqualTo(13L);
+        assertThat(response.meta().originalYarn().get(0).subYarnId()).isNull();
+        assertThat(response.meta().originalYarn().get(1).firstYarnId()).isEqualTo(11L);
+        assertThat(response.meta().originalYarn().get(1).secondYarnId()).isNull();
+        assertThat(response.meta().originalYarn().get(1).subYarnId()).isEqualTo(12L);
+    }
+
+    @Test
     @DisplayName("삭제된 도안 상세 조회는 예외가 발생해야 한다")
     void getPatternDetail_DeletedPattern_ThrowsNotFound() {
         User user = UserFixture.createUserWithId(1L);
