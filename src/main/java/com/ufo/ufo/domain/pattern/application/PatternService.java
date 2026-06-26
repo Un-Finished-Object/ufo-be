@@ -7,6 +7,7 @@ import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.dao.YarnRepository;
+import com.ufo.ufo.domain.pattern.domain.PatternOriginalYarn;
 import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
@@ -224,11 +225,16 @@ public class PatternService {
     }
 
     private Optional<AlternativeFilter> resolveAlternativeFilter(Pattern pattern) {
-        Yarn yarn = pattern.getYarn();
-        if (yarn == null || yarn.getDeletedAt() != null
-                || yarn.getYarnId() == null
-                || yarn.getThicknessCategory() == null || yarn.getThicknessCategory().isBlank()
-                || yarn.getMainComponent() == null || yarn.getMainComponent().isBlank()) {
+        Optional<Yarn> originalYarn = pattern.getOriginalYarns().stream()
+                .map(PatternOriginalYarn::getMainYarn)
+                .findFirst();
+        if (originalYarn.isEmpty()) {
+            return Optional.empty();
+        }
+        Yarn yarn = originalYarn.get();
+        if (yarn.getDeletedAt() != null || yarn.getYarnId() == null
+            || yarn.getThicknessCategory() == null || yarn.getThicknessCategory().isBlank()
+            || yarn.getMainComponent() == null || yarn.getMainComponent().isBlank()) {
             return Optional.empty();
         }
         return Optional.of(new AlternativeFilter(

@@ -2,6 +2,7 @@ package com.ufo.ufo.domain.pattern.domain;
 
 import com.ufo.ufo.global.base.BaseEntity;
 import com.ufo.ufo.domain.user.domain.User;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -12,6 +13,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -37,9 +40,9 @@ public class Pattern extends BaseEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "yarn_id")
-    private Yarn yarn;
+    @OneToMany(mappedBy = "pattern", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id asc")
+    private List<PatternOriginalYarn> originalYarns = new ArrayList<>();
 
     @Column(name = "title", nullable = false)
     private String title;
@@ -92,10 +95,9 @@ public class Pattern extends BaseEntity {
     @Builder
     public Pattern(User user, String title, String designer, String categoryMain, String categorySub,
                    String thumbnailUrl, String size, String actualSize, String needleSize,
-                   Yarn yarn, String requiredYarnAmount, String gauge, List<Integer> interestNumbers,
+                   String requiredYarnAmount, String gauge, List<Integer> interestNumbers,
                    Integer scrapsCount, Integer viewCount) {
         this.user = user;
-        this.yarn = yarn;
         this.title = title;
         this.designer = designer;
         this.categoryMain = categoryMain;
@@ -123,12 +125,5 @@ public class Pattern extends BaseEntity {
         if (this.scrapsCount > 0) {
             this.scrapsCount -= 1;
         }
-    }
-
-    public String getOriginalYarnName() {
-        if (yarn != null) {
-            return yarn.getName();
-        }
-        return null;
     }
 }
