@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,20 +36,18 @@ public class ChatRoomQueryService {
     public UserChatRoomListResponse getMyChats(User user, Integer page) {
         User loginUser = userService.getUserById(user.getId());
         int pageNumber = normalizePage(page);
-        List<ChatRoomStatus> statuses = chatRoomStatusRepository
-                .findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(loginUser.getId());
-        if (statuses.isEmpty()) {
+        Page<ChatRoomStatus> statusPage = chatRoomStatusRepository
+                .findByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(
+                        loginUser.getId(),
+                        PageRequest.of(pageNumber - 1, PAGE_SIZE)
+                );
+
+        if (statusPage.isEmpty()) {
             return UserChatRoomListResponse.of(Collections.emptyList(), pageNumber, 0);
         }
 
-        int totalPages = (int) Math.ceil((double) statuses.size() / PAGE_SIZE);
-        if (pageNumber > totalPages) {
-            return UserChatRoomListResponse.of(Collections.emptyList(), pageNumber, 0);
-        }
-
-        int fromIndex = (pageNumber - 1) * PAGE_SIZE;
-        int toIndex = Math.min(fromIndex + PAGE_SIZE, statuses.size());
-        List<ChatRoomStatus> pagedStatuses = statuses.subList(fromIndex, toIndex);
+        int totalPages = statusPage.getTotalPages();
+        List<ChatRoomStatus> pagedStatuses = statusPage.getContent();
         List<Long> roomIds = pagedStatuses.stream()
                 .map(ChatRoomStatus::getChatId)
                 .toList();
