@@ -4,6 +4,7 @@ import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
+import com.ufo.ufo.domain.chat.dto.response.ChatRoomLastMessage;
 import com.ufo.ufo.domain.chat.dto.response.ChatRoomUserCount;
 import com.ufo.ufo.domain.chat.dto.response.UserChatRoomItemResponse;
 import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
@@ -16,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,19 +27,28 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class ChatRoomQueryService {
 
+    private static final int PAGE_SIZE = 10;
+
     private final ChatRoomStatusRepository chatRoomStatusRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final UserService userService;
 
-    public UserChatRoomListResponse getMyChats(User user) {
+    public UserChatRoomListResponse getMyChats(User user, Integer page) {
         User loginUser = userService.getUserById(user.getId());
-        List<ChatRoomStatus> statuses = chatRoomStatusRepository
-                .findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(loginUser.getId());
-        if (statuses.isEmpty()) {
-            return UserChatRoomListResponse.of(Collections.emptyList());
+        int pageNumber = normalizePage(page);
+        Page<ChatRoomStatus> statusPage = chatRoomStatusRepository
+                .findByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(
+                        loginUser.getId(),
+                        PageRequest.of(pageNumber - 1, PAGE_SIZE)
+                );
+
+        if (statusPage.isEmpty()) {
+            return UserChatRoomListResponse.of(Collections.emptyList(), pageNumber, 0);
         }
 
-        List<Long> roomIds = statuses.stream()
+        int totalPages = statusPage.getTotalPages();
+        List<ChatRoomStatus> pagedStatuses = statusPage.getContent();
+        List<Long> roomIds = pagedStatuses.stream()
                 .map(ChatRoomStatus::getChatId)
                 .toList();
 
@@ -46,12 +58,16 @@ public class ChatRoomQueryService {
         Map<Long, Long> userCountMap = chatRoomStatusRepository.countUfoUsersByRoomIds(roomIds)
                 .stream()
                 .collect(Collectors.toMap(ChatRoomUserCount::chatId, ChatRoomUserCount::userCount));
+        Map<Long, String> lastMessageMap = chatMessageRepository.findLatestMessagesByRoomIds(roomIds)
+                .stream()
+                .collect(Collectors.toMap(ChatRoomLastMessage::chatId, ChatRoomLastMessage::lastMessage));
 
-        List<UserChatRoomItemResponse> chats = statuses.stream()
+        List<UserChatRoomItemResponse> chats = pagedStatuses.stream()
                 .map(status -> {
                     Long chatId = status.getChatId();
                     int unRead = unreadMap.getOrDefault(chatId, 0L).intValue();
                     int userCount = userCountMap.getOrDefault(chatId, 0L).intValue();
+                    String lastMessage = lastMessageMap.get(chatId);
                     ChatRoom room = status.getRoom();
                     Pattern pattern = room.getPattern();
                     return UserChatRoomItemResponse.of(
@@ -63,11 +79,27 @@ public class ChatRoomQueryService {
                             status.isHidden(),
                             unRead,
                             userCount,
+                            lastMessage,
                             room.getCreatedAt()
                     );
                 })
                 .toList();
 
-        return UserChatRoomListResponse.of(chats);
+        return UserChatRoomListResponse.of(chats, pageNumber, resolveNextPage(pageNumber, totalPages));
+    }
+
+    private int normalizePage(Integer page) {
+        if (page == null || page < 1) {
+            return 1;
+        }
+        return page;
+    }
+
+    private int resolveNextPage(int currentPage, int totalPages) {
+        int remainingPages = totalPages - currentPage;
+        if (remainingPages <= 0) {
+            return 0;
+        }
+        return Math.min(remainingPages, 5);
     }
 }

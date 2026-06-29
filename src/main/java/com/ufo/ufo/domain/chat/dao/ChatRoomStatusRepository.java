@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface ChatRoomStatusRepository extends JpaRepository<ChatRoomStatus, Long> {
     Optional<ChatRoomStatus> findByUser_IdAndRoom_Id(Long userId, Long roomId);
@@ -19,6 +21,12 @@ public interface ChatRoomStatusRepository extends JpaRepository<ChatRoomStatus, 
 
     @EntityGraph(attributePaths = {"room", "room.pattern"})
     List<ChatRoomStatus> findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(Long userId);
+
+    @EntityGraph(attributePaths = {"room", "room.pattern"})
+    Page<ChatRoomStatus> findByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(
+            Long userId,
+            Pageable pageable
+    );
 
     @Query("""
             select new com.ufo.ufo.domain.chat.dto.response.ChatRoomUserCount(crs.room.id, count(crs))
