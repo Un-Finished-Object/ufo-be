@@ -2,14 +2,14 @@ package com.ufo.ufo.domain.chat.dao;
 
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.chat.dto.response.ChatRoomUserCount;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface ChatRoomStatusRepository extends JpaRepository<ChatRoomStatus, Long> {
     Optional<ChatRoomStatus> findByUser_IdAndRoom_Id(Long userId, Long roomId);
@@ -18,6 +18,9 @@ public interface ChatRoomStatusRepository extends JpaRepository<ChatRoomStatus, 
     Optional<ChatRoomStatus> findFirstByUser_IdAndRoom_Pattern_IdOrderByCreatedAtDescIdDesc(Long userId, Long patternId);
 
     boolean existsByUser_IdAndRoom_Pattern_Id(Long userId, Long patternId);
+
+    @EntityGraph(attributePaths = {"room", "room.pattern"})
+    List<ChatRoomStatus> findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(Long userId);
 
     @EntityGraph(attributePaths = {"room", "room.pattern"})
     Page<ChatRoomStatus> findByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(
