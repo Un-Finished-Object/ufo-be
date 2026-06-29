@@ -25,19 +25,30 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class ChatRoomQueryService {
 
+    private static final int PAGE_SIZE = 10;
+
     private final ChatRoomStatusRepository chatRoomStatusRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final UserService userService;
 
-    public UserChatRoomListResponse getMyChats(User user) {
+    public UserChatRoomListResponse getMyChats(User user, Integer page) {
         User loginUser = userService.getUserById(user.getId());
+        int pageNumber = normalizePage(page);
         List<ChatRoomStatus> statuses = chatRoomStatusRepository
                 .findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(loginUser.getId());
         if (statuses.isEmpty()) {
-            return UserChatRoomListResponse.of(Collections.emptyList());
+            return UserChatRoomListResponse.of(Collections.emptyList(), pageNumber, 0);
         }
 
-        List<Long> roomIds = statuses.stream()
+        int totalPages = (int) Math.ceil((double) statuses.size() / PAGE_SIZE);
+        if (pageNumber > totalPages) {
+            return UserChatRoomListResponse.of(Collections.emptyList(), pageNumber, 0);
+        }
+
+        int fromIndex = (pageNumber - 1) * PAGE_SIZE;
+        int toIndex = Math.min(fromIndex + PAGE_SIZE, statuses.size());
+        List<ChatRoomStatus> pagedStatuses = statuses.subList(fromIndex, toIndex);
+        List<Long> roomIds = pagedStatuses.stream()
                 .map(ChatRoomStatus::getChatId)
                 .toList();
 
@@ -51,7 +62,7 @@ public class ChatRoomQueryService {
                 .stream()
                 .collect(Collectors.toMap(ChatRoomLastMessage::chatId, ChatRoomLastMessage::lastMessage));
 
-        List<UserChatRoomItemResponse> chats = statuses.stream()
+        List<UserChatRoomItemResponse> chats = pagedStatuses.stream()
                 .map(status -> {
                     Long chatId = status.getChatId();
                     int unRead = unreadMap.getOrDefault(chatId, 0L).intValue();
@@ -74,6 +85,21 @@ public class ChatRoomQueryService {
                 })
                 .toList();
 
-        return UserChatRoomListResponse.of(chats);
+        return UserChatRoomListResponse.of(chats, pageNumber, resolveNextPage(pageNumber, totalPages));
+    }
+
+    private int normalizePage(Integer page) {
+        if (page == null || page < 1) {
+            return 1;
+        }
+        return page;
+    }
+
+    private int resolveNextPage(int currentPage, int totalPages) {
+        int remainingPages = totalPages - currentPage;
+        if (remainingPages <= 0) {
+            return 0;
+        }
+        return Math.min(remainingPages, 5);
     }
 }

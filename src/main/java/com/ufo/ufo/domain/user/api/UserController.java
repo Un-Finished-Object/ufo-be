@@ -57,8 +57,13 @@ public class UserController {
     }
 
     @GetMapping("/me/chats")
-    public ResponseEntity<ApiResponse<UserChatRoomListResponse>> getMyChats(@LoginUser User user) {
-        return ResponseEntity.ok(ApiResponse.success(chatRoomQueryService.getMyChats(user)));
+    public ResponseEntity<ApiResponse<UserChatRoomListResponse>> getMyChats(
+            @LoginUser User user,
+            @RequestParam(value = "page", defaultValue = "1")
+            @ValidPage
+            Integer page
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(chatRoomQueryService.getMyChats(user, page)));
     }
 
     @GetMapping("/me/projects")
