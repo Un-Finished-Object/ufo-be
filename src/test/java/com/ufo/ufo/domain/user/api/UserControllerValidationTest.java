@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ufo.ufo.domain.chat.application.ChatRoomQueryService;
+import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
 import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.scrap.application.ScrapService;
 import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse;
@@ -70,5 +71,28 @@ class UserControllerValidationTest {
         mockMvc.perform(get("/v1/users/me/scraps").param("page", "abc"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value("page 파라미터 형식이 올바르지 않습니다."));
+    }
+
+    @Test
+    @DisplayName("내 채팅방 목록 조회에서 page를 생략하면 1로 기본 처리해야 한다")
+    void getMyChats_MissingPage_UsesDefaultPageOne() throws Exception {
+        when(chatRoomQueryService.getMyChats(any(), eq(1)))
+                .thenReturn(UserChatRoomListResponse.of(List.of(), 1, 0));
+
+        mockMvc.perform(get("/v1/users/me/chats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.nextPage").value(0))
+                .andExpect(jsonPath("$.error").isEmpty());
+
+        verify(chatRoomQueryService).getMyChats(any(), eq(1));
+    }
+
+    @Test
+    @DisplayName("내 채팅방 목록 조회에서 page가 1 미만이면 400을 반환해야 한다")
+    void getMyChats_InvalidPage_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/v1/users/me/chats").param("page", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("page는 1 이상이어야 합니다."));
     }
 }

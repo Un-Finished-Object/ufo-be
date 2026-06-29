@@ -122,12 +122,15 @@ class UserControllerTest {
                         false,
                         30,
                         2,
+                        "hello",
                         LocalDateTime.of(2026, 4, 1, 0, 0)
-                ))
+                )),
+                1,
+                0
         );
-        when(chatRoomQueryService.getMyChats(user)).thenReturn(serviceResponse);
+        when(chatRoomQueryService.getMyChats(user, 1)).thenReturn(serviceResponse);
 
-        ResponseEntity<ApiResponse<UserChatRoomListResponse>> response = userController.getMyChats(user);
+        ResponseEntity<ApiResponse<UserChatRoomListResponse>> response = userController.getMyChats(user, 1);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().chats()).hasSize(1);
@@ -135,7 +138,10 @@ class UserControllerTest {
         assertThat(response.getBody().data().chats().getFirst().unRead()).isEqualTo(30);
         assertThat(response.getBody().data().chats().getFirst().patternId()).isEqualTo(10L);
         assertThat(response.getBody().data().chats().getFirst().userCount()).isEqualTo(2);
-        verify(chatRoomQueryService).getMyChats(user);
+        assertThat(response.getBody().data().chats().getFirst().lastMessage()).isEqualTo("hello");
+        assertThat(response.getBody().data().page()).isEqualTo(1);
+        assertThat(response.getBody().data().nextPage()).isEqualTo(0);
+        verify(chatRoomQueryService).getMyChats(user, 1);
     }
 
     @Test
