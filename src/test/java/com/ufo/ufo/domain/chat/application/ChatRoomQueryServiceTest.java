@@ -1,7 +1,9 @@
 package com.ufo.ufo.domain.chat.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
@@ -29,6 +31,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("채팅방 쿼리 서비스 테스트")
@@ -51,7 +54,7 @@ class ChatRoomQueryServiceTest {
     void getMyChats_NoChats_ReturnsEmpty() {
         User user = UserFixture.createUserWithId(1L);
         when(userService.getUserById(1L)).thenReturn(user);
-        when(chatRoomStatusRepository.findByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L), PageRequest.of(0, 10)))
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L), any(Pageable.class)))
                 .thenReturn(Page.empty(PageRequest.of(0, 10)));
 
         UserChatRoomListResponse response = chatRoomQueryService.getMyChats(user, 1);
@@ -84,7 +87,7 @@ class ChatRoomQueryServiceTest {
                 .build();
 
         when(userService.getUserById(1L)).thenReturn(user);
-        when(chatRoomStatusRepository.findByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L), PageRequest.of(0, 10)))
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(status1, status2), PageRequest.of(0, 10), 2));
         when(chatRoomStatusRepository.countUfoUsersByRoomIds(List.of(100L, 101L)))
                 .thenReturn(List.of(new ChatRoomUserCount(100L, 2L), new ChatRoomUserCount(101L, 1L)));
@@ -140,7 +143,7 @@ class ChatRoomQueryServiceTest {
         }
 
         when(userService.getUserById(1L)).thenReturn(user);
-        when(chatRoomStatusRepository.findByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L), PageRequest.of(1, 10)))
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(eq(1L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(statuses.getLast()), PageRequest.of(1, 10), 11));
         when(chatRoomStatusRepository.countUfoUsersByRoomIds(roomIdsOnSecondPage))
                 .thenReturn(List.of(new ChatRoomUserCount(110L, 1L)));
@@ -158,5 +161,9 @@ class ChatRoomQueryServiceTest {
         assertThat(response.chats().getFirst().lastMessage()).isEqualTo("latest");
         assertThat(response.chats().getFirst().userCount()).isEqualTo(1);
         assertThat(response.chats().getFirst().unRead()).isEqualTo(4);
+        verify(chatRoomStatusRepository).findByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(
+                eq(1L),
+                eq(PageRequest.of(1, 10))
+        );
     }
 }
