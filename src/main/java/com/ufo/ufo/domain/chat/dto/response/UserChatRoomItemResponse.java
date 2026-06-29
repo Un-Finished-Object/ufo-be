@@ -11,10 +11,12 @@ public record UserChatRoomItemResponse(
         boolean isHidden,
         int unRead,
         int userCount,
+        String lastMessage,
         LocalDateTime createdAt
 ) {
     public static UserChatRoomItemResponse of(Long patternId, Long chatId, String chatName, String chatImageUrl,
                                               boolean favorite, boolean isHidden, int unRead, int userCount,
+                                              String lastMessage,
                                               LocalDateTime createdAt) {
         return new UserChatRoomItemResponse(
                 patternId,
@@ -25,6 +27,7 @@ public record UserChatRoomItemResponse(
                 isHidden,
                 unRead,
                 userCount,
+                lastMessage,
                 createdAt
         );
     }

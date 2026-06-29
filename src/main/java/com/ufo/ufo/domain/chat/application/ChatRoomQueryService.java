@@ -4,6 +4,7 @@ import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
+import com.ufo.ufo.domain.chat.dto.response.ChatRoomLastMessage;
 import com.ufo.ufo.domain.chat.dto.response.ChatRoomUserCount;
 import com.ufo.ufo.domain.chat.dto.response.UserChatRoomItemResponse;
 import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
@@ -46,12 +47,16 @@ public class ChatRoomQueryService {
         Map<Long, Long> userCountMap = chatRoomStatusRepository.countUfoUsersByRoomIds(roomIds)
                 .stream()
                 .collect(Collectors.toMap(ChatRoomUserCount::chatId, ChatRoomUserCount::userCount));
+        Map<Long, String> lastMessageMap = chatMessageRepository.findLatestMessagesByRoomIds(roomIds)
+                .stream()
+                .collect(Collectors.toMap(ChatRoomLastMessage::chatId, ChatRoomLastMessage::lastMessage));
 
         List<UserChatRoomItemResponse> chats = statuses.stream()
                 .map(status -> {
                     Long chatId = status.getChatId();
                     int unRead = unreadMap.getOrDefault(chatId, 0L).intValue();
                     int userCount = userCountMap.getOrDefault(chatId, 0L).intValue();
+                    String lastMessage = lastMessageMap.get(chatId);
                     ChatRoom room = status.getRoom();
                     Pattern pattern = room.getPattern();
                     return UserChatRoomItemResponse.of(
@@ -63,6 +68,7 @@ public class ChatRoomQueryService {
                             status.isHidden(),
                             unRead,
                             userCount,
+                            lastMessage,
                             room.getCreatedAt()
                     );
                 })

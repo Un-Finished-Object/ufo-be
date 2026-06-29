@@ -1,6 +1,7 @@
 package com.ufo.ufo.domain.chat.dao;
 
 import com.ufo.ufo.domain.chat.domain.ChatMessage;
+import com.ufo.ufo.domain.chat.dto.response.ChatRoomLastMessage;
 import com.ufo.ufo.domain.chat.dto.response.ChatUnreadCount;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +40,18 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     );
 
     Optional<ChatMessage> findByIdAndRoom_Id(Long id, Long roomId);
+
+    @Query("""
+            select new com.ufo.ufo.domain.chat.dto.response.ChatRoomLastMessage(cm.room.id, cm.text)
+            from ChatMessage cm
+            where cm.room.id in :roomIds
+              and cm.id = (
+                  select max(cm2.id)
+                  from ChatMessage cm2
+                  where cm2.room = cm.room
+              )
+            """)
+    List<ChatRoomLastMessage> findLatestMessagesByRoomIds(@Param("roomIds") List<Long> roomIds);
 
     @Query("""
             select new com.ufo.ufo.domain.chat.dto.response.ChatUnreadCount(cm.room.id, count(cm))
