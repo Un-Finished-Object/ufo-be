@@ -2,6 +2,8 @@ package com.ufo.ufo.domain.user.application;
 
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.domain.user.dto.request.UpdateMyInfoRequest;
+import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -24,5 +26,12 @@ public class UserService {
     public User getUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
+    }
+
+    @Transactional
+    public UpdateMyInfoResponse updateMyInfo(User user, UpdateMyInfoRequest request) {
+        User loginUser = getUserById(user.getId());
+        loginUser.updateNameAndProfileImage(request.nickname(), request.profileImage());
+        return UpdateMyInfoResponse.from(loginUser);
     }
 }

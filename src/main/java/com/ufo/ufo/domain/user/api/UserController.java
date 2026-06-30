@@ -8,8 +8,11 @@ import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
 import com.ufo.ufo.domain.scrap.application.ScrapService;
 import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse;
 import com.ufo.ufo.domain.user.application.UserProjectService;
+import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.domain.user.dto.request.UpdateMyInfoRequest;
 import com.ufo.ufo.domain.user.dto.response.PurchasedProjectsResponse;
+import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
@@ -35,10 +38,19 @@ public class UserController {
     private final ScrapService scrapService;
     private final ChatRoomQueryService chatRoomQueryService;
     private final UserProjectService userProjectService;
+    private final UserService userService;
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(@LoginUser User user) {
         return ResponseEntity.ok(ApiResponse.success(UserResponse.from(user)));
+    }
+
+    @PatchMapping("/me")
+    public ResponseEntity<ApiResponse<UpdateMyInfoResponse>> updateMyInfo(
+            @LoginUser User user,
+            @RequestBody @Valid UpdateMyInfoRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(userService.updateMyInfo(user, request)));
     }
 
     @GetMapping("/me/interests")
