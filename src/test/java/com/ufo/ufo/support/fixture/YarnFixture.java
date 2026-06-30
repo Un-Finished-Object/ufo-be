@@ -14,6 +14,7 @@ public final class YarnFixture {
     public static Yarn createYarn() {
         return Yarn.builder()
                 .name("old")
+                .weightG(100)
                 .mainComponent("wool")
                 .subComponent("wool 80%, nylon 20%")
                 .vendor("oldV")
