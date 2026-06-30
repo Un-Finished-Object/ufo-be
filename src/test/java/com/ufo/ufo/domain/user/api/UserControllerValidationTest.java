@@ -107,7 +107,7 @@ class UserControllerValidationTest {
 
     @Test
     @WithMockUser(username = "test@example.com")
-    @DisplayName("내 정보 수정에서 nickname이 null이면 400을 반환해야 한다")
+    @DisplayName("내 정보 수정에서 userName이 null이면 400을 반환해야 한다")
     void updateMyInfo_NullNickname_ReturnsBadRequest() throws Exception {
         when(userRepository.findByEmail("test@example.com"))
                 .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
@@ -116,11 +116,11 @@ class UserControllerValidationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "nickname": null,
+                                  "userName": null,
                                   "profileImage": "https://example.com/profile.png"
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.message").value("nickname 필드의 정보가 올바르지 않습니다."));
+                .andExpect(jsonPath("$.error.message").value("userName 필드의 정보가 올바르지 않습니다."));
     }
 }

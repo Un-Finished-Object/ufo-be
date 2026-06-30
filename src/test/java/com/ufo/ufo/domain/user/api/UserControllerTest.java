@@ -84,7 +84,7 @@ class UserControllerTest {
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().userId()).isEqualTo(10L);
-        assertThat(response.getBody().data().nickname()).isEqualTo("newName");
+        assertThat(response.getBody().data().userName()).isEqualTo("newName");
         assertThat(response.getBody().data().profileImage()).isEqualTo("https://example.com/new.png");
         verify(userService).updateMyInfo(user, request);
     }

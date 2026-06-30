@@ -69,7 +69,7 @@ class UserServiceTest {
         UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
 
         assertThat(response.userId()).isEqualTo(10L);
-        assertThat(response.nickname()).isEqualTo("updatedName");
+        assertThat(response.userName()).isEqualTo("updatedName");
         assertThat(response.profileImage()).isEqualTo("https://example.com/updated.png");
         assertThat(user.getNickname()).isEqualTo("updatedName");
         assertThat(user.getProfileImage()).isEqualTo("https://example.com/updated.png");

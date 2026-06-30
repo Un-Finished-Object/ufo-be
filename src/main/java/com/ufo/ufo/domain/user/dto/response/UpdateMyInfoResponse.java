@@ -4,7 +4,7 @@ import com.ufo.ufo.domain.user.domain.User;
 
 public record UpdateMyInfoResponse(
         Long userId,
-        String nickname,
+        String userName,
         String profileImage
 ) {
     public static UpdateMyInfoResponse from(User user) {

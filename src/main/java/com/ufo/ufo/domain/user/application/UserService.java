@@ -31,7 +31,7 @@ public class UserService {
     @Transactional
     public UpdateMyInfoResponse updateMyInfo(User user, UpdateMyInfoRequest request) {
         User loginUser = getUserById(user.getId());
-        loginUser.updateNameAndProfileImage(request.nickname(), request.profileImage());
+        loginUser.updateNameAndProfileImage(request.userName(), request.profileImage());
         return UpdateMyInfoResponse.from(loginUser);
     }
 }
