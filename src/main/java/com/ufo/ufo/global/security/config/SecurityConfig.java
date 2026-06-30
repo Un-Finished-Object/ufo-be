@@ -44,6 +44,7 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/v1/patterns", "/v1/patterns/search", "/v1/patterns/recommend").permitAll()
                         .requestMatchers(new RegexRequestMatcher("^/v1/patterns/\\d+$", HttpMethod.GET.name())).permitAll()
+                        .requestMatchers(new RegexRequestMatcher("^/v1/yarns/\\d+$", HttpMethod.GET.name())).permitAll()
                         .requestMatchers("/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
