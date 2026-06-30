@@ -36,4 +36,17 @@ out/
 ### VS Code ###
 .vscode/
 
+# Local environment and secret configuration files
 application-*.yml
+
+# Local-only data, workspace, and AI agent instruction files
+.env
+data.sql
+AGENTS.md
+CLAUDE.md
+COPILOT.md
+GEMINI.md
+CODEX.md
+.github/copilot-instructions.md
+.cursor/rules/
+.windsurf/
