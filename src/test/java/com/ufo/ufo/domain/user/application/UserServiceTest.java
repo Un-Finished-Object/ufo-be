@@ -6,6 +6,8 @@ import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.domain.user.dto.request.UpdateMyInfoRequest;
+import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.exception.UserNotFoundException;
 import com.ufo.ufo.global.security.types.Role;
@@ -53,6 +55,35 @@ class UserServiceTest {
         when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.getUserInfo("missing@example.com"))
+                .isInstanceOf(UserNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("내 정보 수정 시 사용자 정보를 갱신하고 수정 결과를 반환해야 한다")
+    void updateMyInfo_WhenUserExists_UpdatesUserAndReturnsResponse() {
+        User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
+        UserFixture.setId(user, 10L);
+        UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", "https://example.com/updated.png");
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+
+        UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
+
+        assertThat(response.userId()).isEqualTo(10L);
+        assertThat(response.nickname()).isEqualTo("updatedName");
+        assertThat(response.profileImage()).isEqualTo("https://example.com/updated.png");
+        assertThat(user.getNickname()).isEqualTo("updatedName");
+        assertThat(user.getProfileImage()).isEqualTo("https://example.com/updated.png");
+    }
+
+    @Test
+    @DisplayName("내 정보 수정 시 사용자가 존재하지 않으면 UserNotFoundException이 발생해야 한다")
+    void updateMyInfo_WhenUserMissing_ThrowsUserNotFoundException() {
+        User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
+        UserFixture.setId(user, 10L);
+        UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", "https://example.com/updated.png");
+        when(userRepository.findById(10L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.updateMyInfo(user, request))
                 .isInstanceOf(UserNotFoundException.class);
     }
 }
