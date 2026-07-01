@@ -49,8 +49,8 @@ class OAuthUserUpsertServiceTest {
     }
 
     @Test
-    @DisplayName("이미 존재하는 사용자면 닉네임과 프로필 이미지를 갱신해 저장해야 한다")
-    void saveOrUpdate_WhenUserExists_UpdatesProfile() {
+    @DisplayName("이미 존재하는 사용자면 기존 닉네임과 프로필 이미지를 유지한 채 저장해야 한다")
+    void saveOrUpdate_WhenUserExists_PreservesProfile() {
         User existing = UserFixture.createUser("exists@example.com", Role.ROLE_USER);
         OAuth2Response response = oauthResponse(
                 "exists@example.com", "updated-name", "https://example.com/updated.png", Provider.GOOGLE
@@ -60,8 +60,8 @@ class OAuthUserUpsertServiceTest {
 
         User saved = oauthUserUpsertService.saveOrUpdate(response);
 
-        assertThat(saved.getNickname()).isEqualTo("updated-name");
-        assertThat(saved.getProfileImage()).isEqualTo("https://example.com/updated.png");
+        assertThat(saved.getNickname()).isEqualTo("tester");
+        assertThat(saved.getProfileImage()).isEqualTo("https://example.com/profile.png");
         assertThat(saved.getRole()).isEqualTo(Role.ROLE_USER);
         assertThat(saved.getProvider()).isEqualTo(Provider.GOOGLE);
 

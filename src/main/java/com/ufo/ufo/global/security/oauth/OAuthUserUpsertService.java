@@ -28,8 +28,6 @@ public class OAuthUserUpsertService {
                     .provider(response.getProvider())
                     .ballBalance(0)
                     .build();
-        } else {
-            user.updateNameAndProfileImage(response.getName(), response.getProfileImage());
         }
 
         return userRepository.save(user);
