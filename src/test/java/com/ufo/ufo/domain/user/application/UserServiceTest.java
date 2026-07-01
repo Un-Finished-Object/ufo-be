@@ -2,8 +2,10 @@ package com.ufo.ufo.domain.user.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.domain.user.dto.request.UpdateMyInfoRequest;
@@ -27,6 +29,9 @@ class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ImageService imageService;
 
     @InjectMocks
     private UserService userService;
@@ -89,6 +94,22 @@ class UserServiceTest {
         assertThat(response.profileImage()).isEqualTo("https://example.com/profile.png");
         assertThat(user.getNickname()).isEqualTo("updatedName");
         assertThat(user.getProfileImage()).isEqualTo("https://example.com/profile.png");
+    }
+
+    @Test
+    @DisplayName("내 정보 수정 시 profileImage가 있으면 소유권 검증 후 저장해야 한다")
+    void updateMyInfo_WhenProfileImageProvided_ValidatesOwnershipBeforeSaving() {
+        User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
+        UserFixture.setId(user, 10L);
+        UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", "https://cdn.ufo.com/profiles/10/image");
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+
+        UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
+
+        assertThat(response.userName()).isEqualTo("updatedName");
+        assertThat(response.profileImage()).isEqualTo("https://cdn.ufo.com/profiles/10/image");
+        assertThat(user.getProfileImage()).isEqualTo("https://cdn.ufo.com/profiles/10/image");
+        verify(imageService).validateProfileImage(user, "https://cdn.ufo.com/profiles/10/image");
     }
 
     @Test
