@@ -128,6 +128,44 @@ class UserControllerValidationTest {
 
     @Test
     @WithMockUser(username = "test@example.com")
+    @DisplayName("내 정보 수정에서 userName에 공백만 입력하면 400을 반환해야 한다")
+    void updateMyInfo_BlankUserName_ReturnsBadRequest() throws Exception {
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userName": "  ",
+                                  "profileImage": "https://example.com/profile.png"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("userName 필드의 정보가 올바르지 않습니다."));
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
+    @DisplayName("내 정보 수정에서 profileImage에 공백만 입력하면 400을 반환해야 한다")
+    void updateMyInfo_BlankProfileImage_ReturnsBadRequest() throws Exception {
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userName": "updatedName",
+                                  "profileImage": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("profileImage 필드의 정보가 올바르지 않습니다."));
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
     @DisplayName("내 정보 수정에서 userName과 profileImage를 모두 생략하면 200을 반환해야 한다")
     void updateMyInfo_MissingUserNameAndProfileImage_ReturnsOk() throws Exception {
         when(userRepository.findByEmail("test@example.com"))
