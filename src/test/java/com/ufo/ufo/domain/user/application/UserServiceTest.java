@@ -76,6 +76,38 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("내 정보 수정 시 profileImage가 없으면 기존 이미지를 유지해야 한다")
+    void updateMyInfo_WhenProfileImageMissing_KeepsExistingProfileImage() {
+        User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
+        UserFixture.setId(user, 10L);
+        UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", null);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+
+        UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
+
+        assertThat(response.userName()).isEqualTo("updatedName");
+        assertThat(response.profileImage()).isEqualTo("https://example.com/profile.png");
+        assertThat(user.getNickname()).isEqualTo("updatedName");
+        assertThat(user.getProfileImage()).isEqualTo("https://example.com/profile.png");
+    }
+
+    @Test
+    @DisplayName("내 정보 수정 시 userName이 없으면 기존 닉네임을 유지해야 한다")
+    void updateMyInfo_WhenUserNameMissing_KeepsExistingUserName() {
+        User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
+        UserFixture.setId(user, 10L);
+        UpdateMyInfoRequest request = new UpdateMyInfoRequest(null, "https://example.com/updated.png");
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+
+        UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
+
+        assertThat(response.userName()).isEqualTo("tester");
+        assertThat(response.profileImage()).isEqualTo("https://example.com/updated.png");
+        assertThat(user.getNickname()).isEqualTo("tester");
+        assertThat(user.getProfileImage()).isEqualTo("https://example.com/updated.png");
+    }
+
+    @Test
     @DisplayName("내 정보 수정 시 사용자가 존재하지 않으면 UserNotFoundException이 발생해야 한다")
     void updateMyInfo_WhenUserMissing_ThrowsUserNotFoundException() {
         User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);

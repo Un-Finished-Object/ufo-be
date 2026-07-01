@@ -1,10 +1,12 @@
 package com.ufo.ufo.domain.user.api;
 
+import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -107,20 +109,52 @@ class UserControllerValidationTest {
 
     @Test
     @WithMockUser(username = "test@example.com")
-    @DisplayName("내 정보 수정에서 userName이 null이면 400을 반환해야 한다")
-    void updateMyInfo_NullNickname_ReturnsBadRequest() throws Exception {
+    @DisplayName("내 정보 수정에서 userName을 생략하면 200을 반환해야 한다")
+    void updateMyInfo_MissingUserName_ReturnsOk() throws Exception {
         when(userRepository.findByEmail("test@example.com"))
                 .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
+        when(userService.updateMyInfo(any(), any()))
+                .thenReturn(new UpdateMyInfoResponse(10L, "tester", "https://example.com/profile.png"));
 
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/v1/users/me")
+        mockMvc.perform(patch("/v1/users/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "userName": null,
                                   "profileImage": "https://example.com/profile.png"
                                 }
                                 """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.message").value("userName 필드의 정보가 올바르지 않습니다."));
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
+    @DisplayName("내 정보 수정에서 userName과 profileImage를 모두 생략하면 200을 반환해야 한다")
+    void updateMyInfo_MissingUserNameAndProfileImage_ReturnsOk() throws Exception {
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
+        when(userService.updateMyInfo(any(), any()))
+                .thenReturn(new UpdateMyInfoResponse(10L, "tester", "https://example.com/profile.png"));
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
+    @DisplayName("내 정보 수정에서 profileImage를 생략하면 200을 반환해야 한다")
+    void updateMyInfo_MissingProfileImage_ReturnsOk() throws Exception {
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userName": "updatedName"
+                                }
+                                """))
+                .andExpect(status().isOk());
     }
 }
