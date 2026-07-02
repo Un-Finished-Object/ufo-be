@@ -20,7 +20,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -177,7 +181,11 @@ public class ImageService {
         if (key == null) {
             key = tryExtractKey(urlWithoutQuery, defaultS3BaseUrl());
         }
-        if (key == null || key.isBlank() || hasDotSegments(key) || !isAllowedPrefix(key)) {
+        if (key == null || key.isBlank()) {
+            throw new InvalidImageUrlException();
+        }
+        key = normalizeObjectKey(key);
+        if (!isAllowedPrefix(key)) {
             throw new InvalidImageUrlException();
         }
         return key;
@@ -195,20 +203,25 @@ public class ImageService {
         return imageUrl.substring(expectedPrefix.length());
     }
 
+    private String normalizeObjectKey(String key) {
+        String decodedKey = URLDecoder.decode(key, StandardCharsets.UTF_8);
+        String[] segments = decodedKey.split("/");
+        Deque<String> normalizedSegments = new ArrayDeque<>();
+
+        for (String segment : segments) {
+            if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)) {
+                throw new InvalidImageUrlException();
+            }
+            normalizedSegments.addLast(segment);
+        }
+
+        return String.join("/", normalizedSegments);
+    }
+
     private boolean isAllowedPrefix(String key) {
         return key.startsWith(ImagePurpose.STYLE.prefix() + "/")
                 || key.startsWith(ImagePurpose.PROFILE.prefix() + "/")
                 || key.startsWith(ImagePurpose.PATTERN.prefix() + "/");
-    }
-
-    private boolean hasDotSegments(String key) {
-        String[] segments = key.split("/");
-        for (String segment : segments) {
-            if (".".equals(segment) || "..".equals(segment)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void validatePrefix(String key, ImagePurpose purpose) {

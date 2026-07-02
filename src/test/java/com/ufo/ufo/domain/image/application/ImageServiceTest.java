@@ -260,6 +260,16 @@ class ImageServiceTest {
                 .isInstanceOf(InvalidProfileImageUrlException.class);
     }
 
+    @Test
+    @DisplayName("프로필 이미지 검증은 인코딩된 dot-segment가 포함되면 예외가 발생해야 한다")
+    void validateProfileImage_EncodedDotSegments_Throws() {
+        assertThatThrownBy(() -> imageService.validateProfileImage(
+                user,
+                "https://cdn.ufo.com/profiles/1/%2e%2e/%2e%2e/styles/2/img"
+        ))
+                .isInstanceOf(InvalidProfileImageUrlException.class);
+    }
+
     private PresignedPutObjectRequest mockPresignedRequest(String url) throws MalformedURLException {
         PresignedPutObjectRequest request = mock(PresignedPutObjectRequest.class);
         when(request.url()).thenReturn(new URL(url));
