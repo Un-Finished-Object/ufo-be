@@ -13,12 +13,18 @@ import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
 import com.ufo.ufo.domain.image.exception.InvalidImageContentTypeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageUrlException;
 import com.ufo.ufo.domain.image.exception.InvalidImageSizeException;
+import com.ufo.ufo.domain.image.exception.InvalidProfileImageUrlException;
+import com.ufo.ufo.domain.image.exception.ProfileImagePermissionDeniedException;
 import com.ufo.ufo.domain.user.domain.User;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -63,11 +69,26 @@ public class ImageService {
     public void deleteImage(User user, String imageUrl) {
         validateBucketConfigured();
         String key = extractObjectKey(imageUrl);
-        validateOwnership(key, user.getId());
+        validateDeleteOwnership(key, user.getId());
         s3Client.deleteObject(DeleteObjectRequest.builder()
                 .bucket(imageProperties.s3().bucket())
                 .key(key)
                 .build());
+    }
+
+    public void validateProfileImage(User user, String imageUrl) {
+        validateBucketConfigured();
+        if (hasQueryString(imageUrl)) {
+            throw new InvalidProfileImageUrlException();
+        }
+        String key;
+        try {
+            key = extractObjectKey(imageUrl);
+        } catch (InvalidImageUrlException e) {
+            throw new InvalidProfileImageUrlException();
+        }
+        validatePrefix(key, ImagePurpose.PROFILE);
+        validateProfileImageOwnership(key, user.getId());
     }
 
     private UrlInfo generateUrlInfo(User user, ImagePurpose purpose, Duration signatureDuration, FileInfo fileInfo) {
@@ -163,7 +184,11 @@ public class ImageService {
         if (key == null) {
             key = tryExtractKey(urlWithoutQuery, defaultS3BaseUrl());
         }
-        if (key == null || key.isBlank() || !isAllowedPrefix(key)) {
+        if (key == null || key.isBlank()) {
+            throw new InvalidImageUrlException();
+        }
+        key = normalizeObjectKey(key);
+        if (!isAllowedPrefix(key)) {
             throw new InvalidImageUrlException();
         }
         return key;
@@ -181,19 +206,54 @@ public class ImageService {
         return imageUrl.substring(expectedPrefix.length());
     }
 
+    private boolean hasQueryString(String imageUrl) {
+        return imageUrl != null && imageUrl.contains("?");
+    }
+
+    private String normalizeObjectKey(String key) {
+        String decodedKey = URLDecoder.decode(key, StandardCharsets.UTF_8);
+        String[] segments = decodedKey.split("/");
+        Deque<String> normalizedSegments = new ArrayDeque<>();
+
+        for (String segment : segments) {
+            if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)) {
+                throw new InvalidImageUrlException();
+            }
+            normalizedSegments.addLast(segment);
+        }
+
+        return String.join("/", normalizedSegments);
+    }
+
     private boolean isAllowedPrefix(String key) {
         return key.startsWith(ImagePurpose.STYLE.prefix() + "/")
                 || key.startsWith(ImagePurpose.PROFILE.prefix() + "/")
                 || key.startsWith(ImagePurpose.PATTERN.prefix() + "/");
     }
 
-    private void validateOwnership(String key, Long userId) {
+    private void validatePrefix(String key, ImagePurpose purpose) {
+        if (!key.startsWith(purpose.prefix() + "/")) {
+            throw new InvalidProfileImageUrlException();
+        }
+    }
+
+    private void validateDeleteOwnership(String key, Long userId) {
         String[] parts = key.split("/", 3);
         if (parts.length < 3) {
             throw new InvalidImageUrlException();
         }
         if (userId == null || !parts[1].equals(String.valueOf(userId))) {
             throw new ImageDeletePermissionDeniedException();
+        }
+    }
+
+    private void validateProfileImageOwnership(String key, Long userId) {
+        String[] parts = key.split("/", 3);
+        if (parts.length < 3) {
+            throw new InvalidProfileImageUrlException();
+        }
+        if (userId == null || !parts[1].equals(String.valueOf(userId))) {
+            throw new ProfileImagePermissionDeniedException();
         }
     }
 

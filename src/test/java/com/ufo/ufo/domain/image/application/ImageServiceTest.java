@@ -20,6 +20,8 @@ import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
 import com.ufo.ufo.domain.image.exception.InvalidImagePurposeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageSizeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageUrlException;
+import com.ufo.ufo.domain.image.exception.InvalidProfileImageUrlException;
+import com.ufo.ufo.domain.image.exception.ProfileImagePermissionDeniedException;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.net.MalformedURLException;
@@ -226,6 +228,56 @@ class ImageServiceTest {
         assertThatThrownBy(() -> imageService.deleteImage(user, "https://cdn.ufo.com/styles/2/123"))
                 .isInstanceOf(ImageDeletePermissionDeniedException.class);
         verifyNoInteractions(s3Client);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 검증은 유효한 내부 URL이면 통과해야 한다")
+    void validateProfileImage_ValidUrl_Passes() {
+        imageService.validateProfileImage(user, "https://cdn.ufo.com/profiles/1/123e4567-e89b-12d3-a456-426614174000");
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 검증은 외부 URL이면 예외가 발생해야 한다")
+    void validateProfileImage_ExternalUrl_Throws() {
+        assertThatThrownBy(() -> imageService.validateProfileImage(user, "https://evil.com/profiles/1/123"))
+                .isInstanceOf(InvalidProfileImageUrlException.class);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 검증은 본인 소유가 아니면 예외가 발생해야 한다")
+    void validateProfileImage_NotOwner_Throws() {
+        assertThatThrownBy(() -> imageService.validateProfileImage(user, "https://cdn.ufo.com/profiles/2/123"))
+                .isInstanceOf(ProfileImagePermissionDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 검증은 dot-segment가 포함되면 예외가 발생해야 한다")
+    void validateProfileImage_DotSegments_Throws() {
+        assertThatThrownBy(() -> imageService.validateProfileImage(
+                user,
+                "https://cdn.ufo.com/profiles/1/../../styles/2/img"
+        ))
+                .isInstanceOf(InvalidProfileImageUrlException.class);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 검증은 인코딩된 dot-segment가 포함되면 예외가 발생해야 한다")
+    void validateProfileImage_EncodedDotSegments_Throws() {
+        assertThatThrownBy(() -> imageService.validateProfileImage(
+                user,
+                "https://cdn.ufo.com/profiles/1/%2e%2e/%2e%2e/styles/2/img"
+        ))
+                .isInstanceOf(InvalidProfileImageUrlException.class);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 검증은 query string이 포함되면 예외가 발생해야 한다")
+    void validateProfileImage_QueryString_Throws() {
+        assertThatThrownBy(() -> imageService.validateProfileImage(
+                user,
+                "https://cdn.ufo.com/profiles/1/123?X-Amz-Signature=signature"
+        ))
+                .isInstanceOf(InvalidProfileImageUrlException.class);
     }
 
     private PresignedPutObjectRequest mockPresignedRequest(String url) throws MalformedURLException {

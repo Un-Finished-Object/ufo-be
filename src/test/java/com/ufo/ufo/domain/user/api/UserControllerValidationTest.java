@@ -1,10 +1,12 @@
 package com.ufo.ufo.domain.user.api;
 
+import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -14,15 +16,21 @@ import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.scrap.application.ScrapService;
 import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse;
 import com.ufo.ufo.domain.user.application.UserProjectService;
+import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
+import com.ufo.ufo.global.security.types.Role;
+import com.ufo.ufo.support.fixture.UserFixture;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(controllers = UserController.class)
@@ -44,6 +52,9 @@ class UserControllerValidationTest {
 
     @MockitoBean
     private UserProjectService userProjectService;
+
+    @MockitoBean
+    private UserService userService;
 
     @MockitoBean
     private UserRepository userRepository;
@@ -94,5 +105,94 @@ class UserControllerValidationTest {
         mockMvc.perform(get("/v1/users/me/chats").param("page", "0"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value("page는 1 이상이어야 합니다."));
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
+    @DisplayName("내 정보 수정에서 userName을 생략하면 200을 반환해야 한다")
+    void updateMyInfo_MissingUserName_ReturnsOk() throws Exception {
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
+        when(userService.updateMyInfo(any(), any()))
+                .thenReturn(new UpdateMyInfoResponse(10L, "tester", "https://example.com/profile.png"));
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "profileImage": "https://example.com/profile.png"
+                                }
+                                """))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
+    @DisplayName("내 정보 수정에서 userName에 공백만 입력하면 400을 반환해야 한다")
+    void updateMyInfo_BlankUserName_ReturnsBadRequest() throws Exception {
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userName": "  ",
+                                  "profileImage": "https://example.com/profile.png"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("userName 필드의 정보가 올바르지 않습니다."));
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
+    @DisplayName("내 정보 수정에서 profileImage에 공백만 입력하면 400을 반환해야 한다")
+    void updateMyInfo_BlankProfileImage_ReturnsBadRequest() throws Exception {
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userName": "updatedName",
+                                  "profileImage": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("profileImage 필드의 정보가 올바르지 않습니다."));
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
+    @DisplayName("내 정보 수정에서 userName과 profileImage를 모두 생략하면 200을 반환해야 한다")
+    void updateMyInfo_MissingUserNameAndProfileImage_ReturnsOk() throws Exception {
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
+        when(userService.updateMyInfo(any(), any()))
+                .thenReturn(new UpdateMyInfoResponse(10L, "tester", "https://example.com/profile.png"));
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
+    @DisplayName("내 정보 수정에서 profileImage를 생략하면 200을 반환해야 한다")
+    void updateMyInfo_MissingProfileImage_ReturnsOk() throws Exception {
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
+
+        mockMvc.perform(patch("/v1/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userName": "updatedName"
+                                }
+                                """))
+                .andExpect(status().isOk());
     }
 }
