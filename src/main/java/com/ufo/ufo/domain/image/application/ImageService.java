@@ -177,7 +177,7 @@ public class ImageService {
         if (key == null) {
             key = tryExtractKey(urlWithoutQuery, defaultS3BaseUrl());
         }
-        if (key == null || key.isBlank() || !isAllowedPrefix(key)) {
+        if (key == null || key.isBlank() || hasDotSegments(key) || !isAllowedPrefix(key)) {
             throw new InvalidImageUrlException();
         }
         return key;
@@ -199,6 +199,16 @@ public class ImageService {
         return key.startsWith(ImagePurpose.STYLE.prefix() + "/")
                 || key.startsWith(ImagePurpose.PROFILE.prefix() + "/")
                 || key.startsWith(ImagePurpose.PATTERN.prefix() + "/");
+    }
+
+    private boolean hasDotSegments(String key) {
+        String[] segments = key.split("/");
+        for (String segment : segments) {
+            if (".".equals(segment) || "..".equals(segment)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void validatePrefix(String key, ImagePurpose purpose) {
