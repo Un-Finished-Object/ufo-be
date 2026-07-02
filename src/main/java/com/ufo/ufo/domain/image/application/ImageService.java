@@ -78,6 +78,9 @@ public class ImageService {
 
     public void validateProfileImage(User user, String imageUrl) {
         validateBucketConfigured();
+        if (hasQueryString(imageUrl)) {
+            throw new InvalidProfileImageUrlException();
+        }
         String key;
         try {
             key = extractObjectKey(imageUrl);
@@ -201,6 +204,10 @@ public class ImageService {
             return null;
         }
         return imageUrl.substring(expectedPrefix.length());
+    }
+
+    private boolean hasQueryString(String imageUrl) {
+        return imageUrl != null && imageUrl.contains("?");
     }
 
     private String normalizeObjectKey(String key) {
