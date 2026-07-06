@@ -16,6 +16,7 @@ import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.dao.YarnRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
+import com.ufo.ufo.domain.pattern.domain.PatternOriginalYarn;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
 import com.ufo.ufo.domain.pattern.dto.request.AlternativeGaugeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
@@ -170,7 +171,7 @@ class PatternServiceTest {
     void getPatternDetail_ReturnsScrapFlag() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(2L);
-        when(patternRepository.findById(2L)).thenReturn(Optional.of(pattern));
+        when(patternRepository.findDetailById(2L)).thenReturn(Optional.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 2L)).thenReturn(true);
         when(patternImageRepository.findAllByPattern_IdOrderByImageOrderAscIdAsc(2L)).thenReturn(List.of());
 
@@ -186,7 +187,7 @@ class PatternServiceTest {
     @DisplayName("비로그인 도안 상세 조회는 찜 여부를 false로 반환해야 한다")
     void getPatternDetail_AnonymousUser_ReturnsUnscrapped() {
         Pattern pattern = PatternFixture.createPatternWithId(2L);
-        when(patternRepository.findById(2L)).thenReturn(Optional.of(pattern));
+        when(patternRepository.findDetailById(2L)).thenReturn(Optional.of(pattern));
         when(patternImageRepository.findAllByPattern_IdOrderByImageOrderAscIdAsc(2L)).thenReturn(List.of());
 
         PatternDetailResponse response = patternService.getPatternDetail(null, 2L);
@@ -202,7 +203,7 @@ class PatternServiceTest {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPattern("patternA", "artist", "apparel", "sweater", "./patterns/t.png");
         PatternFixture.setId(pattern, 2L);
-        when(patternRepository.findById(2L)).thenReturn(Optional.of(pattern));
+        when(patternRepository.findDetailById(2L)).thenReturn(Optional.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 2L)).thenReturn(false);
         when(patternImageRepository.findAllByPattern_IdOrderByImageOrderAscIdAsc(2L)).thenReturn(List.of());
 
@@ -220,30 +221,38 @@ class PatternServiceTest {
         Yarn mainYarn2 = YarnFixture.createYarnWithId(11L);
         Yarn secondYarn = YarnFixture.createYarnWithId(13L);
         Yarn subYarn = YarnFixture.createYarnWithId(12L);
-        PatternFixture.setOriginalYarn(pattern, mainYarn1, secondYarn, null);
-        PatternFixture.setOriginalYarn(pattern, mainYarn2, null, subYarn);
-        when(patternRepository.findById(2L)).thenReturn(Optional.of(pattern));
+        PatternOriginalYarn originalYarn1 = PatternFixture.setOriginalYarn(pattern, mainYarn1, secondYarn, null);
+        PatternOriginalYarn originalYarn2 = PatternFixture.setOriginalYarn(pattern, mainYarn2, null, subYarn);
+        PatternFixture.setOriginalYarnId(originalYarn1, 100L);
+        PatternFixture.setOriginalYarnId(originalYarn2, 101L);
+        when(patternRepository.findDetailById(2L)).thenReturn(Optional.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 2L)).thenReturn(false);
         when(patternImageRepository.findAllByPattern_IdOrderByImageOrderAscIdAsc(2L)).thenReturn(List.of());
 
         PatternDetailResponse response = patternService.getPatternDetail(user, 2L);
 
         assertThat(response.meta().originalYarn()).hasSize(2);
-        assertThat(response.meta().originalYarn().get(0).firstYarnId()).isEqualTo(10L);
-        assertThat(response.meta().originalYarn().get(0).secondYarnId()).isEqualTo(13L);
-        assertThat(response.meta().originalYarn().get(0).subYarnId()).isNull();
-        assertThat(response.meta().originalYarn().get(1).firstYarnId()).isEqualTo(11L);
-        assertThat(response.meta().originalYarn().get(1).secondYarnId()).isNull();
-        assertThat(response.meta().originalYarn().get(1).subYarnId()).isEqualTo(12L);
+        assertThat(response.meta().originalYarn().get(0).originalYarnSetId()).isEqualTo(100L);
+        assertThat(response.meta().originalYarn().get(0).firstYarn().yarnId()).isEqualTo(10L);
+        assertThat(response.meta().originalYarn().get(0).firstYarn().yarnName()).isEqualTo("old");
+        assertThat(response.meta().originalYarn().get(0).firstYarn().weight()).isEqualTo(100);
+        assertThat(response.meta().originalYarn().get(0).firstYarn().cost()).isEqualTo(1000);
+        assertThat(response.meta().originalYarn().get(0).firstYarn().component()).isEqualTo("wool 80%, nylon 20%");
+        assertThat(response.meta().originalYarn().get(0).firstYarn().store()).isEqualTo("oldV");
+        assertThat(response.meta().originalYarn().get(0).firstYarn().length()).isEqualTo(120);
+        assertThat(response.meta().originalYarn().get(0).secondYarn().yarnId()).isEqualTo(13L);
+        assertThat(response.meta().originalYarn().get(0).subYarn()).isNull();
+        assertThat(response.meta().originalYarn().get(1).originalYarnSetId()).isEqualTo(101L);
+        assertThat(response.meta().originalYarn().get(1).firstYarn().yarnId()).isEqualTo(11L);
+        assertThat(response.meta().originalYarn().get(1).secondYarn()).isNull();
+        assertThat(response.meta().originalYarn().get(1).subYarn().yarnId()).isEqualTo(12L);
     }
 
     @Test
     @DisplayName("삭제된 도안 상세 조회는 예외가 발생해야 한다")
     void getPatternDetail_DeletedPattern_ThrowsNotFound() {
         User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(2L);
-        PatternFixture.setDeletedAt(pattern, java.time.LocalDateTime.now());
-        when(patternRepository.findById(2L)).thenReturn(Optional.of(pattern));
+        when(patternRepository.findDetailById(2L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> patternService.getPatternDetail(user, 2L))
                 .isInstanceOf(ApiException.class);
