@@ -88,7 +88,7 @@ public class PatternService {
 
     @Transactional
     public PatternDetailResponse getPatternDetail(User user, Long patternId) {
-        Pattern pattern = findActivePattern(patternId);
+        Pattern pattern = findPatternDetail(patternId);
         pattern.increaseViewCount();
         boolean isScrapped = isScrapped(user, patternId);
         List<String> images = resolvePatternImages(patternId, pattern.getThumbnailUrl());
@@ -148,6 +148,11 @@ public class PatternService {
             throw new PatternNotFoundException();
         }
         return pattern;
+    }
+
+    private Pattern findPatternDetail(Long patternId) {
+        return patternRepository.findDetailById(patternId)
+                .orElseThrow(PatternNotFoundException::new);
     }
 
     private void validateAlternativePermission(User user) {

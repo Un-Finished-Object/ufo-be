@@ -85,7 +85,7 @@ public final class PatternFixture {
         setOriginalYarn(pattern, yarn, null, null);
     }
 
-    public static void setOriginalYarn(Pattern pattern, Yarn mainYarn, Yarn secondYarn, Yarn subYarn) {
+    public static PatternOriginalYarn setOriginalYarn(Pattern pattern, Yarn mainYarn, Yarn secondYarn, Yarn subYarn) {
         PatternOriginalYarn originalYarn = PatternOriginalYarn.builder()
                 .mainYarn(mainYarn)
                 .secondYarn(secondYarn)
@@ -95,6 +95,7 @@ public final class PatternFixture {
         List<PatternOriginalYarn> originalYarns = new ArrayList<>(pattern.getOriginalYarns());
         originalYarns.add(originalYarn);
         setOriginalYarns(pattern, originalYarns);
+        return originalYarn;
     }
 
     public static void replaceOriginalYarns(Pattern pattern, List<PatternOriginalYarn> originalYarns) {
@@ -111,6 +112,16 @@ public final class PatternFixture {
             Field patternField = PatternOriginalYarn.class.getDeclaredField("pattern");
             patternField.setAccessible(true);
             patternField.set(originalYarn, pattern);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public static void setOriginalYarnId(PatternOriginalYarn originalYarn, Long id) {
+        try {
+            Field idField = PatternOriginalYarn.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(originalYarn, id);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }
