@@ -2,6 +2,7 @@ package com.ufo.ufo.domain.pattern.dto.response;
 
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternOriginalYarn;
+import com.ufo.ufo.domain.pattern.domain.Yarn;
 import java.util.List;
 
 public record PatternDetailResponse(
@@ -50,14 +51,25 @@ public record PatternDetailResponse(
     }
 
     public record OriginalYarn(
-            Long firstYarnId,
-            Long secondYarnId,
-            Long subYarnId
+            Long originalYarnSetId,
+            YarnResponse firstYarn,
+            YarnResponse secondYarn,
+            YarnResponse subYarn
     ) {
         public static OriginalYarn from(PatternOriginalYarn originalYarn) {
-            Long secondYarnId = originalYarn.getSecondYarn() == null ? null : originalYarn.getSecondYarn().getYarnId();
-            Long subYarnId = originalYarn.getSubYarn() == null ? null : originalYarn.getSubYarn().getYarnId();
-            return new OriginalYarn(originalYarn.getMainYarn().getYarnId(), secondYarnId, subYarnId);
+            return new OriginalYarn(
+                    originalYarn.getId(),
+                    YarnResponse.from(originalYarn.getMainYarn()),
+                    toYarnResponse(originalYarn.getSecondYarn()),
+                    toYarnResponse(originalYarn.getSubYarn())
+            );
+        }
+
+        private static YarnResponse toYarnResponse(Yarn yarn) {
+            if (yarn == null) {
+                return null;
+            }
+            return YarnResponse.from(yarn);
         }
     }
 
