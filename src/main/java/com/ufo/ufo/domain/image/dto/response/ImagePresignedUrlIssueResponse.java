@@ -10,10 +10,11 @@ public record ImagePresignedUrlIssueResponse(
 ) {
     public record UrlInfo(
             String presignedUrl,
+            String imageKey,
             String imageUrl
     ) {
-        public static UrlInfo from(String presignedUrl, String imageUrl) {
-            return new UrlInfo(presignedUrl, imageUrl);
+        public static UrlInfo from(String presignedUrl, String imageKey, String imageUrl) {
+            return new UrlInfo(presignedUrl, imageKey, imageUrl);
         }
     }
 

@@ -31,6 +31,8 @@ app:
       - image/jpeg
       - image/png
       - image/webp
+    cdn-base-url: ${CDN_BASE_URL:}
+    default-profile-image-key: ${DEFAULT_PROFILE_IMAGE_KEY:defaults/profile.png}
     s3:
       bucket: ${S3_IMAGE_BUCKET:}
       region: ${S3_REGION:ap-northeast-2}
