@@ -11,7 +11,7 @@ public record UserResponse(
         String profileImage,
         int joinDate
 ) {
-    public static UserResponse from(User user) {
+    public static UserResponse from(User user, String profileImageUrl) {
         int joinDate = 0;
         if (user.getCreatedAt() != null) {
             joinDate = Math.toIntExact(
@@ -22,7 +22,7 @@ public record UserResponse(
                 user.getId(),
                 user.getEmail(),
                 user.getNickname(),
-                user.getProfileImage(),
+                profileImageUrl,
                 joinDate
         );
     }

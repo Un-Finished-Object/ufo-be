@@ -14,11 +14,11 @@ public record PatternListItemResponse(
         PatternMyResponse my,
         LocalDateTime createdAt
 ) {
-    public static PatternListItemResponse from(Pattern pattern, boolean scrapped) {
+    public static PatternListItemResponse from(Pattern pattern, boolean scrapped, String thumbnailUrl) {
         return new PatternListItemResponse(
                 pattern.getId(),
                 pattern.getTitle(),
-                pattern.getThumbnailUrl(),
+                thumbnailUrl,
                 pattern.getCategoryMain(),
                 pattern.getCategorySub(),
                 pattern.getDesigner(),

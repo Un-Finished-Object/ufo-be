@@ -1,5 +1,7 @@
 package com.ufo.ufo.domain.pattern.application;
 
+import com.ufo.ufo.domain.image.application.ImageService;
+import com.ufo.ufo.domain.image.domain.ImagePurpose;
 import com.ufo.ufo.domain.interest.dao.UserInterestRepository;
 import com.ufo.ufo.domain.interest.domain.InterestKeyword;
 import com.ufo.ufo.domain.interest.domain.UserInterest;
@@ -53,6 +55,7 @@ public class PatternService {
     private final PatternAlternativeYarnRepository patternAlternativeYarnRepository;
     private final YarnRepository yarnRepository;
     private final UserInterestRepository userInterestRepository;
+    private final ImageService imageService;
 
     public PatternListResponse getPatterns(User user, String category, String subCategory, String sort, Integer page) {
         validateCategoryAndSubCategory(category, subCategory);
@@ -116,9 +119,10 @@ public class PatternService {
     public PatternAlternativesResponse.Item createAlternative(User user, Long patternId, CreateAlternativeRequest request) {
         validateAlternativePermission(user);
         Pattern pattern = findActivePattern(patternId);
+        imageService.validateImageKey(user, request.yarnImageKey(), ImagePurpose.STYLE);
         Yarn yarn = createAndSaveYarn(request);
         PatternAlternativeYarn alternative = createAndSaveAlternativeYarn(pattern, user, yarn, request);
-        return PatternAlternativesResponse.Item.from(alternative);
+        return PatternAlternativesResponse.Item.from(alternative, imageService.buildImageUrl(alternative.getImageUrl()));
     }
 
     @Transactional
@@ -127,9 +131,10 @@ public class PatternService {
         findActivePattern(patternId);
         PatternAlternativeYarn alternative = findAlternativeYarn(altId, patternId);
         validateAlternativeOwner(user, alternative);
+        imageService.validateImageKey(user, request.yarnImageKey(), ImagePurpose.STYLE);
 
         updateAlternativeYarn(alternative, request);
-        return PatternAlternativesResponse.Item.from(alternative);
+        return PatternAlternativesResponse.Item.from(alternative, imageService.buildImageUrl(alternative.getImageUrl()));
     }
 
     @Transactional
@@ -166,9 +171,10 @@ public class PatternService {
         List<String> images = patternImageRepository.findAllByPattern_IdOrderByImageOrderAscIdAsc(patternId)
                 .stream()
                 .map(PatternImage::getImageUrl)
+                .map(imageService::buildImageUrl)
                 .toList();
         if (images.isEmpty() && thumbnailUrl != null) {
-            return List.of(thumbnailUrl);
+            return List.of(imageService.buildImageUrl(thumbnailUrl));
         }
         return images;
     }
@@ -198,7 +204,7 @@ public class PatternService {
                 .pattern(pattern)
                 .user(user)
                 .yarn(yarn)
-                .imageUrl(request.yarnUri())
+                .imageUrl(request.yarnImageKey())
                 .build());
     }
 
@@ -221,7 +227,7 @@ public class PatternService {
                 yarn.getThicknessCategory(),
                 toGaugeEntities(request.gauges())
         );
-        alternative.update(yarn, request.yarnUri());
+        alternative.update(yarn, request.yarnImageKey());
     }
 
     private Optional<AlternativeFilter> resolveAlternativeFilter(Pattern pattern) {
@@ -298,7 +304,7 @@ public class PatternService {
 
     private PatternListItemResponse toListItemResponse(Pattern pattern, User user) {
         boolean scrapped = isScrapped(user, pattern.getId());
-        return PatternListItemResponse.from(pattern, scrapped);
+        return PatternListItemResponse.from(pattern, scrapped, imageService.buildImageUrl(pattern.getThumbnailUrl()));
     }
 
     private boolean isScrapped(User user, Long patternId) {

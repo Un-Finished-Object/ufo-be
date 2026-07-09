@@ -7,11 +7,11 @@ public record UpdateMyInfoResponse(
         String userName,
         String profileImage
 ) {
-    public static UpdateMyInfoResponse from(User user) {
+    public static UpdateMyInfoResponse from(User user, String profileImageUrl) {
         return new UpdateMyInfoResponse(
                 user.getId(),
                 user.getNickname(),
-                user.getProfileImage()
+                profileImageUrl
         );
     }
 }

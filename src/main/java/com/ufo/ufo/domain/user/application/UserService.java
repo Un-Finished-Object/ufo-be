@@ -22,7 +22,11 @@ public class UserService {
     public UserResponse getUserInfo(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(UserNotFoundException::new);
-        return UserResponse.from(user);
+        return UserResponse.from(user, imageService.buildImageUrl(user.getProfileImage()));
+    }
+
+    public UserResponse getMyInfo(User user) {
+        return UserResponse.from(user, imageService.buildImageUrl(user.getProfileImage()));
     }
 
     public User getUserById(Long userId) {
@@ -35,11 +39,11 @@ public class UserService {
         User loginUser = getUserById(user.getId());
         String userName = request.userName() == null ? loginUser.getNickname() : request.userName();
         String profileImage = loginUser.getProfileImage();
-        if (request.profileImage() != null) {
-            imageService.validateProfileImage(loginUser, request.profileImage());
-            profileImage = request.profileImage();
+        if (request.profileImageKey() != null) {
+            imageService.validateProfileImageKey(loginUser, request.profileImageKey());
+            profileImage = request.profileImageKey();
         }
         loginUser.updateNameAndProfileImage(userName, profileImage);
-        return UpdateMyInfoResponse.from(loginUser);
+        return UpdateMyInfoResponse.from(loginUser, imageService.buildImageUrl(loginUser.getProfileImage()));
     }
 }

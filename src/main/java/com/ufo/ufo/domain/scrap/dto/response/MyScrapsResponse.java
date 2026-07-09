@@ -26,11 +26,11 @@ public record MyScrapsResponse(
             PatternMyResponse my,
             LocalDateTime createdAt
     ) {
-        public static Item from(Pattern pattern) {
+        public static Item from(Pattern pattern, String thumbnailUrl) {
             return new Item(
                     pattern.getId(),
                     pattern.getTitle(),
-                    pattern.getThumbnailUrl(),
+                    thumbnailUrl,
                     pattern.getCategoryMain(),
                     pattern.getCategorySub(),
                     pattern.getDesigner(),

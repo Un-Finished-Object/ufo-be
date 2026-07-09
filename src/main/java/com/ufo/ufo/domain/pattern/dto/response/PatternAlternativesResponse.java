@@ -18,7 +18,7 @@ public record PatternAlternativesResponse(List<Item> items) {
             Long altId,
             Long yarnId,
             String yarnName,
-            String yarnUri,
+            String yarnImageUrl,
             Integer weight,
             Integer cost,
             String mainComponent,
@@ -44,8 +44,12 @@ public record PatternAlternativesResponse(List<Item> items) {
         }
 
         public static Item from(PatternAlternativeYarn alternative) {
+            return from(alternative, alternative.getImageUrl());
+        }
+
+        public static Item from(PatternAlternativeYarn alternative, String yarnImageUrl) {
             Yarn yarn = alternative.getYarn();
-            return from(yarn, alternative.getId(), alternative.getImageUrl(),
+            return from(yarn, alternative.getId(), yarnImageUrl,
                     alternative.getUser() == null ? "" : alternative.getUser().getNickname());
         }
 
@@ -53,12 +57,12 @@ public record PatternAlternativesResponse(List<Item> items) {
             return from(yarn, null, "", "");
         }
 
-        private static Item from(Yarn yarn, Long altId, String yarnUri, String username) {
+        private static Item from(Yarn yarn, Long altId, String yarnImageUrl, String username) {
             return new Item(
                     altId,
                     yarn.getYarnId(),
                     yarn.getName(),
-                    yarnUri == null ? "" : yarnUri,
+                    yarnImageUrl == null ? "" : yarnImageUrl,
                     yarn.getWeightG() == null ? 0 : yarn.getWeightG(),
                     yarn.getPrice() == null ? 0 : yarn.getPrice(),
                     yarn.getMainComponent() == null ? "" : yarn.getMainComponent(),
