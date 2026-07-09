@@ -44,12 +44,13 @@ class UserServiceTest {
         UserFixture.setId(user, 10L);
         UserFixture.setCreatedAt(user, LocalDate.now().minusDays(5).atStartOfDay());
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(imageService.buildImageUrl("profiles/1/profile.png")).thenReturn("https://cdn.ufo.com/profiles/1/profile.png");
 
         UserResponse response = userService.getUserInfo(email);
 
         assertThat(response.email()).isEqualTo(email);
         assertThat(response.nickname()).isEqualTo("tester");
-        assertThat(response.profileImage()).isEqualTo("https://example.com/profile.png");
+        assertThat(response.profileImage()).isEqualTo("https://cdn.ufo.com/profiles/1/profile.png");
         assertThat(response.userId()).isEqualTo(10L);
         assertThat(response.joinDate()).isEqualTo(5);
     }
@@ -68,16 +69,17 @@ class UserServiceTest {
     void updateMyInfo_WhenUserExists_UpdatesUserAndReturnsResponse() {
         User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
         UserFixture.setId(user, 10L);
-        UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", "https://example.com/updated.png");
+        UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", "profiles/10/updated.png");
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(imageService.buildImageUrl("profiles/10/updated.png")).thenReturn("https://cdn.ufo.com/profiles/10/updated.png");
 
         UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
 
         assertThat(response.userId()).isEqualTo(10L);
         assertThat(response.userName()).isEqualTo("updatedName");
-        assertThat(response.profileImage()).isEqualTo("https://example.com/updated.png");
+        assertThat(response.profileImage()).isEqualTo("https://cdn.ufo.com/profiles/10/updated.png");
         assertThat(user.getNickname()).isEqualTo("updatedName");
-        assertThat(user.getProfileImage()).isEqualTo("https://example.com/updated.png");
+        assertThat(user.getProfileImage()).isEqualTo("profiles/10/updated.png");
     }
 
     @Test
@@ -87,13 +89,14 @@ class UserServiceTest {
         UserFixture.setId(user, 10L);
         UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", null);
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(imageService.buildImageUrl("profiles/1/profile.png")).thenReturn("https://cdn.ufo.com/profiles/1/profile.png");
 
         UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
 
         assertThat(response.userName()).isEqualTo("updatedName");
-        assertThat(response.profileImage()).isEqualTo("https://example.com/profile.png");
+        assertThat(response.profileImage()).isEqualTo("https://cdn.ufo.com/profiles/1/profile.png");
         assertThat(user.getNickname()).isEqualTo("updatedName");
-        assertThat(user.getProfileImage()).isEqualTo("https://example.com/profile.png");
+        assertThat(user.getProfileImage()).isEqualTo("profiles/1/profile.png");
     }
 
     @Test
@@ -101,15 +104,16 @@ class UserServiceTest {
     void updateMyInfo_WhenProfileImageProvided_ValidatesOwnershipBeforeSaving() {
         User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
         UserFixture.setId(user, 10L);
-        UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", "https://cdn.ufo.com/profiles/10/image");
+        UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", "profiles/10/image");
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(imageService.buildImageUrl("profiles/10/image")).thenReturn("https://cdn.ufo.com/profiles/10/image");
 
         UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
 
         assertThat(response.userName()).isEqualTo("updatedName");
         assertThat(response.profileImage()).isEqualTo("https://cdn.ufo.com/profiles/10/image");
-        assertThat(user.getProfileImage()).isEqualTo("https://cdn.ufo.com/profiles/10/image");
-        verify(imageService).validateProfileImage(user, "https://cdn.ufo.com/profiles/10/image");
+        assertThat(user.getProfileImage()).isEqualTo("profiles/10/image");
+        verify(imageService).validateProfileImageKey(user, "profiles/10/image");
     }
 
     @Test
@@ -117,15 +121,16 @@ class UserServiceTest {
     void updateMyInfo_WhenUserNameMissing_KeepsExistingUserName() {
         User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
         UserFixture.setId(user, 10L);
-        UpdateMyInfoRequest request = new UpdateMyInfoRequest(null, "https://example.com/updated.png");
+        UpdateMyInfoRequest request = new UpdateMyInfoRequest(null, "profiles/10/updated.png");
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(imageService.buildImageUrl("profiles/10/updated.png")).thenReturn("https://cdn.ufo.com/profiles/10/updated.png");
 
         UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
 
         assertThat(response.userName()).isEqualTo("tester");
-        assertThat(response.profileImage()).isEqualTo("https://example.com/updated.png");
+        assertThat(response.profileImage()).isEqualTo("https://cdn.ufo.com/profiles/10/updated.png");
         assertThat(user.getNickname()).isEqualTo("tester");
-        assertThat(user.getProfileImage()).isEqualTo("https://example.com/updated.png");
+        assertThat(user.getProfileImage()).isEqualTo("profiles/10/updated.png");
     }
 
     @Test
@@ -133,7 +138,7 @@ class UserServiceTest {
     void updateMyInfo_WhenUserMissing_ThrowsUserNotFoundException() {
         User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
         UserFixture.setId(user, 10L);
-        UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", "https://example.com/updated.png");
+        UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", "profiles/10/updated.png");
         when(userRepository.findById(10L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.updateMyInfo(user, request))

@@ -60,6 +60,14 @@ class UserControllerTest {
         User user = UserFixture.createUser();
         UserFixture.setId(user, 10L);
         UserFixture.setCreatedAt(user, LocalDate.now().minusDays(10).atStartOfDay());
+        UserResponse serviceResponse = new UserResponse(
+                10L,
+                "test@example.com",
+                "tester",
+                "https://cdn.ufo.com/profiles/1/profile.png",
+                10
+        );
+        when(userService.getMyInfo(user)).thenReturn(serviceResponse);
 
         ResponseEntity<ApiResponse<UserResponse>> response = userController.getMyInfo(user);
 
@@ -69,6 +77,7 @@ class UserControllerTest {
         assertThat(response.getBody().data().email()).isEqualTo("test@example.com");
         assertThat(response.getBody().data().joinDate()).isEqualTo(10);
         assertThat(response.getBody().error()).isNull();
+        verify(userService).getMyInfo(user);
     }
 
     @Test
@@ -76,7 +85,7 @@ class UserControllerTest {
     void updateMyInfo_ReturnsServiceResponse() {
         User user = UserFixture.createUser();
         UserFixture.setId(user, 10L);
-        UpdateMyInfoRequest request = new UpdateMyInfoRequest("newName", "https://example.com/new.png");
+        UpdateMyInfoRequest request = new UpdateMyInfoRequest("newName", "profiles/10/new.png");
         UpdateMyInfoResponse serviceResponse = new UpdateMyInfoResponse(10L, "newName", "https://example.com/new.png");
         when(userService.updateMyInfo(user, request)).thenReturn(serviceResponse);
 

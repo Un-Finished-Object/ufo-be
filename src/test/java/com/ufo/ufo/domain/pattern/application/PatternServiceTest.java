@@ -5,10 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.interest.dao.UserInterestRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
@@ -35,6 +37,7 @@ import com.ufo.ufo.support.fixture.YarnFixture;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -67,8 +70,16 @@ class PatternServiceTest {
     @Mock
     private UserInterestRepository userInterestRepository;
 
+    @Mock
+    private ImageService imageService;
+
     @InjectMocks
     private PatternService patternService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(imageService.buildImageUrl(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    }
 
     @Test
     @DisplayName("도안 목록 조회는 도안 아이템 목록과 페이지를 반환해야 한다")
@@ -260,7 +271,7 @@ class PatternServiceTest {
                 1L,
                 new CreateAlternativeRequest(
                         "name",
-                        "./yarns/1.png",
+                        "styles/1/1.png",
                         100,
                         10000,
                         "알파카",
@@ -291,7 +302,7 @@ class PatternServiceTest {
                 30L,
                 new UpdateAlternativeYarnRequest(
                         "newName",
-                        "./yarns/new.png",
+                        "styles/1/new.png",
                         120,
                         20000,
                         "메리노",
@@ -331,7 +342,7 @@ class PatternServiceTest {
                 30L,
                 new UpdateAlternativeYarnRequest(
                         "newName",
-                        "./yarns/new.png",
+                        "styles/1/new.png",
                         120,
                         20000,
                         "메리노",

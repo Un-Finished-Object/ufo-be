@@ -12,11 +12,13 @@ import com.ufo.ufo.domain.image.config.ImageProperties;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest.FileInfo;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
+import com.ufo.ufo.domain.image.exception.ImageCdnBaseUrlNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageFileMetadataMismatchException;
 import com.ufo.ufo.domain.image.exception.ImageBucketNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageDeletePermissionDeniedException;
 import com.ufo.ufo.domain.image.exception.InvalidImageContentTypeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
+import com.ufo.ufo.domain.image.exception.InvalidImageKeyException;
 import com.ufo.ufo.domain.image.exception.InvalidImagePurposeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageSizeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageUrlException;
@@ -48,11 +50,13 @@ class ImageServiceTest {
             5,
             10_485_760L,
             List.of("image/jpeg", "image/png", "image/webp"),
+            "https://cdn.ufo.com",
+            "defaults/profile.png",
             new ImageProperties.S3(
                     "ufo-bucket",
                     "ap-northeast-2",
                     5L,
-                    "https://cdn.ufo.com"
+                    "https://s3-public.ufo.com"
             )
     );
 
@@ -85,6 +89,7 @@ class ImageServiceTest {
                 new ImagePresignedUrlIssueRequest(
                         2,
                         "STYLE",
+                        null,
                         List.of(
                                 new FileInfo("image/jpeg", 1_024L),
                                 new FileInfo("image/png", 2_048L)
@@ -97,6 +102,7 @@ class ImageServiceTest {
         assertThat(response.expiresAt()).contains("+09:00");
         assertThat(response.urls()).hasSize(2);
         assertThat(response.urls().getFirst().presignedUrl()).isEqualTo("https://s3.example.com/presigned-1");
+        assertThat(response.urls().getFirst().imageKey()).startsWith("styles/1/");
         assertThat(response.urls().getFirst().imageUrl()).startsWith("https://cdn.ufo.com/styles/1/");
         verify(s3Presigner, times(2)).presignPutObject(org.mockito.ArgumentMatchers.any(PutObjectPresignRequest.class));
 
@@ -115,6 +121,58 @@ class ImageServiceTest {
     }
 
     @Test
+    @DisplayName("도안 이미지 Presigned URL 발급은 targetId를 객체 키의 patternId로 사용해야 한다")
+    void issuePresignedUrls_PatternPurpose_UsesTargetIdAsPatternId() throws Exception {
+        PresignedPutObjectRequest presignedRequest = mockPresignedRequest("https://s3.example.com/presigned");
+        when(s3Presigner.presignPutObject(org.mockito.ArgumentMatchers.any(PutObjectPresignRequest.class)))
+                .thenReturn(presignedRequest);
+
+        ImagePresignedUrlIssueResponse response = imageService.issuePresignedUrls(
+                user,
+                new ImagePresignedUrlIssueRequest(
+                        1,
+                        "PATTERN",
+                        10L,
+                        List.of(new FileInfo("image/jpeg", 1_024L))
+                )
+        );
+
+        assertThat(response.urls().getFirst().imageKey()).startsWith("patterns/10/");
+        assertThat(response.urls().getFirst().imageUrl()).startsWith("https://cdn.ufo.com/patterns/10/");
+
+        ArgumentCaptor<PutObjectPresignRequest> captor = ArgumentCaptor.forClass(PutObjectPresignRequest.class);
+        verify(s3Presigner).presignPutObject(captor.capture());
+        assertThat(captor.getValue().putObjectRequest().key()).startsWith("patterns/10/");
+    }
+
+    @Test
+    @DisplayName("도안 이미지 Presigned URL 발급은 targetId가 없으면 예외가 발생해야 한다")
+    void issuePresignedUrls_PatternPurposeMissingTargetId_Throws() {
+        assertThatThrownBy(() -> imageService.issuePresignedUrls(
+                user,
+                new ImagePresignedUrlIssueRequest(1, "PATTERN", null, List.of(new FileInfo("image/jpeg", 1_024L)))
+        ))
+                .isInstanceOf(InvalidImageKeyException.class);
+    }
+
+    @Test
+    @DisplayName("최종 이미지 URL 생성은 CDN Base URL 설정이 없으면 S3 URL로 fallback하지 않아야 한다")
+    void buildImageUrl_MissingCdnBaseUrl_Throws() {
+        ImageProperties missingCdnProperties = new ImageProperties(
+                5,
+                10_485_760L,
+                List.of("image/jpeg", "image/png", "image/webp"),
+                "",
+                "defaults/profile.png",
+                new ImageProperties.S3("ufo-bucket", "ap-northeast-2", 5L, "https://s3-public.ufo.com")
+        );
+        ImageService imageService = new ImageService(s3Presigner, s3Client, missingCdnProperties);
+
+        assertThatThrownBy(() -> imageService.buildImageUrl("profiles/1/profile.png"))
+                .isInstanceOf(ImageCdnBaseUrlNotConfiguredException.class);
+    }
+
+    @Test
     @DisplayName("fileCount가 정책 범위를 벗어나면 예외가 발생해야 한다")
     void issuePresignedUrls_InvalidFileCount_Throws() {
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
@@ -122,6 +180,7 @@ class ImageServiceTest {
                 new ImagePresignedUrlIssueRequest(
                         6,
                         "STYLE",
+                        null,
                         List.of(
                                 new FileInfo("image/jpeg", 1_024L),
                                 new FileInfo("image/png", 2_048L),
@@ -140,7 +199,7 @@ class ImageServiceTest {
     void issuePresignedUrls_InvalidPurpose_Throws() {
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
                 user,
-                new ImagePresignedUrlIssueRequest(1, "UNKNOWN", List.of(new FileInfo("image/jpeg", 1_024L)))
+                new ImagePresignedUrlIssueRequest(1, "UNKNOWN", null, List.of(new FileInfo("image/jpeg", 1_024L)))
         ))
                 .isInstanceOf(InvalidImagePurposeException.class);
     }
@@ -152,13 +211,15 @@ class ImageServiceTest {
                 5,
                 10_485_760L,
                 List.of("image/jpeg", "image/png", "image/webp"),
-                new ImageProperties.S3("", "ap-northeast-2", 5L, "https://cdn.ufo.com")
+                "https://cdn.ufo.com",
+                "defaults/profile.png",
+                new ImageProperties.S3("", "ap-northeast-2", 5L, "https://s3-public.ufo.com")
         );
         ImageService imageService = new ImageService(s3Presigner, s3Client, emptyBucketProperties);
 
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
                 user,
-                new ImagePresignedUrlIssueRequest(1, "STYLE", List.of(new FileInfo("image/jpeg", 1_024L)))
+                new ImagePresignedUrlIssueRequest(1, "STYLE", null, List.of(new FileInfo("image/jpeg", 1_024L)))
         ))
                 .isInstanceOf(ImageBucketNotConfiguredException.class);
     }
@@ -168,7 +229,7 @@ class ImageServiceTest {
     void issuePresignedUrls_FileCountMismatch_Throws() {
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
                 user,
-                new ImagePresignedUrlIssueRequest(2, "STYLE", List.of(new FileInfo("image/jpeg", 1_024L)))
+                new ImagePresignedUrlIssueRequest(2, "STYLE", null, List.of(new FileInfo("image/jpeg", 1_024L)))
         ))
                 .isInstanceOf(ImageFileMetadataMismatchException.class);
     }
@@ -178,7 +239,7 @@ class ImageServiceTest {
     void issuePresignedUrls_InvalidContentType_Throws() {
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
                 user,
-                new ImagePresignedUrlIssueRequest(1, "STYLE", List.of(new FileInfo("application/pdf", 1_024L)))
+                new ImagePresignedUrlIssueRequest(1, "STYLE", null, List.of(new FileInfo("application/pdf", 1_024L)))
         ))
                 .isInstanceOf(InvalidImageContentTypeException.class);
     }
@@ -188,7 +249,7 @@ class ImageServiceTest {
     void issuePresignedUrls_ExceedsMaxBytes_Throws() {
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
                 user,
-                new ImagePresignedUrlIssueRequest(1, "STYLE", List.of(new FileInfo("image/jpeg", 20_000_000L)))
+                new ImagePresignedUrlIssueRequest(1, "STYLE", null, List.of(new FileInfo("image/jpeg", 20_000_000L)))
         ))
                 .isInstanceOf(InvalidImageSizeException.class);
     }
@@ -277,6 +338,13 @@ class ImageServiceTest {
                 user,
                 "https://cdn.ufo.com/profiles/1/123?X-Amz-Signature=signature"
         ))
+                .isInstanceOf(InvalidProfileImageUrlException.class);
+    }
+
+    @Test
+    @DisplayName("객체 키 검증은 trailing slash로 생긴 빈 segment를 거부해야 한다")
+    void validateImageKey_TrailingEmptySegment_Throws() {
+        assertThatThrownBy(() -> imageService.validateProfileImageKey(user, "profiles/1/avatar/"))
                 .isInstanceOf(InvalidProfileImageUrlException.class);
     }
 
