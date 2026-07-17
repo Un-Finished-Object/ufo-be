@@ -125,8 +125,8 @@ class AlternativeServiceTest {
     }
 
     @Test
-    @DisplayName("취소 반응은 기존 반응을 삭제해야 한다")
-    void updateReaction_Cancel_DeletesExistingReaction() {
+    @DisplayName("취소 반응은 기존 반응을 취소 상태로 변경하고 변경 시각을 보존해야 한다")
+    void updateReaction_Cancel_PreservesCancelledStateAndTimestamp() {
         User reactor = UserFixture.createUserWithId(1L);
         User author = UserFixture.createUserWithId(2L);
         PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
@@ -149,9 +149,11 @@ class AlternativeServiceTest {
         AlternativeReactionUpdateResponse response =
                 alternativeService.updateReaction(reactor, 12L, new UpdateAlternativeReactionRequest(2));
 
-        verify(alternativeReactionRepository).delete(existing);
+        verify(alternativeReactionRepository, never()).delete(existing);
         verify(creditService, never()).addCredits(any(), anyInt(), any());
+        assertThat(existing.getType()).isEqualTo(AlternativeReactionType.CANCEL);
         assertThat(response.type()).isEqualTo(2);
+        assertThat(response.updatedAt()).isEqualTo(existing.getUpdatedAt());
     }
 
     @Test
@@ -189,8 +191,7 @@ class AlternativeServiceTest {
                 .user(user)
                 .type(AlternativeReactionType.LIKE)
                 .build();
-        LocalDateTime reactedAt = LocalDateTime.now();
-        setCreatedAt(reaction, reactedAt);
+        LocalDateTime reactedAt = reaction.getUpdatedAt();
         when(patternAlternativeYarnRepository.findById(20L)).thenReturn(Optional.of(alternative));
         when(alternativeReactionRepository.findByAlternative_IdAndUser_Id(20L, 1L))
                 .thenReturn(Optional.of(reaction));
@@ -202,6 +203,36 @@ class AlternativeServiceTest {
         assertThat(response.type()).isEqualTo(1);
         assertThat(response.likesCount()).isEqualTo(8L);
         assertThat(response.updatedAt()).isEqualTo(reactedAt);
+    }
+
+    @Test
+    @DisplayName("취소 반응 조회는 취소 시각을 반환해야 한다")
+    void getReaction_Cancel_ReturnsCancellationTimestamp() {
+        User user = UserFixture.createUserWithId(1L);
+        User author = UserFixture.createUserWithId(2L);
+        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
+                26L,
+                PatternFixture.createPatternWithId(206L),
+                author,
+                YarnFixture.createYarnWithId(36L)
+        );
+        AlternativeReaction reaction = AlternativeReaction.builder()
+                .alternative(alternative)
+                .user(user)
+                .type(AlternativeReactionType.CANCEL)
+                .build();
+
+        when(patternAlternativeYarnRepository.findById(26L)).thenReturn(Optional.of(alternative));
+        when(alternativeReactionRepository.findByAlternative_IdAndUser_Id(26L, 1L))
+                .thenReturn(Optional.of(reaction));
+        when(alternativeReactionRepository.countByAlternative_IdAndType(26L, AlternativeReactionType.LIKE))
+                .thenReturn(4L);
+
+        AlternativeReactionResponse response = alternativeService.getReaction(user, 26L);
+
+        assertThat(response.type()).isEqualTo(2);
+        assertThat(response.likesCount()).isEqualTo(4L);
+        assertThat(response.updatedAt()).isEqualTo(reaction.getUpdatedAt());
     }
 
     @Test
@@ -319,6 +350,15 @@ class AlternativeServiceTest {
         assertThat(response.commentId()).isEqualTo(3L);
         assertThat(response.content()).isEqualTo("after");
         assertThat(response.updatedAt()).isNotNull();
+
+        AlternativeCommentUpdateResponse repeatedResponse = alternativeService.updateComment(
+                author,
+                23L,
+                3L,
+                new UpdateAlternativeCommentRequest("after")
+        );
+
+        assertThat(repeatedResponse.updatedAt()).isEqualTo(response.updatedAt());
     }
 
     @Test

@@ -43,6 +43,9 @@ public class Yarn extends BaseEntity {
     @Column(name = "length")
     private Integer length;
 
+    @Column(name = "ply")
+    private Integer ply;
+
     @Column(name = "main_component")
     private String mainComponent;
 

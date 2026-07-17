@@ -55,28 +55,25 @@ public class AlternativeService {
         User loginUser = userService.getUserById(user.getId());
         Optional<AlternativeReaction> existing = alternativeReactionRepository.findByAlternative_IdAndUser_Id(altId, loginUser.getId());
 
-        LocalDateTime updatedAt = LocalDateTime.now();
-        if (reactionType.isCancel()) {
-            existing.ifPresent(alternativeReactionRepository::delete);
-        } else if (existing.isPresent()) {
-            AlternativeReaction existingReaction = existing.get();
-            if (existingReaction.getType() == AlternativeReactionType.LIKE) {
-                updatedAt = resolveReactionUpdatedAt(existingReaction, updatedAt);
-            } else {
-                existingReaction.updateType(AlternativeReactionType.LIKE);
-            }
-        } else {
-            AlternativeReaction savedReaction = alternativeReactionRepository.save(AlternativeReaction.builder()
-                .alternative(alternative)
-                .user(loginUser)
-                .type(reactionType)
-                .build());
-            updatedAt = resolveReactionUpdatedAt(savedReaction, updatedAt);
-        }
+        AlternativeReaction reaction = existing.orElseGet(() -> {
+            AlternativeReaction createdReaction = AlternativeReaction.builder()
+                    .alternative(alternative)
+                    .user(loginUser)
+                    .type(reactionType)
+                    .build();
+            alternativeReactionRepository.save(createdReaction);
+            return createdReaction;
+        });
+        reaction.updateType(reactionType);
 
         long likesCount = alternativeReactionRepository.countByAlternative_IdAndType(altId, AlternativeReactionType.LIKE);
         rewardAlternativeAuthorIfEligible(alternative, reactionType, likesCount);
-        return AlternativeReactionUpdateResponse.from(altId, reactionType, likesCount, updatedAt);
+        return AlternativeReactionUpdateResponse.from(
+                altId,
+                reactionType,
+                likesCount,
+                resolveReactionUpdatedAt(reaction)
+        );
     }
 
     public AlternativeReactionResponse getReaction(User user, Long altId) {
@@ -88,10 +85,7 @@ public class AlternativeService {
                 .filter(existing -> existing.getType() == AlternativeReactionType.LIKE)
                 .map(existing -> AlternativeReactionType.LIKE.code())
                 .orElse(AlternativeReactionType.CANCEL.code());
-        LocalDateTime updatedAt = reaction
-                .filter(existing -> existing.getType() == AlternativeReactionType.LIKE)
-                .map(AlternativeReaction::getCreatedAt)
-                .orElse(null);
+        LocalDateTime updatedAt = reaction.map(this::resolveReactionUpdatedAt).orElse(null);
         long likesCount = alternativeReactionRepository.countByAlternative_IdAndType(altId, AlternativeReactionType.LIKE);
         return AlternativeReactionResponse.from(altId, type, likesCount, updatedAt);
     }
@@ -206,7 +200,7 @@ public class AlternativeService {
         alternative.markRecommendedRewarded();
     }
 
-    private LocalDateTime resolveReactionUpdatedAt(AlternativeReaction reaction, LocalDateTime fallback) {
-        return reaction == null || reaction.getCreatedAt() == null ? fallback : reaction.getCreatedAt();
+    private LocalDateTime resolveReactionUpdatedAt(AlternativeReaction reaction) {
+        return reaction.getUpdatedAt() == null ? reaction.getCreatedAt() : reaction.getUpdatedAt();
     }
 }

@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -52,6 +53,9 @@ public class AlternativeComment extends BaseEntity {
     }
 
     public void updateContent(String content) {
+        if (Objects.equals(this.content, content)) {
+            return;
+        }
         this.content = content;
         this.updatedAt = LocalDateTime.now();
     }

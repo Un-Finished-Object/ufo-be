@@ -37,7 +37,7 @@ public record YarnAlternativesResponse(
                     alternative.getRanking(),
                     yarn.getYarnId(),
                     yarn.getName(),
-                    null,
+                    yarn.getPly(),
                     yarn.getWeightG(),
                     yarn.getPrice(),
                     yarn.getSubComponent(),
