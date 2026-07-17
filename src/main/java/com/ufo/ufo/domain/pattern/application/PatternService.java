@@ -17,7 +17,7 @@ import com.ufo.ufo.domain.pattern.domain.YarnGauge;
 import com.ufo.ufo.domain.pattern.dto.request.AlternativeGaugeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
-import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativesResponse;
+import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativeResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternDetailResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListItemResponse;
@@ -93,23 +93,23 @@ public class PatternService {
     }
 
     @Transactional
-    public PatternAlternativesResponse.Item createAlternative(User user, Long patternId, CreateAlternativeRequest request) {
+    public PatternAlternativeResponse createAlternative(User user, Long patternId, CreateAlternativeRequest request) {
         validateAlternativePermission(user);
         Pattern pattern = findActivePattern(patternId);
         Yarn yarn = createAndSaveYarn(request);
         PatternAlternativeYarn alternative = createAndSaveAlternativeYarn(pattern, user, yarn, request);
-        return PatternAlternativesResponse.Item.from(alternative);
+        return PatternAlternativeResponse.from(alternative);
     }
 
     @Transactional
-    public PatternAlternativesResponse.Item updateAlternative(User user, Long patternId, Long altId, UpdateAlternativeYarnRequest request) {
+    public PatternAlternativeResponse updateAlternative(User user, Long patternId, Long altId, UpdateAlternativeYarnRequest request) {
         validateAlternativePermission(user);
         findActivePattern(patternId);
         PatternAlternativeYarn alternative = findAlternativeYarn(altId, patternId);
         validateAlternativeOwner(user, alternative);
 
         updateAlternativeYarn(alternative, request);
-        return PatternAlternativesResponse.Item.from(alternative);
+        return PatternAlternativeResponse.from(alternative);
     }
 
     @Transactional

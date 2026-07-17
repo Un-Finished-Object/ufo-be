@@ -6,7 +6,7 @@ import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.PatternPurchaseRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativeDeleteResponse;
-import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativesResponse;
+import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativeResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternDetailResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
@@ -122,7 +122,7 @@ public class PatternController {
     }
 
     @PostMapping("/{patternId}/alternatives")
-    public ResponseEntity<ApiResponse<PatternAlternativesResponse.Item>> createAlternative(
+    public ResponseEntity<ApiResponse<PatternAlternativeResponse>> createAlternative(
             @LoginUser User user,
             @PathVariable("patternId") Long patternId,
             @Valid @RequestBody CreateAlternativeRequest request
@@ -131,7 +131,7 @@ public class PatternController {
     }
 
     @PatchMapping("/{patternId}/alternatives/{altId}")
-    public ResponseEntity<ApiResponse<PatternAlternativesResponse.Item>> updateAlternative(
+    public ResponseEntity<ApiResponse<PatternAlternativeResponse>> updateAlternative(
             @LoginUser User user,
             @PathVariable("patternId") Long patternId,
             @PathVariable("altId") Long altId,

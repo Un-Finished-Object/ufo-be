@@ -11,7 +11,7 @@ import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.PatternPurchaseRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativeDeleteResponse;
-import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativesResponse;
+import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativeResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternDetailResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
@@ -92,9 +92,9 @@ class PatternControllerTest {
         User user = UserFixture.createUserWithId(1L);
         CreateAlternativeRequest request = createAlternativeRequest();
         when(patternService.createAlternative(user, 10L, request))
-                .thenReturn(sampleAlternativeItem());
+                .thenReturn(sampleAlternativeResponse());
 
-        ResponseEntity<ApiResponse<PatternAlternativesResponse.Item>> response =
+        ResponseEntity<ApiResponse<PatternAlternativeResponse>> response =
                 patternController.createAlternative(user, 10L, request);
 
         assertThat(response.getBody()).isNotNull();
@@ -136,9 +136,9 @@ class PatternControllerTest {
         User user = UserFixture.createUserWithId(1L);
         UpdateAlternativeYarnRequest request = updateAlternativeRequest();
         when(patternService.updateAlternative(user, 10L, 1L, request))
-                .thenReturn(sampleAlternativeItem());
+                .thenReturn(sampleAlternativeResponse());
 
-        ResponseEntity<ApiResponse<PatternAlternativesResponse.Item>> response =
+        ResponseEntity<ApiResponse<PatternAlternativeResponse>> response =
                 patternController.updateAlternative(user, 10L, 1L, request);
 
         assertThat(response.getBody()).isNotNull();
@@ -252,8 +252,8 @@ class PatternControllerTest {
         );
     }
 
-    private PatternAlternativesResponse.Item sampleAlternativeItem() {
-        return new PatternAlternativesResponse.Item(
+    private PatternAlternativeResponse sampleAlternativeResponse() {
+        return new PatternAlternativeResponse(
                 1L,
                 2L,
                 "n",
@@ -265,7 +265,7 @@ class PatternControllerTest {
                 "s",
                 "2",
                 180,
-                List.of(new PatternAlternativesResponse.Item.Gauge("5.5", 17, 24)),
+                List.of(new PatternAlternativeResponse.Gauge("5.5", 17, 24)),
                 "admin"
         );
     }
