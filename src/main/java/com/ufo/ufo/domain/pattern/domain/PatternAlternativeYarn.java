@@ -43,6 +43,21 @@ public class PatternAlternativeYarn extends BaseEntity {
     @Column(name = "image_url")
     private String imageUrl;
 
+    @Column(name = "ranking")
+    private Integer ranking;
+
+    @Column(name = "component_score")
+    private Integer componentScore;
+
+    @Column(name = "length_score")
+    private Integer lengthScore;
+
+    @Column(name = "gauge_score")
+    private Integer gaugeScore;
+
+    @Column(name = "needle_score")
+    private Integer needleScore;
+
     @Column(name = "recommended_rewarded_at")
     private LocalDateTime recommendedRewardedAt;
 

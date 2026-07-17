@@ -4,19 +4,17 @@ import com.ufo.ufo.domain.alternative.domain.AlternativeReactionType;
 import java.time.LocalDateTime;
 
 public record AlternativeReactionUpdateResponse(
-        Long altId,
+        Long altSetId,
         int type,
         long likesCount,
-        long dislikesCount,
         LocalDateTime updatedAt
 ) {
     public static AlternativeReactionUpdateResponse from(
-            Long altId,
+            Long altSetId,
             AlternativeReactionType type,
             long likesCount,
-            long dislikesCount,
             LocalDateTime updatedAt
     ) {
-        return new AlternativeReactionUpdateResponse(altId, type.code(), likesCount, dislikesCount, updatedAt);
+        return new AlternativeReactionUpdateResponse(altSetId, type.code(), likesCount, updatedAt);
     }
 }

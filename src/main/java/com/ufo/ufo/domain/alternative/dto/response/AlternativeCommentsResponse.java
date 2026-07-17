@@ -5,14 +5,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public record AlternativeCommentsResponse(
-        Long altId,
+        Long altSetId,
         List<Comment> comments,
         int page,
         int nextPage
 ) {
-    public static AlternativeCommentsResponse from(Long altId, List<AlternativeComment> comments, int page, int nextPage) {
+    public static AlternativeCommentsResponse from(Long altSetId, List<AlternativeComment> comments, int page, int nextPage) {
         return new AlternativeCommentsResponse(
-                altId,
+                altSetId,
                 comments.stream()
                     .map(Comment::from)
                     .toList(),
@@ -22,12 +22,14 @@ public record AlternativeCommentsResponse(
     }
 
     public record Comment(
+            Long commentId,
             String content,
             String username,
             LocalDateTime createdAt
     ) {
         public static Comment from(AlternativeComment comment) {
             return new Comment(
+                    comment.getId(),
                     comment.getContent(),
                     comment.getUser().getNickname(),
                     comment.getCreatedAt()

@@ -7,7 +7,6 @@ import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.dao.YarnRepository;
-import com.ufo.ufo.domain.pattern.domain.PatternOriginalYarn;
 import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
@@ -18,7 +17,7 @@ import com.ufo.ufo.domain.pattern.domain.YarnGauge;
 import com.ufo.ufo.domain.pattern.dto.request.AlternativeGaugeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
-import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativesResponse;
+import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativeResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternDetailResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListItemResponse;
@@ -31,7 +30,6 @@ import com.ufo.ufo.domain.user.domain.User;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -45,7 +43,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class PatternService {
 
     private static final int PAGE_SIZE = 20;
-    private static final int ALTERNATIVE_RANDOM_LIMIT = 5;
 
     private final PatternRepository patternRepository;
     private final ScrapRepository scrapRepository;
@@ -96,40 +93,23 @@ public class PatternService {
     }
 
     @Transactional
-    public PatternAlternativesResponse getAlternatives(User user, Long patternId) {
-        Pattern pattern = findActivePattern(patternId);
-        Optional<AlternativeFilter> alternativeFilter = resolveAlternativeFilter(pattern);
-        if (alternativeFilter.isEmpty()) {
-            return PatternAlternativesResponse.fromYarns(List.of());
-        }
-        AlternativeFilter filter = alternativeFilter.get();
-        List<Yarn> yarns = new ArrayList<>(yarnRepository.findAllActiveByThicknessCategoryAndMainComponentExcludingYarnId(
-                filter.thicknessCategory(),
-                filter.mainComponent(),
-                filter.excludedYarnId()
-        ));
-        Collections.shuffle(yarns);
-        return PatternAlternativesResponse.fromYarns(yarns.stream().limit(ALTERNATIVE_RANDOM_LIMIT).toList());
-    }
-
-    @Transactional
-    public PatternAlternativesResponse.Item createAlternative(User user, Long patternId, CreateAlternativeRequest request) {
+    public PatternAlternativeResponse createAlternative(User user, Long patternId, CreateAlternativeRequest request) {
         validateAlternativePermission(user);
         Pattern pattern = findActivePattern(patternId);
         Yarn yarn = createAndSaveYarn(request);
         PatternAlternativeYarn alternative = createAndSaveAlternativeYarn(pattern, user, yarn, request);
-        return PatternAlternativesResponse.Item.from(alternative);
+        return PatternAlternativeResponse.from(alternative);
     }
 
     @Transactional
-    public PatternAlternativesResponse.Item updateAlternative(User user, Long patternId, Long altId, UpdateAlternativeYarnRequest request) {
+    public PatternAlternativeResponse updateAlternative(User user, Long patternId, Long altId, UpdateAlternativeYarnRequest request) {
         validateAlternativePermission(user);
         findActivePattern(patternId);
         PatternAlternativeYarn alternative = findAlternativeYarn(altId, patternId);
         validateAlternativeOwner(user, alternative);
 
         updateAlternativeYarn(alternative, request);
-        return PatternAlternativesResponse.Item.from(alternative);
+        return PatternAlternativeResponse.from(alternative);
     }
 
     @Transactional
@@ -188,7 +168,6 @@ public class PatternService {
                 .mainComponent(request.mainComponent())
                 .subComponent(request.subComponent())
                 .thickness(request.thickness())
-                .thicknessCategory(null)
                 .gauges(toGaugeEntities(request.gauges()))
                 .build());
     }
@@ -223,30 +202,9 @@ public class PatternService {
                 request.mainComponent(),
                 request.subComponent(),
                 request.thickness(),
-                yarn.getThicknessCategory(),
                 toGaugeEntities(request.gauges())
         );
         alternative.update(yarn, request.yarnUri());
-    }
-
-    private Optional<AlternativeFilter> resolveAlternativeFilter(Pattern pattern) {
-        Optional<Yarn> originalYarn = pattern.getOriginalYarns().stream()
-                .map(PatternOriginalYarn::getMainYarn)
-                .findFirst();
-        if (originalYarn.isEmpty()) {
-            return Optional.empty();
-        }
-        Yarn yarn = originalYarn.get();
-        if (yarn.getDeletedAt() != null || yarn.getYarnId() == null
-            || yarn.getThicknessCategory() == null || yarn.getThicknessCategory().isBlank()
-            || yarn.getMainComponent() == null || yarn.getMainComponent().isBlank()) {
-            return Optional.empty();
-        }
-        return Optional.of(new AlternativeFilter(
-                yarn.getThicknessCategory().trim(),
-                yarn.getMainComponent().trim(),
-                yarn.getYarnId()
-        ));
     }
 
     private List<YarnGauge> toGaugeEntities(List<AlternativeGaugeRequest> gauges) {
@@ -333,13 +291,6 @@ public class PatternService {
             return shuffled;
         }
         return patternRepository.findRecommended();
-    }
-
-    private record AlternativeFilter(
-            String thicknessCategory,
-            String mainComponent,
-            Long excludedYarnId
-    ) {
     }
 
 }
