@@ -32,21 +32,21 @@ public class AlternativeController {
 
     private final AlternativeService alternativeService;
 
-    @PutMapping("/{altId}/reaction")
+    @PutMapping("/{altSetId}/reaction")
     public ResponseEntity<ApiResponse<AlternativeReactionUpdateResponse>> updateReaction(
             @LoginUser User user,
-            @PathVariable("altId") Long altId,
+            @PathVariable("altSetId") Long altSetId,
             @Valid @RequestBody UpdateAlternativeReactionRequest request
     ) {
-        return ResponseEntity.ok(ApiResponse.success(alternativeService.updateReaction(user, altId, request)));
+        return ResponseEntity.ok(ApiResponse.success(alternativeService.updateReaction(user, altSetId, request)));
     }
 
-    @GetMapping("/{altId}/reaction")
+    @GetMapping("/{altSetId}/reaction")
     public ResponseEntity<ApiResponse<AlternativeReactionResponse>> getReaction(
         @LoginUser User user,
-        @PathVariable("altId") Long altId
+        @PathVariable("altSetId") Long altSetId
     ) {
-        return ResponseEntity.ok(ApiResponse.success(alternativeService.getReaction(user, altId)));
+        return ResponseEntity.ok(ApiResponse.success(alternativeService.getReaction(user, altSetId)));
     }
 
     @GetMapping("/{altId}/comments")

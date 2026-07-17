@@ -87,8 +87,6 @@ class AlternativeServiceTest {
         when(alternativeReactionRepository.findByAlternative_IdAndUser_Id(10L, 1L)).thenReturn(Optional.empty());
         when(alternativeReactionRepository.countByAlternative_IdAndType(
                 10L, com.ufo.ufo.domain.alternative.domain.AlternativeReactionType.LIKE)).thenReturn(6L);
-        when(alternativeReactionRepository.countByAlternative_IdAndType(
-                10L, com.ufo.ufo.domain.alternative.domain.AlternativeReactionType.DISLIKE)).thenReturn(1L);
 
         AlternativeReactionUpdateResponse response =
                 alternativeService.updateReaction(reactor, 10L, new UpdateAlternativeReactionRequest(1));
@@ -116,8 +114,6 @@ class AlternativeServiceTest {
         when(alternativeReactionRepository.findByAlternative_IdAndUser_Id(11L, 1L)).thenReturn(Optional.empty());
         when(alternativeReactionRepository.countByAlternative_IdAndType(
                 11L, com.ufo.ufo.domain.alternative.domain.AlternativeReactionType.LIKE)).thenReturn(7L);
-        when(alternativeReactionRepository.countByAlternative_IdAndType(
-                11L, com.ufo.ufo.domain.alternative.domain.AlternativeReactionType.DISLIKE)).thenReturn(0L);
 
         alternativeService.updateReaction(reactor, 11L, new UpdateAlternativeReactionRequest(1));
 
@@ -145,37 +141,11 @@ class AlternativeServiceTest {
         when(userService.getUserById(1L)).thenReturn(reactor);
         when(alternativeReactionRepository.findByAlternative_IdAndUser_Id(12L, 1L)).thenReturn(Optional.of(existing));
         when(alternativeReactionRepository.countByAlternative_IdAndType(12L, AlternativeReactionType.LIKE)).thenReturn(4L);
-        when(alternativeReactionRepository.countByAlternative_IdAndType(12L, AlternativeReactionType.DISLIKE)).thenReturn(1L);
 
         AlternativeReactionUpdateResponse response =
-                alternativeService.updateReaction(reactor, 12L, new UpdateAlternativeReactionRequest(3));
+                alternativeService.updateReaction(reactor, 12L, new UpdateAlternativeReactionRequest(2));
 
         verify(alternativeReactionRepository).delete(existing);
-        verify(creditService, never()).addCredits(any(), anyInt(), any());
-        assertThat(response.type()).isEqualTo(3);
-    }
-
-    @Test
-    @DisplayName("비추천 반응은 작성자 보상을 지급하지 않아야 한다")
-    void updateReaction_Dislike_DoesNotRewardAuthor() {
-        User reactor = UserFixture.createUserWithId(1L);
-        User author = UserFixture.createUserWithId(2L);
-        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
-                13L,
-                PatternFixture.createPatternWithId(103L),
-                author,
-                YarnFixture.createYarnWithId(23L)
-        );
-
-        when(patternAlternativeYarnRepository.findById(13L)).thenReturn(Optional.of(alternative));
-        when(userService.getUserById(1L)).thenReturn(reactor);
-        when(alternativeReactionRepository.findByAlternative_IdAndUser_Id(13L, 1L)).thenReturn(Optional.empty());
-        when(alternativeReactionRepository.countByAlternative_IdAndType(13L, AlternativeReactionType.LIKE)).thenReturn(10L);
-        when(alternativeReactionRepository.countByAlternative_IdAndType(13L, AlternativeReactionType.DISLIKE)).thenReturn(2L);
-
-        AlternativeReactionUpdateResponse response =
-                alternativeService.updateReaction(reactor, 13L, new UpdateAlternativeReactionRequest(2));
-
         verify(creditService, never()).addCredits(any(), anyInt(), any());
         assertThat(response.type()).isEqualTo(2);
     }
@@ -200,8 +170,8 @@ class AlternativeServiceTest {
     }
 
     @Test
-    @DisplayName("반응 조회는 좋아요/싫어요 집계를 반환해야 한다")
-    void getReaction_ReturnsCounts() {
+    @DisplayName("반응 조회는 현재 사용자의 추천 상태와 전체 추천 수를 반환해야 한다")
+    void getReaction_ReturnsCurrentUserStateAndLikeCount() {
         User user = UserFixture.createUserWithId(1L);
         User author = UserFixture.createUserWithId(2L);
         PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
@@ -210,14 +180,24 @@ class AlternativeServiceTest {
                 author,
                 YarnFixture.createYarnWithId(30L)
         );
+        AlternativeReaction reaction = AlternativeReaction.builder()
+                .alternative(alternative)
+                .user(user)
+                .type(AlternativeReactionType.LIKE)
+                .build();
+        LocalDateTime reactedAt = LocalDateTime.now();
+        setCreatedAt(reaction, reactedAt);
         when(patternAlternativeYarnRepository.findById(20L)).thenReturn(Optional.of(alternative));
+        when(alternativeReactionRepository.findByAlternative_IdAndUser_Id(20L, 1L))
+                .thenReturn(Optional.of(reaction));
         when(alternativeReactionRepository.countByAlternative_IdAndType(20L, AlternativeReactionType.LIKE)).thenReturn(8L);
-        when(alternativeReactionRepository.countByAlternative_IdAndType(20L, AlternativeReactionType.DISLIKE)).thenReturn(3L);
 
         AlternativeReactionResponse response = alternativeService.getReaction(user, 20L);
 
-        assertThat(response.likeCount()).isEqualTo(8L);
-        assertThat(response.dislikeCount()).isEqualTo(3L);
+        assertThat(response.altSetId()).isEqualTo(20L);
+        assertThat(response.type()).isEqualTo(1);
+        assertThat(response.likesCount()).isEqualTo(8L);
+        assertThat(response.updatedAt()).isEqualTo(reactedAt);
     }
 
     @Test
@@ -299,11 +279,11 @@ class AlternativeServiceTest {
                 .isInstanceOf(AlternativeNotFoundException.class);
     }
 
-    private void setCreatedAt(AlternativeComment comment, LocalDateTime createdAt) {
+    private void setCreatedAt(Object entity, LocalDateTime createdAt) {
         try {
-            Field createdAtField = comment.getClass().getSuperclass().getDeclaredField("createdAt");
+            Field createdAtField = entity.getClass().getSuperclass().getDeclaredField("createdAt");
             createdAtField.setAccessible(true);
-            createdAtField.set(comment, createdAt);
+            createdAtField.set(entity, createdAt);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }

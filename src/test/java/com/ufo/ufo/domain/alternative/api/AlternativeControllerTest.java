@@ -39,7 +39,7 @@ class AlternativeControllerTest {
         User user = UserFixture.createUserWithId(1L);
         UpdateAlternativeReactionRequest request = new UpdateAlternativeReactionRequest(1);
         when(alternativeService.updateReaction(user, 7L, request))
-                .thenReturn(new AlternativeReactionUpdateResponse(7L, 1, 3, 1, LocalDateTime.now()));
+                .thenReturn(new AlternativeReactionUpdateResponse(7L, 1, 3, LocalDateTime.now()));
 
         ResponseEntity<ApiResponse<AlternativeReactionUpdateResponse>> response =
                 alternativeController.updateReaction(user, 7L, request);
@@ -54,13 +54,14 @@ class AlternativeControllerTest {
     void getReaction_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
         when(alternativeService.getReaction(user, 7L))
-                .thenReturn(new AlternativeReactionResponse(7L, 3, 1));
+                .thenReturn(new AlternativeReactionResponse(7L, 1, 3, LocalDateTime.now()));
 
         ResponseEntity<ApiResponse<AlternativeReactionResponse>> response =
                 alternativeController.getReaction(user, 7L);
 
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().data().likeCount()).isEqualTo(3);
+        assertThat(response.getBody().data().likesCount()).isEqualTo(3);
+        assertThat(response.getBody().data().type()).isEqualTo(1);
         verify(alternativeService).getReaction(user, 7L);
     }
 
