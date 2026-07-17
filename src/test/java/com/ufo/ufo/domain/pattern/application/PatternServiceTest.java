@@ -1,6 +1,5 @@
 package com.ufo.ufo.domain.pattern.application;
 
-import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativesResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -21,6 +20,7 @@ import com.ufo.ufo.domain.pattern.domain.Yarn;
 import com.ufo.ufo.domain.pattern.dto.request.AlternativeGaugeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
+import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativesResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternDetailResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
@@ -33,7 +33,6 @@ import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserInterestFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import com.ufo.ufo.support.fixture.YarnFixture;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -359,133 +358,34 @@ class PatternServiceTest {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-
-      PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
-
-      assertThat(response.items()).isEmpty();
-    }
-
-    @Test
-    @DisplayName("대체 실 조회는 도안에 연결된 원작 실의 굵기 분류로 동일 분류만 조회해야 한다")
-    void getAlternatives_UsesPatternYarnThicknessCategory() {
-        User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(10L);
-        Yarn baseYarn = Yarn.builder()
-                .name("Different Display Name")
-                .thicknessCategory("Worsted")
-                .mainComponent("울")
-                .build();
-        YarnFixture.setId(baseYarn, 100L);
-        PatternFixture.setYarn(pattern, baseYarn);
-        Yarn recommendedYarn = YarnFixture.createYarnWithId(20L);
-
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(yarnRepository.findAllActiveByThicknessCategoryAndMainComponentExcludingYarnId("Worsted", "울", 100L))
-                .thenReturn(List.of(recommendedYarn));
+        when(patternAlternativeYarnRepository.findActiveByPatternId(10L)).thenReturn(List.of());
 
         PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
 
-        assertThat(response.items()).hasSize(1);
-        assertThat(response.items().getFirst().yarnId()).isEqualTo(20L);
-        verifyNoInteractions(patternAlternativeYarnRepository);
-        verify(yarnRepository).findAllActiveByThicknessCategoryAndMainComponentExcludingYarnId("Worsted", "울", 100L);
+        assertThat(response.items()).isEmpty();
     }
 
     @Test
-    @DisplayName("대체 실 조회는 도안에 연결된 원작 실의 굵기 분류 앞뒤 공백을 제거해야 한다")
-    void getAlternatives_TrimsPatternYarnThicknessCategory() {
+    @DisplayName("대체 실 조회는 도안 대체 실 테이블의 활성 데이터를 반환해야 한다")
+    void getAlternatives_ReturnsStoredPatternAlternatives() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
-        Yarn baseYarn = Yarn.builder()
-                .name("Base Yarn")
-                .thicknessCategory(" Worsted ")
-                .mainComponent(" 울 ")
-                .build();
-        YarnFixture.setId(baseYarn, 101L);
-        PatternFixture.setYarn(pattern, baseYarn);
-        Yarn recommendedYarn = YarnFixture.createYarnWithId(20L);
-
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(yarnRepository.findAllActiveByThicknessCategoryAndMainComponentExcludingYarnId("Worsted", "울", 101L))
-                .thenReturn(List.of(recommendedYarn));
-
-        PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
-
-        assertThat(response.items()).hasSize(1);
-        verifyNoInteractions(patternAlternativeYarnRepository);
-        verify(yarnRepository).findAllActiveByThicknessCategoryAndMainComponentExcludingYarnId("Worsted", "울", 101L);
-    }
-
-    @Test
-    @DisplayName("대체 실 조회는 랜덤 결과를 최대 5개까지만 반환해야 한다")
-    void getAlternatives_ReturnsAtMostFiveItems() {
-        User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(10L);
-        Yarn baseYarn = Yarn.builder()
-                .name("Base Yarn")
-                .thicknessCategory("Worsted")
-                .mainComponent("울")
-                .build();
-        YarnFixture.setId(baseYarn, 102L);
-        PatternFixture.setYarn(pattern, baseYarn);
-        List<Yarn> recommendedYarns = List.of(
-                YarnFixture.createYarnWithId(20L),
-                YarnFixture.createYarnWithId(21L),
-                YarnFixture.createYarnWithId(22L),
-                YarnFixture.createYarnWithId(23L),
-                YarnFixture.createYarnWithId(24L),
-                YarnFixture.createYarnWithId(25L)
+        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
+                30L,
+                pattern,
+                user,
+                YarnFixture.createYarnWithId(20L)
         );
 
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(yarnRepository.findAllActiveByThicknessCategoryAndMainComponentExcludingYarnId("Worsted", "울", 102L))
-                .thenReturn(recommendedYarns);
+        when(patternAlternativeYarnRepository.findActiveByPatternId(10L)).thenReturn(List.of(alternative));
 
         PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
 
-        assertThat(response.items()).hasSize(5);
-    }
-
-    @Test
-    @DisplayName("대체 실 조회는 원작 실의 main 성분이 비어있으면 빈 목록을 반환해야 한다")
-    void getAlternatives_BlankMainComponent_ReturnsEmpty() {
-        User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(10L);
-        Yarn baseYarn = Yarn.builder()
-                .name("Base Yarn")
-                .thicknessCategory("Worsted")
-                .mainComponent(" ")
-                .build();
-        YarnFixture.setId(baseYarn, 103L);
-        PatternFixture.setYarn(pattern, baseYarn);
-
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-
-        PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
-
-        assertThat(response.items()).isEmpty();
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().getFirst().altId()).isEqualTo(30L);
+        assertThat(response.items().getFirst().yarnId()).isEqualTo(20L);
         verifyNoInteractions(yarnRepository);
-    }
-
-    @Test
-    @DisplayName("대체 실 조회는 삭제된 원작 실을 기준으로 사용하지 않아야 한다")
-    void getAlternatives_DeletedPatternYarn_ReturnsEmpty() {
-        User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(10L);
-        Yarn baseYarn = Yarn.builder()
-                .name("Base Yarn")
-                .thicknessCategory("Worsted")
-                .build();
-        YarnFixture.setDeletedAt(baseYarn, LocalDateTime.now());
-        PatternFixture.setYarn(pattern, baseYarn);
-
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-
-        PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
-
-        assertThat(response.items()).isEmpty();
-        verifyNoInteractions(yarnRepository);
-        verifyNoInteractions(patternAlternativeYarnRepository);
     }
 
     @Test

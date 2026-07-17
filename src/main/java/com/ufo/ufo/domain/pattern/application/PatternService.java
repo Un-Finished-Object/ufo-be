@@ -7,7 +7,6 @@ import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.dao.YarnRepository;
-import com.ufo.ufo.domain.pattern.domain.PatternOriginalYarn;
 import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
@@ -31,7 +30,6 @@ import com.ufo.ufo.domain.user.domain.User;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -45,7 +43,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class PatternService {
 
     private static final int PAGE_SIZE = 20;
-    private static final int ALTERNATIVE_RANDOM_LIMIT = 5;
 
     private final PatternRepository patternRepository;
     private final ScrapRepository scrapRepository;
@@ -95,21 +92,14 @@ public class PatternService {
         return PatternDetailResponse.from(pattern, images, isScrapped);
     }
 
-    @Transactional
     public PatternAlternativesResponse getAlternatives(User user, Long patternId) {
-        Pattern pattern = findActivePattern(patternId);
-        Optional<AlternativeFilter> alternativeFilter = resolveAlternativeFilter(pattern);
-        if (alternativeFilter.isEmpty()) {
-            return PatternAlternativesResponse.fromYarns(List.of());
-        }
-        AlternativeFilter filter = alternativeFilter.get();
-        List<Yarn> yarns = new ArrayList<>(yarnRepository.findAllActiveByThicknessCategoryAndMainComponentExcludingYarnId(
-                filter.thicknessCategory(),
-                filter.mainComponent(),
-                filter.excludedYarnId()
-        ));
-        Collections.shuffle(yarns);
-        return PatternAlternativesResponse.fromYarns(yarns.stream().limit(ALTERNATIVE_RANDOM_LIMIT).toList());
+        findActivePattern(patternId);
+        List<PatternAlternativesResponse.Item> items = patternAlternativeYarnRepository
+                .findActiveByPatternId(patternId)
+                .stream()
+                .map(PatternAlternativesResponse.Item::from)
+                .toList();
+        return PatternAlternativesResponse.from(items);
     }
 
     @Transactional
@@ -188,7 +178,6 @@ public class PatternService {
                 .mainComponent(request.mainComponent())
                 .subComponent(request.subComponent())
                 .thickness(request.thickness())
-                .thicknessCategory(null)
                 .gauges(toGaugeEntities(request.gauges()))
                 .build());
     }
@@ -223,30 +212,9 @@ public class PatternService {
                 request.mainComponent(),
                 request.subComponent(),
                 request.thickness(),
-                yarn.getThicknessCategory(),
                 toGaugeEntities(request.gauges())
         );
         alternative.update(yarn, request.yarnUri());
-    }
-
-    private Optional<AlternativeFilter> resolveAlternativeFilter(Pattern pattern) {
-        Optional<Yarn> originalYarn = pattern.getOriginalYarns().stream()
-                .map(PatternOriginalYarn::getMainYarn)
-                .findFirst();
-        if (originalYarn.isEmpty()) {
-            return Optional.empty();
-        }
-        Yarn yarn = originalYarn.get();
-        if (yarn.getDeletedAt() != null || yarn.getYarnId() == null
-            || yarn.getThicknessCategory() == null || yarn.getThicknessCategory().isBlank()
-            || yarn.getMainComponent() == null || yarn.getMainComponent().isBlank()) {
-            return Optional.empty();
-        }
-        return Optional.of(new AlternativeFilter(
-                yarn.getThicknessCategory().trim(),
-                yarn.getMainComponent().trim(),
-                yarn.getYarnId()
-        ));
     }
 
     private List<YarnGauge> toGaugeEntities(List<AlternativeGaugeRequest> gauges) {
@@ -333,13 +301,6 @@ public class PatternService {
             return shuffled;
         }
         return patternRepository.findRecommended();
-    }
-
-    private record AlternativeFilter(
-            String thicknessCategory,
-            String mainComponent,
-            Long excludedYarnId
-    ) {
     }
 
 }

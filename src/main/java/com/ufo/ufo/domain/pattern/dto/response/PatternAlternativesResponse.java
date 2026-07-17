@@ -10,10 +10,6 @@ public record PatternAlternativesResponse(List<Item> items) {
         return new PatternAlternativesResponse(items);
     }
 
-    public static PatternAlternativesResponse fromYarns(List<Yarn> yarns) {
-        return new PatternAlternativesResponse(yarns.stream().map(Item::from).toList());
-    }
-
     public record Item(
             Long altId,
             Long yarnId,
@@ -47,10 +43,6 @@ public record PatternAlternativesResponse(List<Item> items) {
             Yarn yarn = alternative.getYarn();
             return from(yarn, alternative.getId(), alternative.getImageUrl(),
                     alternative.getUser() == null ? "" : alternative.getUser().getNickname());
-        }
-
-        public static Item from(Yarn yarn) {
-            return from(yarn, null, "", "");
         }
 
         private static Item from(Yarn yarn, Long altId, String yarnUri, String username) {

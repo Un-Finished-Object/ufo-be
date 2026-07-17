@@ -55,9 +55,6 @@ public class Yarn extends BaseEntity {
     @Column(name = "thickness")
     private String thickness;
 
-    @Column(name = "thickness_category")
-    private String thicknessCategory;
-
     @OneToMany(mappedBy = "yarn", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<YarnGauge> gauges = new ArrayList<>();
 
@@ -74,7 +71,6 @@ public class Yarn extends BaseEntity {
             String mainComponent,
             String subComponent,
             String thickness,
-            String thicknessCategory,
             List<YarnGauge> gauges
     ) {
         this.name = name;
@@ -85,7 +81,6 @@ public class Yarn extends BaseEntity {
         this.mainComponent = mainComponent;
         this.subComponent = subComponent;
         this.thickness = thickness;
-        this.thicknessCategory = thicknessCategory;
         replaceGauges(gauges);
     }
 
@@ -98,7 +93,6 @@ public class Yarn extends BaseEntity {
             String mainComponent,
             String subComponent,
             String thickness,
-            String thicknessCategory,
             List<YarnGauge> gauges
     ) {
         this.name = name;
@@ -109,7 +103,6 @@ public class Yarn extends BaseEntity {
         this.mainComponent = mainComponent;
         this.subComponent = subComponent;
         this.thickness = thickness;
-        this.thicknessCategory = thicknessCategory;
         replaceGauges(gauges);
     }
 
