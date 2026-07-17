@@ -17,11 +17,15 @@ import com.ufo.ufo.domain.alternative.domain.AlternativeComment;
 import com.ufo.ufo.domain.alternative.domain.AlternativeReaction;
 import com.ufo.ufo.domain.alternative.domain.AlternativeReactionType;
 import com.ufo.ufo.domain.alternative.dto.request.CreateAlternativeCommentRequest;
+import com.ufo.ufo.domain.alternative.dto.request.UpdateAlternativeCommentRequest;
 import com.ufo.ufo.domain.alternative.dto.request.UpdateAlternativeReactionRequest;
 import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentCreateResponse;
+import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentDeleteResponse;
+import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentUpdateResponse;
 import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentsResponse;
 import com.ufo.ufo.domain.alternative.dto.response.AlternativeReactionResponse;
 import com.ufo.ufo.domain.alternative.dto.response.AlternativeReactionUpdateResponse;
+import com.ufo.ufo.domain.alternative.exception.AlternativeCommentPermissionDeniedException;
 import com.ufo.ufo.domain.alternative.exception.AlternativeInteractionPermissionDeniedException;
 import com.ufo.ufo.domain.alternative.exception.AlternativeNotFoundException;
 import com.ufo.ufo.domain.alternative.exception.InvalidAlternativeReactionTypeException;
@@ -216,9 +220,10 @@ class AlternativeServiceTest {
                 .user(author)
                 .content("hello")
                 .build();
+        setCommentId(comment, 1L);
 
         when(patternAlternativeYarnRepository.findById(21L)).thenReturn(Optional.of(alternative));
-        when(alternativeCommentRepository.findAllByAlternative_Id(eq(21L), any(Pageable.class)))
+        when(alternativeCommentRepository.findAllByAlternative_IdAndDeletedAtIsNull(eq(21L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(comment)));
 
         AlternativeCommentsResponse response = alternativeService.getComments(user, 21L, 0);
@@ -226,6 +231,7 @@ class AlternativeServiceTest {
         assertThat(response.page()).isEqualTo(1);
         assertThat(response.nextPage()).isEqualTo(0);
         assertThat(response.comments()).hasSize(1);
+        assertThat(response.comments().getFirst().commentId()).isEqualTo(1L);
         assertThat(response.comments().getFirst().content()).isEqualTo("hello");
     }
 
@@ -245,6 +251,7 @@ class AlternativeServiceTest {
                 .user(loginUser)
                 .content("comment body")
                 .build();
+        setCommentId(saved, 2L);
         setCreatedAt(saved, LocalDateTime.now());
 
         when(patternAlternativeYarnRepository.findById(22L)).thenReturn(Optional.of(alternative));
@@ -254,7 +261,8 @@ class AlternativeServiceTest {
         AlternativeCommentCreateResponse response =
                 alternativeService.createComment(user, 22L, new CreateAlternativeCommentRequest("comment body"));
 
-        assertThat(response.altId()).isEqualTo(22L);
+        assertThat(response.altSetId()).isEqualTo(22L);
+        assertThat(response.commentId()).isEqualTo(2L);
         assertThat(response.content()).isEqualTo("comment body");
         assertThat(response.username()).isEqualTo(loginUser.getNickname());
     }
@@ -279,11 +287,114 @@ class AlternativeServiceTest {
                 .isInstanceOf(AlternativeNotFoundException.class);
     }
 
+    @Test
+    @DisplayName("댓글 작성자는 댓글 내용을 수정할 수 있어야 한다")
+    void updateComment_Owner_UpdatesContent() {
+        User author = UserFixture.createUserWithId(1L);
+        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
+                23L,
+                PatternFixture.createPatternWithId(203L),
+                author,
+                YarnFixture.createYarnWithId(33L)
+        );
+        AlternativeComment comment = AlternativeComment.builder()
+                .alternative(alternative)
+                .user(author)
+                .content("before")
+                .build();
+        setCommentId(comment, 3L);
+
+        when(patternAlternativeYarnRepository.findById(23L)).thenReturn(Optional.of(alternative));
+        when(alternativeCommentRepository.findByIdAndAlternative_IdAndDeletedAtIsNull(3L, 23L))
+                .thenReturn(Optional.of(comment));
+
+        AlternativeCommentUpdateResponse response = alternativeService.updateComment(
+                author,
+                23L,
+                3L,
+                new UpdateAlternativeCommentRequest("after")
+        );
+
+        assertThat(response.altSetId()).isEqualTo(23L);
+        assertThat(response.commentId()).isEqualTo(3L);
+        assertThat(response.content()).isEqualTo("after");
+        assertThat(response.updatedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("댓글 작성자가 아니면 댓글을 수정할 수 없어야 한다")
+    void updateComment_NotOwner_ThrowsForbidden() {
+        User author = UserFixture.createUserWithId(1L);
+        User other = UserFixture.createUserWithId(2L);
+        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
+                24L,
+                PatternFixture.createPatternWithId(204L),
+                author,
+                YarnFixture.createYarnWithId(34L)
+        );
+        AlternativeComment comment = AlternativeComment.builder()
+                .alternative(alternative)
+                .user(author)
+                .content("before")
+                .build();
+        setCommentId(comment, 4L);
+
+        when(patternAlternativeYarnRepository.findById(24L)).thenReturn(Optional.of(alternative));
+        when(alternativeCommentRepository.findByIdAndAlternative_IdAndDeletedAtIsNull(4L, 24L))
+                .thenReturn(Optional.of(comment));
+
+        assertThatThrownBy(() -> alternativeService.updateComment(
+                other,
+                24L,
+                4L,
+                new UpdateAlternativeCommentRequest("after")
+        )).isInstanceOf(AlternativeCommentPermissionDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("댓글 작성자는 댓글을 소프트 삭제할 수 있어야 한다")
+    void deleteComment_Owner_SoftDeletesComment() {
+        User author = UserFixture.createUserWithId(1L);
+        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
+                25L,
+                PatternFixture.createPatternWithId(205L),
+                author,
+                YarnFixture.createYarnWithId(35L)
+        );
+        AlternativeComment comment = AlternativeComment.builder()
+                .alternative(alternative)
+                .user(author)
+                .content("comment")
+                .build();
+        setCommentId(comment, 5L);
+
+        when(patternAlternativeYarnRepository.findById(25L)).thenReturn(Optional.of(alternative));
+        when(alternativeCommentRepository.findByIdAndAlternative_IdAndDeletedAtIsNull(5L, 25L))
+                .thenReturn(Optional.of(comment));
+
+        AlternativeCommentDeleteResponse response = alternativeService.deleteComment(author, 25L, 5L);
+
+        assertThat(response.altSetId()).isEqualTo(25L);
+        assertThat(response.commentId()).isEqualTo(5L);
+        assertThat(response.deletedAt()).isNotNull();
+        assertThat(comment.getDeletedAt()).isEqualTo(response.deletedAt());
+    }
+
     private void setCreatedAt(Object entity, LocalDateTime createdAt) {
         try {
             Field createdAtField = entity.getClass().getSuperclass().getDeclaredField("createdAt");
             createdAtField.setAccessible(true);
             createdAtField.set(entity, createdAt);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private void setCommentId(AlternativeComment comment, Long commentId) {
+        try {
+            Field idField = AlternativeComment.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(comment, commentId);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }

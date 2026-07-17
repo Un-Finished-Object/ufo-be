@@ -17,7 +17,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.LastModifiedDate;
 
 @Entity
 @Getter
@@ -41,7 +40,6 @@ public class AlternativeComment extends BaseEntity {
     @Column(name = "content", nullable = false, length = 1000)
     private String content;
 
-    @LastModifiedDate
     private LocalDateTime updatedAt;
 
     private LocalDateTime deletedAt;
@@ -51,5 +49,18 @@ public class AlternativeComment extends BaseEntity {
         this.alternative = alternative;
         this.user = user;
         this.content = content;
+    }
+
+    public void updateContent(String content) {
+        this.content = content;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void delete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public boolean isOwnedBy(User user) {
+        return user != null && user.getId() != null && this.user.getId().equals(user.getId());
     }
 }

@@ -6,11 +6,16 @@ import com.ufo.ufo.domain.alternative.domain.AlternativeComment;
 import com.ufo.ufo.domain.alternative.domain.AlternativeReaction;
 import com.ufo.ufo.domain.alternative.domain.AlternativeReactionType;
 import com.ufo.ufo.domain.alternative.dto.request.CreateAlternativeCommentRequest;
+import com.ufo.ufo.domain.alternative.dto.request.UpdateAlternativeCommentRequest;
 import com.ufo.ufo.domain.alternative.dto.request.UpdateAlternativeReactionRequest;
 import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentCreateResponse;
+import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentDeleteResponse;
+import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentUpdateResponse;
 import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentsResponse;
 import com.ufo.ufo.domain.alternative.dto.response.AlternativeReactionResponse;
 import com.ufo.ufo.domain.alternative.dto.response.AlternativeReactionUpdateResponse;
+import com.ufo.ufo.domain.alternative.exception.AlternativeCommentNotFoundException;
+import com.ufo.ufo.domain.alternative.exception.AlternativeCommentPermissionDeniedException;
 import com.ufo.ufo.domain.alternative.exception.AlternativeInteractionPermissionDeniedException;
 import com.ufo.ufo.domain.alternative.exception.AlternativeNotFoundException;
 import com.ufo.ufo.domain.credit.application.CreditService;
@@ -92,9 +97,10 @@ public class AlternativeService {
     }
 
     public AlternativeCommentsResponse getComments(User user, Long altId, Integer page) {
+        validateInteractionPermission(user);
         findAlternativeById(altId);
         int pageNumber = normalizePage(page);
-        Page<AlternativeComment> commentPage = alternativeCommentRepository.findAllByAlternative_Id(
+        Page<AlternativeComment> commentPage = alternativeCommentRepository.findAllByAlternative_IdAndDeletedAtIsNull(
                         altId,
                         PageRequest.of(
                                 pageNumber - 1,
@@ -119,9 +125,45 @@ public class AlternativeService {
         return AlternativeCommentCreateResponse.from(altId, comment);
     }
 
+    @Transactional
+    public AlternativeCommentUpdateResponse updateComment(
+            User user,
+            Long altSetId,
+            Long commentId,
+            UpdateAlternativeCommentRequest request
+    ) {
+        validateInteractionPermission(user);
+        findAlternativeById(altSetId);
+        AlternativeComment comment = findActiveComment(altSetId, commentId);
+        validateCommentOwner(user, comment);
+        comment.updateContent(request.content());
+        return AlternativeCommentUpdateResponse.from(altSetId, comment);
+    }
+
+    @Transactional
+    public AlternativeCommentDeleteResponse deleteComment(User user, Long altSetId, Long commentId) {
+        validateInteractionPermission(user);
+        findAlternativeById(altSetId);
+        AlternativeComment comment = findActiveComment(altSetId, commentId);
+        validateCommentOwner(user, comment);
+        comment.delete();
+        return AlternativeCommentDeleteResponse.from(altSetId, comment);
+    }
+
     private PatternAlternativeYarn findAlternativeById(Long altId) {
         return patternAlternativeYarnRepository.findById(altId)
                 .orElseThrow(AlternativeNotFoundException::new);
+    }
+
+    private AlternativeComment findActiveComment(Long altSetId, Long commentId) {
+        return alternativeCommentRepository.findByIdAndAlternative_IdAndDeletedAtIsNull(commentId, altSetId)
+                .orElseThrow(AlternativeCommentNotFoundException::new);
+    }
+
+    private void validateCommentOwner(User user, AlternativeComment comment) {
+        if (!comment.isOwnedBy(user)) {
+            throw new AlternativeCommentPermissionDeniedException();
+        }
     }
 
     private void validateInteractionPermission(User user) {
