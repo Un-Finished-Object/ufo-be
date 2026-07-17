@@ -6,10 +6,6 @@ import com.ufo.ufo.domain.pattern.domain.YarnGauge;
 import java.util.List;
 
 public record PatternAlternativesResponse(List<Item> items) {
-    public static PatternAlternativesResponse from(List<Item> items) {
-        return new PatternAlternativesResponse(items);
-    }
-
     public record Item(
             Long altId,
             Long yarnId,

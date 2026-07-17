@@ -103,20 +103,6 @@ class PatternControllerTest {
     }
 
     @Test
-    @DisplayName("대체 실 조회 API는 서비스 응답을 data에 담아 반환해야 한다")
-    void getAlternatives_ReturnsServiceResponse() {
-        User user = UserFixture.createUserWithId(1L);
-        when(patternService.getAlternatives(user, 10L))
-                .thenReturn(new PatternAlternativesResponse(List.of()));
-
-        ResponseEntity<ApiResponse<PatternAlternativesResponse>> response = patternController.getAlternatives(user, 10L);
-
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().data().items()).isEmpty();
-        verify(patternService).getAlternatives(user, 10L);
-    }
-
-    @Test
     @DisplayName("추천 도안 조회 API는 서비스 응답을 data.items에 담아 반환해야 한다")
     void getRecommendedPatterns_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);

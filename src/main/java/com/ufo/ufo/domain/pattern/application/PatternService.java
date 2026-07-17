@@ -92,16 +92,6 @@ public class PatternService {
         return PatternDetailResponse.from(pattern, images, isScrapped);
     }
 
-    public PatternAlternativesResponse getAlternatives(User user, Long patternId) {
-        findActivePattern(patternId);
-        List<PatternAlternativesResponse.Item> items = patternAlternativeYarnRepository
-                .findActiveByPatternId(patternId)
-                .stream()
-                .map(PatternAlternativesResponse.Item::from)
-                .toList();
-        return PatternAlternativesResponse.from(items);
-    }
-
     @Transactional
     public PatternAlternativesResponse.Item createAlternative(User user, Long patternId, CreateAlternativeRequest request) {
         validateAlternativePermission(user);

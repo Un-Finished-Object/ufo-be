@@ -88,14 +88,6 @@ public class PatternController {
         return ResponseEntity.ok(ApiResponse.success(patternService.getPatternDetail(user, patternId)));
     }
 
-    @GetMapping("/{patternId}/alternatives")
-    public ResponseEntity<ApiResponse<PatternAlternativesResponse>> getAlternatives(
-            @LoginUser User user,
-            @PathVariable("patternId") Long patternId
-    ) {
-        return ResponseEntity.ok(ApiResponse.success(patternService.getAlternatives(user, patternId)));
-    }
-
     @PostMapping("/{patternId}/purchase")
     public ResponseEntity<ApiResponse<PatternPurchaseResponse>> purchase(
             @LoginUser User user,

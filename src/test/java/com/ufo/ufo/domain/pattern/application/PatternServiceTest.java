@@ -353,42 +353,6 @@ class PatternServiceTest {
     }
 
     @Test
-    @DisplayName("대체 실 조회는 도안 활성 여부를 확인하고 목록을 반환해야 한다")
-    void getAlternatives_ReturnsAlternativesWithoutCreditCharge() {
-        User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(10L);
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(patternAlternativeYarnRepository.findActiveByPatternId(10L)).thenReturn(List.of());
-
-        PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
-
-        assertThat(response.items()).isEmpty();
-    }
-
-    @Test
-    @DisplayName("대체 실 조회는 도안 대체 실 테이블의 활성 데이터를 반환해야 한다")
-    void getAlternatives_ReturnsStoredPatternAlternatives() {
-        User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(10L);
-        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
-                30L,
-                pattern,
-                user,
-                YarnFixture.createYarnWithId(20L)
-        );
-
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(patternAlternativeYarnRepository.findActiveByPatternId(10L)).thenReturn(List.of(alternative));
-
-        PatternAlternativesResponse response = patternService.getAlternatives(user, 10L);
-
-        assertThat(response.items()).hasSize(1);
-        assertThat(response.items().getFirst().altId()).isEqualTo(30L);
-        assertThat(response.items().getFirst().yarnId()).isEqualTo(20L);
-        verifyNoInteractions(yarnRepository);
-    }
-
-    @Test
     @DisplayName("도안 검색에서 keyword가 null이면 빈 문자열로 검색해야 한다")
     void searchPatterns_KeywordNull_UsesEmptyKeyword() {
         User user = UserFixture.createUserWithId(1L);
