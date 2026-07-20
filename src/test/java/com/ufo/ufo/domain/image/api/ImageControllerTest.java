@@ -13,6 +13,7 @@ import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,7 +38,7 @@ class ImageControllerTest {
         User user = UserFixture.createUserWithId(1L);
         ImagePresignedUrlIssueRequest request = new ImagePresignedUrlIssueRequest(
                 2,
-                "STYLE",
+                "PROFILE",
                 null,
                 List.of(new FileInfo("image/jpeg", 1_024L), new FileInfo("image/png", 2_048L))
         );
@@ -45,7 +46,12 @@ class ImageControllerTest {
                 "2026-03-31T18:00:00+09:00",
                 10_485_760L,
                 List.of("image/jpeg", "image/png", "image/webp"),
-                List.of(UrlInfo.from("https://example.com/presigned", "styles/1/image", "https://example.com/image"))
+                List.of(UrlInfo.from(
+                        "https://example.com/presigned",
+                        "profiles/1/image",
+                        "https://example.com/image",
+                        Map.of("x-amz-tagging", "ufo-upload-status=issued")
+                ))
         );
         when(imageService.issuePresignedUrls(user, request)).thenReturn(serviceResponse);
 
