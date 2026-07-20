@@ -17,6 +17,17 @@ public interface PatternRepository extends JpaRepository<Pattern, Long> {
     Optional<Pattern> findByIdAndDeletedAtIsNull(Long patternId);
 
     @Query("""
+            select distinct p from Pattern p
+            left join fetch p.originalYarns originalYarn
+            left join fetch originalYarn.mainYarn
+            left join fetch originalYarn.secondYarn
+            left join fetch originalYarn.subYarn
+            where p.id = :patternId
+              and p.deletedAt is null
+            """)
+    Optional<Pattern> findDetailById(@Param("patternId") Long patternId);
+
+    @Query("""
             select p from Pattern p
             where p.deletedAt is null
               and (:categoryMain is null or p.categoryMain = :categoryMain)

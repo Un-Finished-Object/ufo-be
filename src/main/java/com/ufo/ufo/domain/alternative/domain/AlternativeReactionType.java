@@ -4,8 +4,9 @@ import com.ufo.ufo.domain.alternative.exception.InvalidAlternativeReactionTypeEx
 
 public enum AlternativeReactionType {
     LIKE(1),
-    DISLIKE(2),
-    CANCEL(3);
+    CANCEL(2),
+    @Deprecated
+    DISLIKE(0);
 
     private final int code;
 
@@ -22,11 +23,10 @@ public enum AlternativeReactionType {
     }
 
     public static AlternativeReactionType from(int code) {
-        for (AlternativeReactionType value : values()) {
-            if (value.code == code) {
-                return value;
-            }
-        }
-        throw new InvalidAlternativeReactionTypeException();
+        return switch (code) {
+            case 1 -> LIKE;
+            case 2 -> CANCEL;
+            default -> throw new InvalidAlternativeReactionTypeException();
+        };
     }
 }

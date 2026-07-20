@@ -5,6 +5,6 @@ import org.springframework.http.HttpStatus;
 
 public class InvalidAlternativeReactionTypeException extends ApiException {
     public InvalidAlternativeReactionTypeException() {
-        super(HttpStatus.BAD_REQUEST, "type은 1(추천), 2(비추천), 3(취소)만 허용됩니다.");
+        super(HttpStatus.BAD_REQUEST, "type은 1(추천), 2(취소)만 허용됩니다.");
     }
 }

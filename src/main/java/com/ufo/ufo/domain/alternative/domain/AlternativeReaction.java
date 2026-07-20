@@ -15,6 +15,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -48,14 +49,22 @@ public class AlternativeReaction extends BaseEntity {
     @Column(name = "type", nullable = false)
     private AlternativeReactionType type;
 
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
     @Builder
     public AlternativeReaction(PatternAlternativeYarn alternative, User user, AlternativeReactionType type) {
         this.alternative = alternative;
         this.user = user;
         this.type = type;
+        this.updatedAt = LocalDateTime.now();
     }
 
     public void updateType(AlternativeReactionType type) {
+        if (this.type == type) {
+            return;
+        }
         this.type = type;
+        this.updatedAt = LocalDateTime.now();
     }
 }

@@ -6,11 +6,16 @@ import com.ufo.ufo.domain.alternative.domain.AlternativeComment;
 import com.ufo.ufo.domain.alternative.domain.AlternativeReaction;
 import com.ufo.ufo.domain.alternative.domain.AlternativeReactionType;
 import com.ufo.ufo.domain.alternative.dto.request.CreateAlternativeCommentRequest;
+import com.ufo.ufo.domain.alternative.dto.request.UpdateAlternativeCommentRequest;
 import com.ufo.ufo.domain.alternative.dto.request.UpdateAlternativeReactionRequest;
 import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentCreateResponse;
+import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentDeleteResponse;
+import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentUpdateResponse;
 import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentsResponse;
 import com.ufo.ufo.domain.alternative.dto.response.AlternativeReactionResponse;
 import com.ufo.ufo.domain.alternative.dto.response.AlternativeReactionUpdateResponse;
+import com.ufo.ufo.domain.alternative.exception.AlternativeCommentNotFoundException;
+import com.ufo.ufo.domain.alternative.exception.AlternativeCommentPermissionDeniedException;
 import com.ufo.ufo.domain.alternative.exception.AlternativeInteractionPermissionDeniedException;
 import com.ufo.ufo.domain.alternative.exception.AlternativeNotFoundException;
 import com.ufo.ufo.domain.credit.application.CreditService;
@@ -50,35 +55,46 @@ public class AlternativeService {
         User loginUser = userService.getUserById(user.getId());
         Optional<AlternativeReaction> existing = alternativeReactionRepository.findByAlternative_IdAndUser_Id(altId, loginUser.getId());
 
-        if (reactionType.isCancel()) {
-            existing.ifPresent(alternativeReactionRepository::delete);
-        } else if (existing.isPresent()) {
-            existing.get().updateType(reactionType);
-        } else {
-            alternativeReactionRepository.save(AlternativeReaction.builder()
-                .alternative(alternative)
-                .user(loginUser)
-                .type(reactionType)
-                .build());
-        }
+        AlternativeReaction reaction = existing.orElseGet(() -> {
+            AlternativeReaction createdReaction = AlternativeReaction.builder()
+                    .alternative(alternative)
+                    .user(loginUser)
+                    .type(reactionType)
+                    .build();
+            alternativeReactionRepository.save(createdReaction);
+            return createdReaction;
+        });
+        reaction.updateType(reactionType);
 
         long likesCount = alternativeReactionRepository.countByAlternative_IdAndType(altId, AlternativeReactionType.LIKE);
         rewardAlternativeAuthorIfEligible(alternative, reactionType, likesCount);
-        long dislikesCount = alternativeReactionRepository.countByAlternative_IdAndType(altId, AlternativeReactionType.DISLIKE);
-        return AlternativeReactionUpdateResponse.from(altId, reactionType, likesCount, dislikesCount, LocalDateTime.now());
+        return AlternativeReactionUpdateResponse.from(
+                altId,
+                reactionType,
+                likesCount,
+                resolveReactionUpdatedAt(reaction)
+        );
     }
 
     public AlternativeReactionResponse getReaction(User user, Long altId) {
+        validateInteractionPermission(user);
         findAlternativeById(altId);
-        long likeCount = alternativeReactionRepository.countByAlternative_IdAndType(altId, AlternativeReactionType.LIKE);
-        long dislikeCount = alternativeReactionRepository.countByAlternative_IdAndType(altId, AlternativeReactionType.DISLIKE);
-        return AlternativeReactionResponse.from(altId, likeCount, dislikeCount);
+        Optional<AlternativeReaction> reaction = alternativeReactionRepository
+                .findByAlternative_IdAndUser_Id(altId, user.getId());
+        int type = reaction
+                .filter(existing -> existing.getType() == AlternativeReactionType.LIKE)
+                .map(existing -> AlternativeReactionType.LIKE.code())
+                .orElse(AlternativeReactionType.CANCEL.code());
+        LocalDateTime updatedAt = reaction.map(this::resolveReactionUpdatedAt).orElse(null);
+        long likesCount = alternativeReactionRepository.countByAlternative_IdAndType(altId, AlternativeReactionType.LIKE);
+        return AlternativeReactionResponse.from(altId, type, likesCount, updatedAt);
     }
 
     public AlternativeCommentsResponse getComments(User user, Long altId, Integer page) {
+        validateInteractionPermission(user);
         findAlternativeById(altId);
         int pageNumber = normalizePage(page);
-        Page<AlternativeComment> commentPage = alternativeCommentRepository.findAllByAlternative_Id(
+        Page<AlternativeComment> commentPage = alternativeCommentRepository.findAllByAlternative_IdAndDeletedAtIsNull(
                         altId,
                         PageRequest.of(
                                 pageNumber - 1,
@@ -103,9 +119,45 @@ public class AlternativeService {
         return AlternativeCommentCreateResponse.from(altId, comment);
     }
 
+    @Transactional
+    public AlternativeCommentUpdateResponse updateComment(
+            User user,
+            Long altSetId,
+            Long commentId,
+            UpdateAlternativeCommentRequest request
+    ) {
+        validateInteractionPermission(user);
+        findAlternativeById(altSetId);
+        AlternativeComment comment = findActiveComment(altSetId, commentId);
+        validateCommentOwner(user, comment);
+        comment.updateContent(request.content());
+        return AlternativeCommentUpdateResponse.from(altSetId, comment);
+    }
+
+    @Transactional
+    public AlternativeCommentDeleteResponse deleteComment(User user, Long altSetId, Long commentId) {
+        validateInteractionPermission(user);
+        findAlternativeById(altSetId);
+        AlternativeComment comment = findActiveComment(altSetId, commentId);
+        validateCommentOwner(user, comment);
+        comment.delete();
+        return AlternativeCommentDeleteResponse.from(altSetId, comment);
+    }
+
     private PatternAlternativeYarn findAlternativeById(Long altId) {
         return patternAlternativeYarnRepository.findById(altId)
                 .orElseThrow(AlternativeNotFoundException::new);
+    }
+
+    private AlternativeComment findActiveComment(Long altSetId, Long commentId) {
+        return alternativeCommentRepository.findByIdAndAlternative_IdAndDeletedAtIsNull(commentId, altSetId)
+                .orElseThrow(AlternativeCommentNotFoundException::new);
+    }
+
+    private void validateCommentOwner(User user, AlternativeComment comment) {
+        if (!comment.isOwnedBy(user)) {
+            throw new AlternativeCommentPermissionDeniedException();
+        }
     }
 
     private void validateInteractionPermission(User user) {
@@ -146,5 +198,9 @@ public class AlternativeService {
                 CreditTransactionType.ALT_YARN_RECOMMENDED
         );
         alternative.markRecommendedRewarded();
+    }
+
+    private LocalDateTime resolveReactionUpdatedAt(AlternativeReaction reaction) {
+        return reaction.getUpdatedAt() == null ? reaction.getCreatedAt() : reaction.getUpdatedAt();
     }
 }

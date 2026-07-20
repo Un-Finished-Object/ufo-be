@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.pattern.application.AlternativeYarnQueryService;
 import com.ufo.ufo.domain.pattern.application.YarnQueryService;
 import com.ufo.ufo.domain.pattern.dto.response.YarnResponse;
 import com.ufo.ufo.global.response.ApiResponse;
@@ -21,6 +22,9 @@ class YarnControllerTest {
 
     @Mock
     private YarnQueryService yarnQueryService;
+
+    @Mock
+    private AlternativeYarnQueryService alternativeYarnQueryService;
 
     @InjectMocks
     private YarnController yarnController;

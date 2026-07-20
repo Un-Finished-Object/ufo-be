@@ -1,11 +1,19 @@
 package com.ufo.ufo.domain.alternative.dto.response;
 
+import java.time.LocalDateTime;
+
 public record AlternativeReactionResponse(
-        Long altId,
-        long likeCount,
-        long dislikeCount
+        Long altSetId,
+        int type,
+        long likesCount,
+        LocalDateTime updatedAt
 ) {
-    public static AlternativeReactionResponse from(Long altId, long likeCount, long dislikeCount) {
-        return new AlternativeReactionResponse(altId, likeCount, dislikeCount);
+    public static AlternativeReactionResponse from(
+            Long altSetId,
+            int type,
+            long likesCount,
+            LocalDateTime updatedAt
+    ) {
+        return new AlternativeReactionResponse(altSetId, type, likesCount, updatedAt);
     }
 }

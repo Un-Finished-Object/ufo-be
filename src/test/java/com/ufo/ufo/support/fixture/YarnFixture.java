@@ -21,7 +21,6 @@ public final class YarnFixture {
                 .price(1000)
                 .length(120)
                 .thickness("oldT")
-                .thicknessCategory("Worsted")
                 .gauges(List.of(YarnGauge.builder()
                         .needleSize("5.5")
                         .stitch(17)
