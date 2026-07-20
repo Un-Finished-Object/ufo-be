@@ -1,6 +1,7 @@
 package com.ufo.ufo.domain.image.dto.response;
 
 import java.util.List;
+import java.util.Map;
 
 public record ImagePresignedUrlIssueResponse(
         String expiresAt,
@@ -11,10 +12,16 @@ public record ImagePresignedUrlIssueResponse(
     public record UrlInfo(
             String presignedUrl,
             String imageKey,
-            String imageUrl
+            String imageUrl,
+            Map<String, String> uploadHeaders
     ) {
-        public static UrlInfo from(String presignedUrl, String imageKey, String imageUrl) {
-            return new UrlInfo(presignedUrl, imageKey, imageUrl);
+        public static UrlInfo from(
+                String presignedUrl,
+                String imageKey,
+                String imageUrl,
+                Map<String, String> uploadHeaders
+        ) {
+            return new UrlInfo(presignedUrl, imageKey, imageUrl, uploadHeaders);
         }
     }
 

@@ -13,6 +13,7 @@ import com.ufo.ufo.domain.image.exception.ImageDeletePermissionDeniedException;
 import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
 import com.ufo.ufo.domain.image.exception.InvalidImageContentTypeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageKeyException;
+import com.ufo.ufo.domain.image.exception.InvalidImagePurposeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageUrlException;
 import com.ufo.ufo.domain.image.exception.InvalidImageSizeException;
 import com.ufo.ufo.domain.image.exception.InvalidProfileImageUrlException;
@@ -25,6 +26,7 @@ import java.time.format.DateTimeFormatter;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.UUID;
@@ -33,6 +35,9 @@ import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
+import software.amazon.awssdk.services.s3.model.Tag;
+import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
@@ -42,6 +47,10 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 public class ImageService {
     private static final ZoneId KST_ZONE_ID = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter KST_OFFSET_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+    private static final String UPLOAD_STATUS_TAG_KEY = "ufo-upload-status";
+    private static final String UPLOAD_STATUS_ISSUED = "issued";
+    private static final String UPLOAD_STATUS_LINKED = "linked";
+    private static final String S3_TAGGING_HEADER = "x-amz-tagging";
 
     private final S3Presigner s3Presigner;
     private final S3Client s3Client;
@@ -52,10 +61,11 @@ public class ImageService {
         validateFiles(request.fileCount(), request.files());
 
         ImagePurpose purpose = ImagePurpose.from(request.purpose());
+        validateIssuePurpose(purpose);
         Duration signatureDuration = Duration.ofMinutes(imageProperties.s3().urlExpirationMinutes());
         Instant expiresAt = Instant.now().plus(signatureDuration);
         List<String> allowedContentTypes = imageProperties.allowedContentTypes();
-        Long ownerId = resolveObjectOwnerId(user, purpose, request.targetId());
+        Long ownerId = user.getId();
 
         List<UrlInfo> urls = request.files().stream()
                 .map(file -> generateUrlInfo(ownerId, purpose, signatureDuration, file))
@@ -105,6 +115,7 @@ public class ImageService {
                 .key(key)
                 .contentType(fileInfo.contentType())
                 .contentLength(fileInfo.contentLength())
+                .tagging(issuedUploadTaggingHeaderValue())
                 .build();
 
         PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(
@@ -114,17 +125,12 @@ public class ImageService {
                         .build()
         );
 
-        return UrlInfo.from(presignedRequest.url().toString(), key, buildImageUrl(key));
-    }
-
-    private Long resolveObjectOwnerId(User user, ImagePurpose purpose, Long targetId) {
-        if (purpose == ImagePurpose.PATTERN) {
-            if (targetId == null) {
-                throw new InvalidImageKeyException();
-            }
-            return targetId;
-        }
-        return user.getId();
+        return UrlInfo.from(
+                presignedRequest.url().toString(),
+                key,
+                buildImageUrl(key),
+                Map.of(S3_TAGGING_HEADER, issuedUploadTaggingHeaderValue())
+        );
     }
 
     private String generateObjectKey(Long ownerId, ImagePurpose purpose) {
@@ -161,6 +167,7 @@ public class ImageService {
             throw new InvalidProfileImageUrlException();
         }
         validateProfileImageOwnership(key, user.getId());
+        markImageLinked(key);
     }
 
     private void validateBucketConfigured() {
@@ -208,6 +215,12 @@ public class ImageService {
     private void validateContentLength(long contentLength, long maxBytes) {
         if (contentLength > maxBytes) {
             throw new InvalidImageSizeException(contentLength, maxBytes);
+        }
+    }
+
+    private void validateIssuePurpose(ImagePurpose purpose) {
+        if (purpose != ImagePurpose.PROFILE) {
+            throw new InvalidImagePurposeException();
         }
     }
 
@@ -330,6 +343,24 @@ public class ImageService {
         if (parts.length < 3 || userId == null || !parts[1].equals(String.valueOf(userId))) {
             throw new InvalidImageKeyException();
         }
+    }
+
+    private void markImageLinked(String key) {
+        validateBucketConfigured();
+        s3Client.putObjectTagging(PutObjectTaggingRequest.builder()
+                .bucket(imageProperties.s3().bucket())
+                .key(key)
+                .tagging(Tagging.builder()
+                        .tagSet(Tag.builder()
+                                .key(UPLOAD_STATUS_TAG_KEY)
+                                .value(UPLOAD_STATUS_LINKED)
+                                .build())
+                        .build())
+                .build());
+    }
+
+    private String issuedUploadTaggingHeaderValue() {
+        return UPLOAD_STATUS_TAG_KEY + "=" + UPLOAD_STATUS_ISSUED;
     }
 
     private String joinBaseUrlAndKey(String baseUrl, String key) {
