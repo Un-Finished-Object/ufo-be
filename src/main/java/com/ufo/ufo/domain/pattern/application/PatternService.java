@@ -1,7 +1,6 @@
 package com.ufo.ufo.domain.pattern.application;
 
 import com.ufo.ufo.domain.image.application.ImageService;
-import com.ufo.ufo.domain.image.domain.ImagePurpose;
 import com.ufo.ufo.domain.interest.dao.UserInterestRepository;
 import com.ufo.ufo.domain.interest.domain.InterestKeyword;
 import com.ufo.ufo.domain.interest.domain.UserInterest;
@@ -119,10 +118,9 @@ public class PatternService {
     public PatternAlternativesResponse.Item createAlternative(User user, Long patternId, CreateAlternativeRequest request) {
         validateAlternativePermission(user);
         Pattern pattern = findActivePattern(patternId);
-        imageService.validateImageKey(user, request.yarnImageKey(), ImagePurpose.STYLE);
         Yarn yarn = createAndSaveYarn(request);
-        PatternAlternativeYarn alternative = createAndSaveAlternativeYarn(pattern, user, yarn, request);
-        return PatternAlternativesResponse.Item.from(alternative, imageService.buildImageUrl(alternative.getImageUrl()));
+        PatternAlternativeYarn alternative = createAndSaveAlternativeYarn(pattern, user, yarn);
+        return PatternAlternativesResponse.Item.from(alternative);
     }
 
     @Transactional
@@ -131,10 +129,9 @@ public class PatternService {
         findActivePattern(patternId);
         PatternAlternativeYarn alternative = findAlternativeYarn(altId, patternId);
         validateAlternativeOwner(user, alternative);
-        imageService.validateImageKey(user, request.yarnImageKey(), ImagePurpose.STYLE);
 
         updateAlternativeYarn(alternative, request);
-        return PatternAlternativesResponse.Item.from(alternative, imageService.buildImageUrl(alternative.getImageUrl()));
+        return PatternAlternativesResponse.Item.from(alternative);
     }
 
     @Transactional
@@ -197,14 +194,12 @@ public class PatternService {
     private PatternAlternativeYarn createAndSaveAlternativeYarn(
             Pattern pattern,
             User user,
-            Yarn yarn,
-            CreateAlternativeRequest request
+            Yarn yarn
     ) {
         return patternAlternativeYarnRepository.save(PatternAlternativeYarn.builder()
                 .pattern(pattern)
                 .user(user)
                 .yarn(yarn)
-                .imageUrl(request.yarnImageKey())
                 .build());
     }
 
@@ -227,7 +222,7 @@ public class PatternService {
                 yarn.getThicknessCategory(),
                 toGaugeEntities(request.gauges())
         );
-        alternative.update(yarn, request.yarnImageKey());
+        alternative.update(yarn);
     }
 
     private Optional<AlternativeFilter> resolveAlternativeFilter(Pattern pattern) {

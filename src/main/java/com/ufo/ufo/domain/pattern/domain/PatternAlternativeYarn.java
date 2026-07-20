@@ -40,9 +40,6 @@ public class PatternAlternativeYarn extends BaseEntity {
     @JoinColumn(name = "yarn_id")
     private Yarn yarn;
 
-    @Column(name = "image_url")
-    private String imageUrl;
-
     @Column(name = "recommended_rewarded_at")
     private LocalDateTime recommendedRewardedAt;
 
@@ -50,16 +47,14 @@ public class PatternAlternativeYarn extends BaseEntity {
     private LocalDateTime deletedAt;
 
     @Builder
-    public PatternAlternativeYarn(Pattern pattern, User user, Yarn yarn, String imageUrl) {
+    public PatternAlternativeYarn(Pattern pattern, User user, Yarn yarn) {
         this.pattern = pattern;
         this.user = user;
         this.yarn = yarn;
-        this.imageUrl = imageUrl;
     }
 
-    public void update(Yarn yarn, String imageUrl) {
+    public void update(Yarn yarn) {
         this.yarn = yarn;
-        this.imageUrl = imageUrl;
     }
 
     public boolean isOwnedBy(User user) {
