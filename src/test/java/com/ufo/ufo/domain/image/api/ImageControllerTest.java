@@ -20,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,7 +51,10 @@ class ImageControllerTest {
                         "https://example.com/presigned",
                         "profiles/1/image",
                         "https://example.com/image",
-                        Map.of("x-amz-tagging", "ufo-upload-status=issued")
+                        Map.of(
+                                HttpHeaders.CONTENT_TYPE, "image/jpeg",
+                                "x-amz-tagging", "ufo-upload-status=issued"
+                        )
                 ))
         );
         when(imageService.issuePresignedUrls(user, request)).thenReturn(serviceResponse);
