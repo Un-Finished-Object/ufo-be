@@ -5,9 +5,12 @@ import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.domain.user.dto.request.UpdateMyInfoRequest;
 import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
+import com.ufo.ufo.domain.user.event.ProfileImageChangedEvent;
 import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.global.exception.UserNotFoundException;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +21,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final ImageService imageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public UserResponse getUserInfo(String email) {
         User user = userRepository.findByEmail(email)
@@ -38,12 +42,16 @@ public class UserService {
     public UpdateMyInfoResponse updateMyInfo(User user, UpdateMyInfoRequest request) {
         User loginUser = getUserById(user.getId());
         String userName = request.userName() == null ? loginUser.getNickname() : request.userName();
-        String profileImage = loginUser.getProfileImage();
+        String previousProfileImage = loginUser.getProfileImage();
+        String profileImage = previousProfileImage;
         if (request.profileImageKey() != null) {
             imageService.validateProfileImageKey(loginUser, request.profileImageKey());
             profileImage = request.profileImageKey();
         }
         loginUser.updateNameAndProfileImage(userName, profileImage);
+        if (!Objects.equals(profileImage, previousProfileImage)) {
+            eventPublisher.publishEvent(new ProfileImageChangedEvent(previousProfileImage, profileImage));
+        }
         return UpdateMyInfoResponse.from(loginUser, imageService.buildImageUrl(loginUser.getProfileImage()));
     }
 }

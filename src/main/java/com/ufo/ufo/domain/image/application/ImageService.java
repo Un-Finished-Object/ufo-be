@@ -167,7 +167,16 @@ public class ImageService {
             throw new InvalidProfileImageUrlException();
         }
         validateProfileImageOwnership(key, user.getId());
-        markImageLinked(key);
+    }
+
+    public void completeProfileImageReplacement(String newImageKey, String previousImageKey) {
+        String normalizedNewImageKey = normalizeImageKey(newImageKey);
+        validatePrefix(normalizedNewImageKey, ImagePurpose.PROFILE);
+        markImageLinked(normalizedNewImageKey);
+
+        if (shouldDeletePreviousProfileImage(previousImageKey, normalizedNewImageKey)) {
+            deleteObject(normalizeImageKey(previousImageKey));
+        }
     }
 
     private void validateBucketConfigured() {
@@ -356,6 +365,21 @@ public class ImageService {
                                 .value(UPLOAD_STATUS_LINKED)
                                 .build())
                         .build())
+                .build());
+    }
+
+    private boolean shouldDeletePreviousProfileImage(String previousImageKey, String newImageKey) {
+        return previousImageKey != null
+                && !previousImageKey.isBlank()
+                && !previousImageKey.equals(newImageKey)
+                && !previousImageKey.equals(imageProperties.defaultProfileImageKey());
+    }
+
+    private void deleteObject(String key) {
+        validatePrefix(key, ImagePurpose.PROFILE);
+        s3Client.deleteObject(DeleteObjectRequest.builder()
+                .bucket(imageProperties.s3().bucket())
+                .key(key)
                 .build());
     }
 
