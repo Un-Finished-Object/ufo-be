@@ -5,6 +5,7 @@ import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.credit.dao.UnlockRepository;
 import com.ufo.ufo.domain.credit.domain.Unlock;
 import com.ufo.ufo.domain.credit.domain.UnlockType;
+import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.application.model.PurchasedProject;
@@ -31,6 +32,7 @@ public class UserProjectService {
     private final UnlockRepository unlockRepository;
     private final ChatRoomStatusRepository chatRoomStatusRepository;
     private final PatternRepository patternRepository;
+    private final ImageService imageService;
 
     public PurchasedProjectsResponse getPurchasedProjects(User user, Integer page) {
         int pageNumber = normalizePage(page);
@@ -43,7 +45,7 @@ public class UserProjectService {
                 .stream()
                 .sorted(Comparator.comparing(PurchasedProject::latestPurchaseDate, Comparator.nullsLast(Comparator.reverseOrder()))
                         .thenComparing(PurchasedProject::getPatternId, Comparator.reverseOrder()))
-                .map(PurchasedProject::toResponse)
+                .map(project -> project.toResponse(imageService.buildImageUrl(project.getThumbnailKey())))
                 .toList();
 
         int totalPages = (int) Math.ceil((double) sortedProjects.size() / PAGE_SIZE);

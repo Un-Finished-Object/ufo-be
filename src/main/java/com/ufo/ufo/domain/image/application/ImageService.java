@@ -19,17 +19,20 @@ import com.ufo.ufo.domain.image.exception.InvalidImageSizeException;
 import com.ufo.ufo.domain.image.exception.InvalidProfileImageUrlException;
 import com.ufo.ufo.domain.image.exception.ProfileImagePermissionDeniedException;
 import com.ufo.ufo.domain.user.domain.User;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
@@ -144,9 +147,20 @@ public class ImageService {
         }
         String cdnBaseUrl = imageProperties.cdnBaseUrl();
         if (cdnBaseUrl != null && !cdnBaseUrl.isBlank()) {
-            return joinBaseUrlAndKey(cdnBaseUrl, key);
+            return joinBaseUrlAndKey(cdnBaseUrl, encodeObjectKey(key));
         }
         throw new ImageCdnBaseUrlNotConfiguredException();
+    }
+
+    private String encodeObjectKey(String key) {
+        return Arrays.stream(key.split("/", -1))
+                .map(this::encodePathSegment)
+                .collect(Collectors.joining("/"));
+    }
+
+    private String encodePathSegment(String segment) {
+        return URLEncoder.encode(segment, StandardCharsets.UTF_8)
+                .replace("+", "%20");
     }
 
     public String defaultProfileImageKey() {

@@ -9,6 +9,7 @@ import com.ufo.ufo.domain.chat.dto.response.ChatRoomUserCount;
 import com.ufo.ufo.domain.chat.dto.response.UserChatRoomItemResponse;
 import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
 import com.ufo.ufo.domain.chat.dto.response.ChatUnreadCount;
+import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
@@ -32,6 +33,7 @@ public class ChatRoomQueryService {
     private final ChatRoomStatusRepository chatRoomStatusRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final UserService userService;
+    private final ImageService imageService;
 
     public UserChatRoomListResponse getMyChats(User user, Integer page) {
         User loginUser = userService.getUserById(user.getId());
@@ -74,7 +76,7 @@ public class ChatRoomQueryService {
                             pattern.getId(),
                             chatId,
                             pattern.getTitle(),
-                            pattern.getThumbnailUrl(),
+                            imageService.buildImageUrl(pattern.getThumbnailUrl()),
                             status.isFavorite(),
                             status.isHidden(),
                             unRead,

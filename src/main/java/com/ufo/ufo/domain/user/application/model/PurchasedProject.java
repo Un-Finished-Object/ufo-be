@@ -23,6 +23,10 @@ public class PurchasedProject {
         return pattern.getId();
     }
 
+    public String getThumbnailKey() {
+        return pattern.getThumbnailUrl();
+    }
+
     public void applyYarn(LocalDateTime purchaseDate) {
         this.purchaseYarn = true;
         this.purchaseYarnDate = purchaseDate;
@@ -50,12 +54,12 @@ public class PurchasedProject {
                 .orElse(null);
     }
 
-    public Project toResponse() {
+    public Project toResponse(String thumbnailUrl) {
         return new Project(
                 pattern.getId(),
                 pattern.getTitle(),
                 pattern.getDesigner(),
-                pattern.getThumbnailUrl(),
+                thumbnailUrl,
                 purchaseYarn,
                 purchaseYarnDate,
                 purchaseChat,
