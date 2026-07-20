@@ -8,6 +8,8 @@ public record ImageProperties(
         int maxFileCount,
         long maxBytes,
         List<String> allowedContentTypes,
+        String cdnBaseUrl,
+        String defaultProfileImageKey,
         S3 s3
 ) {
     public record S3(

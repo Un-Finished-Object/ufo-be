@@ -5,9 +5,12 @@ import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.domain.user.dto.request.UpdateMyInfoRequest;
 import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
+import com.ufo.ufo.domain.user.event.ProfileImageChangedEvent;
 import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.global.exception.UserNotFoundException;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,11 +21,16 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final ImageService imageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public UserResponse getUserInfo(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(UserNotFoundException::new);
-        return UserResponse.from(user);
+        return UserResponse.from(user, imageService.buildImageUrl(user.getProfileImage()));
+    }
+
+    public UserResponse getMyInfo(User user) {
+        return UserResponse.from(user, imageService.buildImageUrl(user.getProfileImage()));
     }
 
     public User getUserById(Long userId) {
@@ -34,12 +42,16 @@ public class UserService {
     public UpdateMyInfoResponse updateMyInfo(User user, UpdateMyInfoRequest request) {
         User loginUser = getUserById(user.getId());
         String userName = request.userName() == null ? loginUser.getNickname() : request.userName();
-        String profileImage = loginUser.getProfileImage();
-        if (request.profileImage() != null) {
-            imageService.validateProfileImage(loginUser, request.profileImage());
-            profileImage = request.profileImage();
+        String previousProfileImage = loginUser.getProfileImage();
+        String profileImage = previousProfileImage;
+        if (request.profileImageKey() != null) {
+            imageService.validateProfileImageKey(loginUser, request.profileImageKey());
+            profileImage = request.profileImageKey();
         }
         loginUser.updateNameAndProfileImage(userName, profileImage);
-        return UpdateMyInfoResponse.from(loginUser);
+        if (!Objects.equals(profileImage, previousProfileImage)) {
+            eventPublisher.publishEvent(new ProfileImageChangedEvent(previousProfileImage, profileImage));
+        }
+        return UpdateMyInfoResponse.from(loginUser, imageService.buildImageUrl(loginUser.getProfileImage()));
     }
 }

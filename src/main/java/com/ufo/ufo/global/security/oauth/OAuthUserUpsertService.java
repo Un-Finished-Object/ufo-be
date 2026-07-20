@@ -1,5 +1,6 @@
 package com.ufo.ufo.global.security.oauth;
 
+import com.ufo.ufo.domain.image.config.ImageProperties;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.security.dto.OAuth2Response;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class OAuthUserUpsertService {
 
     private final UserRepository userRepository;
+    private final ImageProperties imageProperties;
 
     @Transactional
     public User saveOrUpdate(OAuth2Response response) {
@@ -23,7 +25,7 @@ public class OAuthUserUpsertService {
             user = User.builder()
                     .email(response.getEmail())
                     .nickname(response.getName())
-                    .profileImage(response.getProfileImage())
+                    .profileImage(imageProperties.defaultProfileImageKey())
                     .role(Role.ROLE_GUEST)
                     .provider(response.getProvider())
                     .ballBalance(0)

@@ -8,8 +8,8 @@ public record UpdateMyInfoRequest(
         @Size(min = 2, max = 20, message = "userName은 2자 이상 20자 이하여야 합니다.")
         String userName,
 
-        @Pattern(regexp = ".*\\S.*", message = "profileImage 필드의 정보가 올바르지 않습니다.")
-        @Size(max = 2048, message = "profileImage는 2048자 이하여야 합니다.")
-        String profileImage
+        @Pattern(regexp = ".*\\S.*", message = "profileImageKey 필드의 정보가 올바르지 않습니다.")
+        @Size(max = 1024, message = "profileImageKey는 1024자 이하여야 합니다.")
+        String profileImageKey
 ) {
 }

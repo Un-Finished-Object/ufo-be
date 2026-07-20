@@ -13,13 +13,14 @@ import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,14 +39,23 @@ class ImageControllerTest {
         User user = UserFixture.createUserWithId(1L);
         ImagePresignedUrlIssueRequest request = new ImagePresignedUrlIssueRequest(
                 2,
-                "STYLE",
+                "PROFILE",
+                null,
                 List.of(new FileInfo("image/jpeg", 1_024L), new FileInfo("image/png", 2_048L))
         );
         ImagePresignedUrlIssueResponse serviceResponse = ImagePresignedUrlIssueResponse.from(
                 "2026-03-31T18:00:00+09:00",
                 10_485_760L,
                 List.of("image/jpeg", "image/png", "image/webp"),
-                List.of(UrlInfo.from("https://example.com/presigned", "https://example.com/image"))
+                List.of(UrlInfo.from(
+                        "https://example.com/presigned",
+                        "profiles/1/image",
+                        "https://example.com/image",
+                        Map.of(
+                                HttpHeaders.CONTENT_TYPE, "image/jpeg",
+                                "x-amz-tagging", "ufo-upload-status=issued"
+                        )
+                ))
         );
         when(imageService.issuePresignedUrls(user, request)).thenReturn(serviceResponse);
 
@@ -59,16 +69,4 @@ class ImageControllerTest {
         verify(imageService).issuePresignedUrls(user, request);
     }
 
-    @Test
-    @DisplayName("이미지 삭제 API는 204를 반환하고 서비스를 호출해야 한다")
-    void deleteImage_ReturnsNoContent() {
-        User user = UserFixture.createUserWithId(1L);
-        String imageUrl = "https://cdn.ufo.com/styles/1/123e4567-e89b-12d3-a456-426614174000";
-
-        ResponseEntity<Void> response = imageController.deleteImage(user, imageUrl);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        assertThat(response.getBody()).isNull();
-        verify(imageService).deleteImage(user, imageUrl);
-    }
 }

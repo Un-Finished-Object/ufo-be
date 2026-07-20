@@ -225,7 +225,6 @@ class PatternControllerTest {
     private CreateAlternativeRequest createAlternativeRequest() {
         return new CreateAlternativeRequest(
                 "n",
-                "./yarns/1.png",
                 100,
                 10000,
                 "알파카",
@@ -240,7 +239,6 @@ class PatternControllerTest {
     private UpdateAlternativeYarnRequest updateAlternativeRequest() {
         return new UpdateAlternativeYarnRequest(
                 "n",
-                "./yarns/1.png",
                 100,
                 10000,
                 "알파카",
@@ -257,7 +255,6 @@ class PatternControllerTest {
                 1L,
                 2L,
                 "n",
-                "./yarns/1.png",
                 100,
                 10000,
                 "알파카",

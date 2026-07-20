@@ -2,7 +2,9 @@ package com.ufo.ufo.domain.image.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -12,6 +14,7 @@ import com.ufo.ufo.domain.image.config.ImageProperties;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest.FileInfo;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
+import com.ufo.ufo.domain.image.exception.ImageCdnBaseUrlNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageFileMetadataMismatchException;
 import com.ufo.ufo.domain.image.exception.ImageBucketNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageDeletePermissionDeniedException;
@@ -34,8 +37,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
@@ -48,11 +53,13 @@ class ImageServiceTest {
             5,
             10_485_760L,
             List.of("image/jpeg", "image/png", "image/webp"),
+            "https://cdn.ufo.com",
+            "defaults/profile.png",
             new ImageProperties.S3(
                     "ufo-bucket",
                     "ap-northeast-2",
                     5L,
-                    "https://cdn.ufo.com"
+                    "https://s3-public.ufo.com"
             )
     );
 
@@ -76,7 +83,7 @@ class ImageServiceTest {
     void issuePresignedUrls_ReturnsUrlsAndPolicy() throws Exception {
         PresignedPutObjectRequest first = mockPresignedRequest("https://s3.example.com/presigned-1");
         PresignedPutObjectRequest second = mockPresignedRequest("https://s3.example.com/presigned-2");
-        when(s3Presigner.presignPutObject(org.mockito.ArgumentMatchers.any(PutObjectPresignRequest.class)))
+        when(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class)))
                 .thenReturn(first)
                 .thenReturn(second);
 
@@ -84,7 +91,8 @@ class ImageServiceTest {
                 user,
                 new ImagePresignedUrlIssueRequest(
                         2,
-                        "STYLE",
+                        "PROFILE",
+                        null,
                         List.of(
                                 new FileInfo("image/jpeg", 1_024L),
                                 new FileInfo("image/png", 2_048L)
@@ -97,8 +105,12 @@ class ImageServiceTest {
         assertThat(response.expiresAt()).contains("+09:00");
         assertThat(response.urls()).hasSize(2);
         assertThat(response.urls().getFirst().presignedUrl()).isEqualTo("https://s3.example.com/presigned-1");
-        assertThat(response.urls().getFirst().imageUrl()).startsWith("https://cdn.ufo.com/styles/1/");
-        verify(s3Presigner, times(2)).presignPutObject(org.mockito.ArgumentMatchers.any(PutObjectPresignRequest.class));
+        assertThat(response.urls().getFirst().imageKey()).startsWith("profiles/1/");
+        assertThat(response.urls().getFirst().imageUrl()).startsWith("https://cdn.ufo.com/profiles/1/");
+        assertThat(response.urls().getFirst().uploadHeaders())
+                .containsEntry(HttpHeaders.CONTENT_TYPE, "image/jpeg")
+                .containsEntry("x-amz-tagging", "ufo-upload-status=issued");
+        verify(s3Presigner, times(2)).presignPutObject(any(PutObjectPresignRequest.class));
 
         ArgumentCaptor<PutObjectPresignRequest> captor = ArgumentCaptor.forClass(PutObjectPresignRequest.class);
         verify(s3Presigner, times(2)).presignPutObject(captor.capture());
@@ -106,12 +118,30 @@ class ImageServiceTest {
                 .allSatisfy(req -> {
                     assertThat(req.signatureDuration().toMinutes()).isEqualTo(5L);
                     assertThat(req.putObjectRequest().bucket()).isEqualTo("ufo-bucket");
-                    assertThat(req.putObjectRequest().key()).startsWith("styles/1/");
+                    assertThat(req.putObjectRequest().key()).startsWith("profiles/1/");
+                    assertThat(req.putObjectRequest().tagging()).isEqualTo("ufo-upload-status=issued");
                 });
         assertThat(captor.getAllValues().get(0).putObjectRequest().contentType()).isEqualTo("image/jpeg");
         assertThat(captor.getAllValues().get(0).putObjectRequest().contentLength()).isEqualTo(1_024L);
         assertThat(captor.getAllValues().get(1).putObjectRequest().contentType()).isEqualTo("image/png");
         assertThat(captor.getAllValues().get(1).putObjectRequest().contentLength()).isEqualTo(2_048L);
+    }
+
+    @Test
+    @DisplayName("최종 이미지 URL 생성은 CDN Base URL 설정이 없으면 S3 URL로 fallback하지 않아야 한다")
+    void buildImageUrl_MissingCdnBaseUrl_Throws() {
+        ImageProperties missingCdnProperties = new ImageProperties(
+                5,
+                10_485_760L,
+                List.of("image/jpeg", "image/png", "image/webp"),
+                "",
+                "defaults/profile.png",
+                new ImageProperties.S3("ufo-bucket", "ap-northeast-2", 5L, "https://s3-public.ufo.com")
+        );
+        ImageService imageService = new ImageService(s3Presigner, s3Client, missingCdnProperties);
+
+        assertThatThrownBy(() -> imageService.buildImageUrl("profiles/1/profile.png"))
+                .isInstanceOf(ImageCdnBaseUrlNotConfiguredException.class);
     }
 
     @Test
@@ -121,7 +151,8 @@ class ImageServiceTest {
                 user,
                 new ImagePresignedUrlIssueRequest(
                         6,
-                        "STYLE",
+                        "PROFILE",
+                        null,
                         List.of(
                                 new FileInfo("image/jpeg", 1_024L),
                                 new FileInfo("image/png", 2_048L),
@@ -140,9 +171,20 @@ class ImageServiceTest {
     void issuePresignedUrls_InvalidPurpose_Throws() {
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
                 user,
-                new ImagePresignedUrlIssueRequest(1, "UNKNOWN", List.of(new FileInfo("image/jpeg", 1_024L)))
+                new ImagePresignedUrlIssueRequest(1, "UNKNOWN", null, List.of(new FileInfo("image/jpeg", 1_024L)))
         ))
                 .isInstanceOf(InvalidImagePurposeException.class);
+    }
+
+    @Test
+    @DisplayName("프로필이 아닌 목적의 Presigned URL 발급은 지원하지 않아야 한다")
+    void issuePresignedUrls_UnsupportedPurpose_Throws() {
+        assertThatThrownBy(() -> imageService.issuePresignedUrls(
+                user,
+                new ImagePresignedUrlIssueRequest(1, "PATTERN", 10L, List.of(new FileInfo("image/jpeg", 1_024L)))
+        ))
+                .isInstanceOf(InvalidImagePurposeException.class);
+        verifyNoInteractions(s3Presigner);
     }
 
     @Test
@@ -152,13 +194,15 @@ class ImageServiceTest {
                 5,
                 10_485_760L,
                 List.of("image/jpeg", "image/png", "image/webp"),
-                new ImageProperties.S3("", "ap-northeast-2", 5L, "https://cdn.ufo.com")
+                "https://cdn.ufo.com",
+                "defaults/profile.png",
+                new ImageProperties.S3("", "ap-northeast-2", 5L, "https://s3-public.ufo.com")
         );
         ImageService imageService = new ImageService(s3Presigner, s3Client, emptyBucketProperties);
 
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
                 user,
-                new ImagePresignedUrlIssueRequest(1, "STYLE", List.of(new FileInfo("image/jpeg", 1_024L)))
+                new ImagePresignedUrlIssueRequest(1, "PROFILE", null, List.of(new FileInfo("image/jpeg", 1_024L)))
         ))
                 .isInstanceOf(ImageBucketNotConfiguredException.class);
     }
@@ -168,7 +212,7 @@ class ImageServiceTest {
     void issuePresignedUrls_FileCountMismatch_Throws() {
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
                 user,
-                new ImagePresignedUrlIssueRequest(2, "STYLE", List.of(new FileInfo("image/jpeg", 1_024L)))
+                new ImagePresignedUrlIssueRequest(2, "PROFILE", null, List.of(new FileInfo("image/jpeg", 1_024L)))
         ))
                 .isInstanceOf(ImageFileMetadataMismatchException.class);
     }
@@ -178,7 +222,7 @@ class ImageServiceTest {
     void issuePresignedUrls_InvalidContentType_Throws() {
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
                 user,
-                new ImagePresignedUrlIssueRequest(1, "STYLE", List.of(new FileInfo("application/pdf", 1_024L)))
+                new ImagePresignedUrlIssueRequest(1, "PROFILE", null, List.of(new FileInfo("application/pdf", 1_024L)))
         ))
                 .isInstanceOf(InvalidImageContentTypeException.class);
     }
@@ -188,7 +232,7 @@ class ImageServiceTest {
     void issuePresignedUrls_ExceedsMaxBytes_Throws() {
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
                 user,
-                new ImagePresignedUrlIssueRequest(1, "STYLE", List.of(new FileInfo("image/jpeg", 20_000_000L)))
+                new ImagePresignedUrlIssueRequest(1, "PROFILE", null, List.of(new FileInfo("image/jpeg", 20_000_000L)))
         ))
                 .isInstanceOf(InvalidImageSizeException.class);
     }
@@ -278,6 +322,59 @@ class ImageServiceTest {
                 "https://cdn.ufo.com/profiles/1/123?X-Amz-Signature=signature"
         ))
                 .isInstanceOf(InvalidProfileImageUrlException.class);
+    }
+
+    @Test
+    @DisplayName("객체 키 검증은 trailing slash로 생긴 빈 segment를 거부해야 한다")
+    void validateImageKey_TrailingEmptySegment_Throws() {
+        assertThatThrownBy(() -> imageService.validateProfileImageKey(user, "profiles/1/avatar/"))
+                .isInstanceOf(InvalidProfileImageUrlException.class);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 키 검증은 percent escape를 거부해야 한다")
+    void validateProfileImageKey_PercentEscapes_Throws() {
+        assertThatThrownBy(() -> imageService.validateProfileImageKey(user, "profiles/1/a%2Fb"))
+                .isInstanceOf(InvalidProfileImageUrlException.class);
+        assertThatThrownBy(() -> imageService.validateProfileImageKey(user, "profiles/1/%2e%2e/avatar"))
+                .isInstanceOf(InvalidProfileImageUrlException.class);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 키 검증에서는 S3 객체 상태를 변경하지 않아야 한다")
+    void validateProfileImageKey_ValidKey_DoesNotChangeObjectState() {
+        imageService.validateProfileImageKey(user, "profiles/1/avatar");
+
+        verifyNoInteractions(s3Client);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 교체 완료 시 새 객체를 linked 처리하고 기존 객체를 삭제해야 한다")
+    void completeProfileImageReplacement_LinksNewImageAndDeletesPreviousImage() {
+        imageService.completeProfileImageReplacement("profiles/1/new-avatar", "profiles/1/old-avatar");
+
+        ArgumentCaptor<PutObjectTaggingRequest> captor = ArgumentCaptor.forClass(PutObjectTaggingRequest.class);
+        verify(s3Client).putObjectTagging(captor.capture());
+        assertThat(captor.getValue().bucket()).isEqualTo("ufo-bucket");
+        assertThat(captor.getValue().key()).isEqualTo("profiles/1/new-avatar");
+        assertThat(captor.getValue().tagging().tagSet()).anySatisfy(tag -> {
+            assertThat(tag.key()).isEqualTo("ufo-upload-status");
+            assertThat(tag.value()).isEqualTo("linked");
+        });
+
+        ArgumentCaptor<DeleteObjectRequest> deleteCaptor = ArgumentCaptor.forClass(DeleteObjectRequest.class);
+        verify(s3Client).deleteObject(deleteCaptor.capture());
+        assertThat(deleteCaptor.getValue().bucket()).isEqualTo("ufo-bucket");
+        assertThat(deleteCaptor.getValue().key()).isEqualTo("profiles/1/old-avatar");
+    }
+
+    @Test
+    @DisplayName("기본 프로필 이미지는 새 이미지 연결 후에도 삭제하지 않아야 한다")
+    void completeProfileImageReplacement_DefaultPreviousImage_DoesNotDeleteDefaultImage() {
+        imageService.completeProfileImageReplacement("profiles/1/new-avatar", "defaults/profile.png");
+
+        verify(s3Client).putObjectTagging(any(PutObjectTaggingRequest.class));
+        verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
     }
 
     private PresignedPutObjectRequest mockPresignedRequest(String url) throws MalformedURLException {

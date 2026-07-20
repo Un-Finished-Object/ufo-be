@@ -21,6 +21,7 @@ import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatMessage;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
+import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
@@ -62,6 +63,9 @@ class ChatWebSocketServiceTest {
     @Mock
     private ChatReadStatusRepository chatReadStatusRepository;
 
+    @Mock
+    private ImageService imageService;
+
     @InjectMocks
     private ChatWebSocketService chatWebSocketService;
 
@@ -93,6 +97,8 @@ class ChatWebSocketServiceTest {
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
         when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(savedMessage);
+        when(imageService.buildImageUrl(user.getProfileImage()))
+                .thenReturn("https://cdn.ufo.com/" + user.getProfileImage());
 
         chatWebSocketService.publishMessage(principal,
                 new ChatMessageSendRequest(roomId, " 안녕하세요 ", "temp-123456", null, null));
@@ -108,7 +114,7 @@ class ChatWebSocketServiceTest {
         assertThat(payload.messageId()).isEqualTo(1L);
         assertThat(payload.clientMessageId()).isEqualTo("temp-123456");
         assertThat(payload.senderId()).isEqualTo(21L);
-        assertThat(payload.senderProfile()).isEqualTo(user.getProfileImage());
+        assertThat(payload.senderProfile()).isEqualTo("https://cdn.ufo.com/" + user.getProfileImage());
         assertThat(payload.senderName()).isEqualTo(user.getNickname());
         assertThat(payload.text()).isEqualTo("안녕하세요");
         assertThat(payload.replySenderName()).isNull();

@@ -9,8 +9,6 @@ import java.util.List;
 public record UpdateAlternativeYarnRequest(
         @NotBlank(message = "yarnName 필드의 정보가 올바르지 않습니다.")
         String yarnName,
-        @NotBlank(message = "yarnUri 필드의 정보가 올바르지 않습니다.")
-        String yarnUri,
         @NotNull(message = "weight 필드의 정보가 올바르지 않습니다.")
         Integer weight,
         @NotNull(message = "cost 필드의 정보가 올바르지 않습니다.")

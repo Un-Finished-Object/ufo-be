@@ -16,7 +16,6 @@ public final class PatternAlternativeYarnFixture {
                 .pattern(pattern)
                 .user(user)
                 .yarn(yarn)
-                .imageUrl("./yarns/20.png")
                 .build();
     }
 

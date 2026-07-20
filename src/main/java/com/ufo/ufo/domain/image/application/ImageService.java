@@ -6,11 +6,14 @@ import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest.FileIn
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse.UrlInfo;
+import com.ufo.ufo.domain.image.exception.ImageCdnBaseUrlNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageFileMetadataMismatchException;
 import com.ufo.ufo.domain.image.exception.ImageBucketNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageDeletePermissionDeniedException;
 import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
 import com.ufo.ufo.domain.image.exception.InvalidImageContentTypeException;
+import com.ufo.ufo.domain.image.exception.InvalidImageKeyException;
+import com.ufo.ufo.domain.image.exception.InvalidImagePurposeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageUrlException;
 import com.ufo.ufo.domain.image.exception.InvalidImageSizeException;
 import com.ufo.ufo.domain.image.exception.InvalidProfileImageUrlException;
@@ -23,14 +26,19 @@ import java.time.format.DateTimeFormatter;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
+import software.amazon.awssdk.services.s3.model.Tag;
+import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
@@ -40,6 +48,10 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 public class ImageService {
     private static final ZoneId KST_ZONE_ID = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter KST_OFFSET_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+    private static final String UPLOAD_STATUS_TAG_KEY = "ufo-upload-status";
+    private static final String UPLOAD_STATUS_ISSUED = "issued";
+    private static final String UPLOAD_STATUS_LINKED = "linked";
+    private static final String S3_TAGGING_HEADER = "x-amz-tagging";
 
     private final S3Presigner s3Presigner;
     private final S3Client s3Client;
@@ -50,12 +62,14 @@ public class ImageService {
         validateFiles(request.fileCount(), request.files());
 
         ImagePurpose purpose = ImagePurpose.from(request.purpose());
+        validateIssuePurpose(purpose);
         Duration signatureDuration = Duration.ofMinutes(imageProperties.s3().urlExpirationMinutes());
         Instant expiresAt = Instant.now().plus(signatureDuration);
         List<String> allowedContentTypes = imageProperties.allowedContentTypes();
+        Long ownerId = user.getId();
 
         List<UrlInfo> urls = request.files().stream()
-                .map(file -> generateUrlInfo(user, purpose, signatureDuration, file))
+                .map(file -> generateUrlInfo(ownerId, purpose, signatureDuration, file))
                 .toList();
 
         return ImagePresignedUrlIssueResponse.from(
@@ -87,17 +101,22 @@ public class ImageService {
         } catch (InvalidImageUrlException e) {
             throw new InvalidProfileImageUrlException();
         }
-        validatePrefix(key, ImagePurpose.PROFILE);
+        try {
+            validatePrefix(key, ImagePurpose.PROFILE);
+        } catch (InvalidImageKeyException e) {
+            throw new InvalidProfileImageUrlException();
+        }
         validateProfileImageOwnership(key, user.getId());
     }
 
-    private UrlInfo generateUrlInfo(User user, ImagePurpose purpose, Duration signatureDuration, FileInfo fileInfo) {
-        String key = generateObjectKey(user.getId(), purpose);
+    private UrlInfo generateUrlInfo(Long ownerId, ImagePurpose purpose, Duration signatureDuration, FileInfo fileInfo) {
+        String key = generateObjectKey(ownerId, purpose);
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(imageProperties.s3().bucket())
                 .key(key)
                 .contentType(fileInfo.contentType())
                 .contentLength(fileInfo.contentLength())
+                .tagging(issuedUploadTaggingHeaderValue())
                 .build();
 
         PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(
@@ -107,19 +126,58 @@ public class ImageService {
                         .build()
         );
 
-        return UrlInfo.from(presignedRequest.url().toString(), buildImageUrl(key));
+        return UrlInfo.from(
+                presignedRequest.url().toString(),
+                key,
+                buildImageUrl(key),
+                buildUploadHeaders(fileInfo.contentType())
+        );
     }
 
-    private String generateObjectKey(Long userId, ImagePurpose purpose) {
-        return purpose.prefix() + "/" + userId + "/" + UUID.randomUUID();
+    private String generateObjectKey(Long ownerId, ImagePurpose purpose) {
+        return purpose.prefix() + "/" + ownerId + "/" + UUID.randomUUID();
     }
 
-    private String buildImageUrl(String key) {
-        String publicBaseUrl = imageProperties.s3().publicBaseUrl();
-        if (publicBaseUrl != null && !publicBaseUrl.isBlank()) {
-            return publicBaseUrl.endsWith("/") ? publicBaseUrl + key : publicBaseUrl + "/" + key;
+    public String buildImageUrl(String key) {
+        if (key == null || key.isBlank()) {
+            return "";
         }
-        return defaultS3BaseUrl() + "/" + key;
+        String cdnBaseUrl = imageProperties.cdnBaseUrl();
+        if (cdnBaseUrl != null && !cdnBaseUrl.isBlank()) {
+            return joinBaseUrlAndKey(cdnBaseUrl, key);
+        }
+        throw new ImageCdnBaseUrlNotConfiguredException();
+    }
+
+    public String defaultProfileImageKey() {
+        return imageProperties.defaultProfileImageKey();
+    }
+
+    public void validateImageKey(User user, String imageKey, ImagePurpose purpose) {
+        String key = normalizeImageKey(imageKey);
+        validatePrefix(key, purpose);
+        validateOwnership(key, user.getId());
+    }
+
+    public void validateProfileImageKey(User user, String imageKey) {
+        String key;
+        try {
+            key = normalizeImageKey(imageKey);
+            validatePrefix(key, ImagePurpose.PROFILE);
+        } catch (InvalidImageKeyException e) {
+            throw new InvalidProfileImageUrlException();
+        }
+        validateProfileImageOwnership(key, user.getId());
+    }
+
+    public void completeProfileImageReplacement(String newImageKey, String previousImageKey) {
+        String normalizedNewImageKey = normalizeImageKey(newImageKey);
+        validatePrefix(normalizedNewImageKey, ImagePurpose.PROFILE);
+        markImageLinked(normalizedNewImageKey);
+
+        if (shouldDeletePreviousProfileImage(previousImageKey, normalizedNewImageKey)) {
+            deleteObject(normalizeImageKey(previousImageKey));
+        }
     }
 
     private void validateBucketConfigured() {
@@ -170,6 +228,19 @@ public class ImageService {
         }
     }
 
+    private void validateIssuePurpose(ImagePurpose purpose) {
+        if (purpose != ImagePurpose.PROFILE) {
+            throw new InvalidImagePurposeException();
+        }
+    }
+
+    private Map<String, String> buildUploadHeaders(String contentType) {
+        return Map.of(
+                HttpHeaders.CONTENT_TYPE, contentType,
+                S3_TAGGING_HEADER, issuedUploadTaggingHeaderValue()
+        );
+    }
+
     private String formatKst(Instant instant) {
         return instant.atZone(KST_ZONE_ID).format(KST_OFFSET_FORMATTER);
     }
@@ -180,7 +251,10 @@ public class ImageService {
         }
 
         String urlWithoutQuery = imageUrl.split("\\?", 2)[0];
-        String key = tryExtractKey(urlWithoutQuery, imageProperties.s3().publicBaseUrl());
+        String key = tryExtractKey(urlWithoutQuery, imageProperties.cdnBaseUrl());
+        if (key == null) {
+            key = tryExtractKey(urlWithoutQuery, imageProperties.s3().publicBaseUrl());
+        }
         if (key == null) {
             key = tryExtractKey(urlWithoutQuery, defaultS3BaseUrl());
         }
@@ -212,7 +286,7 @@ public class ImageService {
 
     private String normalizeObjectKey(String key) {
         String decodedKey = URLDecoder.decode(key, StandardCharsets.UTF_8);
-        String[] segments = decodedKey.split("/");
+        String[] segments = decodedKey.split("/", -1);
         Deque<String> normalizedSegments = new ArrayDeque<>();
 
         for (String segment : segments) {
@@ -225,6 +299,22 @@ public class ImageService {
         return String.join("/", normalizedSegments);
     }
 
+    private String normalizeImageKey(String key) {
+        if (key == null || key.isBlank() || key.contains("://") || key.contains("?") || key.contains("%")) {
+            throw new InvalidImageKeyException();
+        }
+
+        String[] segments = key.split("/", -1);
+        Deque<String> normalizedSegments = new ArrayDeque<>();
+        for (String segment : segments) {
+            if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)) {
+                throw new InvalidImageKeyException();
+            }
+            normalizedSegments.addLast(segment);
+        }
+        return String.join("/", normalizedSegments);
+    }
+
     private boolean isAllowedPrefix(String key) {
         return key.startsWith(ImagePurpose.STYLE.prefix() + "/")
                 || key.startsWith(ImagePurpose.PROFILE.prefix() + "/")
@@ -233,7 +323,7 @@ public class ImageService {
 
     private void validatePrefix(String key, ImagePurpose purpose) {
         if (!key.startsWith(purpose.prefix() + "/")) {
-            throw new InvalidProfileImageUrlException();
+            throw new InvalidImageKeyException();
         }
     }
 
@@ -263,5 +353,49 @@ public class ImageService {
 
     private String trimTrailingSlash(String value) {
         return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
+    }
+
+    private void validateOwnership(String key, Long userId) {
+        String[] parts = key.split("/", 3);
+        if (parts.length < 3 || userId == null || !parts[1].equals(String.valueOf(userId))) {
+            throw new InvalidImageKeyException();
+        }
+    }
+
+    private void markImageLinked(String key) {
+        validateBucketConfigured();
+        s3Client.putObjectTagging(PutObjectTaggingRequest.builder()
+                .bucket(imageProperties.s3().bucket())
+                .key(key)
+                .tagging(Tagging.builder()
+                        .tagSet(Tag.builder()
+                                .key(UPLOAD_STATUS_TAG_KEY)
+                                .value(UPLOAD_STATUS_LINKED)
+                                .build())
+                        .build())
+                .build());
+    }
+
+    private boolean shouldDeletePreviousProfileImage(String previousImageKey, String newImageKey) {
+        return previousImageKey != null
+                && !previousImageKey.isBlank()
+                && !previousImageKey.equals(newImageKey)
+                && !previousImageKey.equals(imageProperties.defaultProfileImageKey());
+    }
+
+    private void deleteObject(String key) {
+        validatePrefix(key, ImagePurpose.PROFILE);
+        s3Client.deleteObject(DeleteObjectRequest.builder()
+                .bucket(imageProperties.s3().bucket())
+                .key(key)
+                .build());
+    }
+
+    private String issuedUploadTaggingHeaderValue() {
+        return UPLOAD_STATUS_TAG_KEY + "=" + UPLOAD_STATUS_ISSUED;
+    }
+
+    private String joinBaseUrlAndKey(String baseUrl, String key) {
+        return baseUrl.endsWith("/") ? baseUrl + key : baseUrl + "/" + key;
     }
 }

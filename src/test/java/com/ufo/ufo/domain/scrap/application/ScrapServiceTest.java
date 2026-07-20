@@ -4,11 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
@@ -22,6 +24,7 @@ import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,8 +44,16 @@ class ScrapServiceTest {
     @Mock
     private ScrapRepository scrapRepository;
 
+    @Mock
+    private ImageService imageService;
+
     @InjectMocks
     private ScrapService scrapService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(imageService.buildImageUrl(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    }
 
     @Test
     @DisplayName("도안 찜 추가는 중복이 아니면 찜을 저장하고 도안 찜 카운트를 증가시켜야 한다")

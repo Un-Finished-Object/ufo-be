@@ -1,5 +1,6 @@
 package com.ufo.ufo.domain.pattern.application;
 
+import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.interest.dao.UserInterestRepository;
 import com.ufo.ufo.domain.interest.domain.InterestKeyword;
 import com.ufo.ufo.domain.interest.domain.UserInterest;
@@ -50,6 +51,7 @@ public class PatternService {
     private final PatternAlternativeYarnRepository patternAlternativeYarnRepository;
     private final YarnRepository yarnRepository;
     private final UserInterestRepository userInterestRepository;
+    private final ImageService imageService;
 
     public PatternListResponse getPatterns(User user, String category, String subCategory, String sort, Integer page) {
         validateCategoryAndSubCategory(category, subCategory);
@@ -97,7 +99,7 @@ public class PatternService {
         validateAlternativePermission(user);
         Pattern pattern = findActivePattern(patternId);
         Yarn yarn = createAndSaveYarn(request);
-        PatternAlternativeYarn alternative = createAndSaveAlternativeYarn(pattern, user, yarn, request);
+        PatternAlternativeYarn alternative = createAndSaveAlternativeYarn(pattern, user, yarn);
         return PatternAlternativeResponse.from(alternative);
     }
 
@@ -151,9 +153,10 @@ public class PatternService {
         List<String> images = patternImageRepository.findAllByPattern_IdOrderByImageOrderAscIdAsc(patternId)
                 .stream()
                 .map(PatternImage::getImageUrl)
+                .map(imageService::buildImageUrl)
                 .toList();
         if (images.isEmpty() && thumbnailUrl != null) {
-            return List.of(thumbnailUrl);
+            return List.of(imageService.buildImageUrl(thumbnailUrl));
         }
         return images;
     }
@@ -175,14 +178,12 @@ public class PatternService {
     private PatternAlternativeYarn createAndSaveAlternativeYarn(
             Pattern pattern,
             User user,
-            Yarn yarn,
-            CreateAlternativeRequest request
+            Yarn yarn
     ) {
         return patternAlternativeYarnRepository.save(PatternAlternativeYarn.builder()
                 .pattern(pattern)
                 .user(user)
                 .yarn(yarn)
-                .imageUrl(request.yarnUri())
                 .build());
     }
 
@@ -204,7 +205,7 @@ public class PatternService {
                 request.thickness(),
                 toGaugeEntities(request.gauges())
         );
-        alternative.update(yarn, request.yarnUri());
+        alternative.update(yarn);
     }
 
     private List<YarnGauge> toGaugeEntities(List<AlternativeGaugeRequest> gauges) {
@@ -261,7 +262,7 @@ public class PatternService {
 
     private PatternListItemResponse toListItemResponse(Pattern pattern, User user) {
         boolean scrapped = isScrapped(user, pattern.getId());
-        return PatternListItemResponse.from(pattern, scrapped);
+        return PatternListItemResponse.from(pattern, scrapped, imageService.buildImageUrl(pattern.getThumbnailUrl()));
     }
 
     private boolean isScrapped(User user, Long patternId) {

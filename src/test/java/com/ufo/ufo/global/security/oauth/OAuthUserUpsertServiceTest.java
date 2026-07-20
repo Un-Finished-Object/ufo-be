@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.image.config.ImageProperties;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.security.dto.OAuth2Response;
@@ -27,6 +28,9 @@ class OAuthUserUpsertServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private ImageProperties imageProperties;
+
     @InjectMocks
     private OAuthUserUpsertService oauthUserUpsertService;
 
@@ -37,13 +41,14 @@ class OAuthUserUpsertServiceTest {
                 "new@example.com", "new-user", "https://example.com/new.png", Provider.GOOGLE
         );
         when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
+        when(imageProperties.defaultProfileImageKey()).thenReturn("defaults/profile.png");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         User saved = oauthUserUpsertService.saveOrUpdate(response);
 
         assertThat(saved.getEmail()).isEqualTo("new@example.com");
         assertThat(saved.getNickname()).isEqualTo("new-user");
-        assertThat(saved.getProfileImage()).isEqualTo("https://example.com/new.png");
+        assertThat(saved.getProfileImage()).isEqualTo("defaults/profile.png");
         assertThat(saved.getRole()).isEqualTo(Role.ROLE_GUEST);
         assertThat(saved.getProvider()).isEqualTo(Provider.GOOGLE);
     }
@@ -61,7 +66,7 @@ class OAuthUserUpsertServiceTest {
         User saved = oauthUserUpsertService.saveOrUpdate(response);
 
         assertThat(saved.getNickname()).isEqualTo("tester");
-        assertThat(saved.getProfileImage()).isEqualTo("https://example.com/profile.png");
+        assertThat(saved.getProfileImage()).isEqualTo("profiles/1/profile.png");
         assertThat(saved.getRole()).isEqualTo(Role.ROLE_USER);
         assertThat(saved.getProvider()).isEqualTo(Provider.GOOGLE);
 

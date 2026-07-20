@@ -42,7 +42,7 @@ public class UserController {
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(@LoginUser User user) {
-        return ResponseEntity.ok(ApiResponse.success(UserResponse.from(user)));
+        return ResponseEntity.ok(ApiResponse.success(userService.getMyInfo(user)));
     }
 
     @PatchMapping("/me")

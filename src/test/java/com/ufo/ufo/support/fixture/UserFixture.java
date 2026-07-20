@@ -19,7 +19,7 @@ public final class UserFixture {
         return User.builder()
                 .email(email)
                 .nickname("tester")
-                .profileImage("https://example.com/profile.png")
+                .profileImage("profiles/1/profile.png")
                 .role(role)
                 .provider(Provider.GOOGLE)
                 .build();

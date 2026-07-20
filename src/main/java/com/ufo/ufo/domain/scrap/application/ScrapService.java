@@ -1,5 +1,6 @@
 package com.ufo.ufo.domain.scrap.application;
 
+import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
@@ -25,6 +26,7 @@ public class ScrapService {
 
     private final PatternRepository patternRepository;
     private final ScrapRepository scrapRepository;
+    private final ImageService imageService;
 
     @Transactional
     public PatternScrapResponse addPatternScrap(User user, Long patternId) {
@@ -60,7 +62,7 @@ public class ScrapService {
         List<Item> scraps = scrapPage.getContent()
                 .stream()
                 .map(Scrap::getPattern)
-                .map(MyScrapsResponse.Item::from)
+                .map(pattern -> MyScrapsResponse.Item.from(pattern, imageService.buildImageUrl(pattern.getThumbnailUrl())))
                 .toList();
         int nextPage = resolveNextPage(pageNumber, scrapPage.getTotalPages());
         return MyScrapsResponse.from(scraps, pageNumber, nextPage);
