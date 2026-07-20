@@ -2,7 +2,9 @@ package com.ufo.ufo.domain.image.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -80,7 +82,7 @@ class ImageServiceTest {
     void issuePresignedUrls_ReturnsUrlsAndPolicy() throws Exception {
         PresignedPutObjectRequest first = mockPresignedRequest("https://s3.example.com/presigned-1");
         PresignedPutObjectRequest second = mockPresignedRequest("https://s3.example.com/presigned-2");
-        when(s3Presigner.presignPutObject(org.mockito.ArgumentMatchers.any(PutObjectPresignRequest.class)))
+        when(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class)))
                 .thenReturn(first)
                 .thenReturn(second);
 
@@ -106,7 +108,7 @@ class ImageServiceTest {
         assertThat(response.urls().getFirst().imageUrl()).startsWith("https://cdn.ufo.com/profiles/1/");
         assertThat(response.urls().getFirst().uploadHeaders())
                 .containsEntry("x-amz-tagging", "ufo-upload-status=issued");
-        verify(s3Presigner, times(2)).presignPutObject(org.mockito.ArgumentMatchers.any(PutObjectPresignRequest.class));
+        verify(s3Presigner, times(2)).presignPutObject(any(PutObjectPresignRequest.class));
 
         ArgumentCaptor<PutObjectPresignRequest> captor = ArgumentCaptor.forClass(PutObjectPresignRequest.class);
         verify(s3Presigner, times(2)).presignPutObject(captor.capture());
@@ -328,18 +330,40 @@ class ImageServiceTest {
     }
 
     @Test
-    @DisplayName("프로필 이미지 키 검증에 성공하면 S3 객체 태그를 linked로 변경해야 한다")
-    void validateProfileImageKey_ValidKey_MarksObjectLinked() {
+    @DisplayName("프로필 이미지 키 검증에서는 S3 객체 상태를 변경하지 않아야 한다")
+    void validateProfileImageKey_ValidKey_DoesNotChangeObjectState() {
         imageService.validateProfileImageKey(user, "profiles/1/avatar");
+
+        verifyNoInteractions(s3Client);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 교체 완료 시 새 객체를 linked 처리하고 기존 객체를 삭제해야 한다")
+    void completeProfileImageReplacement_LinksNewImageAndDeletesPreviousImage() {
+        imageService.completeProfileImageReplacement("profiles/1/new-avatar", "profiles/1/old-avatar");
 
         ArgumentCaptor<PutObjectTaggingRequest> captor = ArgumentCaptor.forClass(PutObjectTaggingRequest.class);
         verify(s3Client).putObjectTagging(captor.capture());
         assertThat(captor.getValue().bucket()).isEqualTo("ufo-bucket");
-        assertThat(captor.getValue().key()).isEqualTo("profiles/1/avatar");
+        assertThat(captor.getValue().key()).isEqualTo("profiles/1/new-avatar");
         assertThat(captor.getValue().tagging().tagSet()).anySatisfy(tag -> {
             assertThat(tag.key()).isEqualTo("ufo-upload-status");
             assertThat(tag.value()).isEqualTo("linked");
         });
+
+        ArgumentCaptor<DeleteObjectRequest> deleteCaptor = ArgumentCaptor.forClass(DeleteObjectRequest.class);
+        verify(s3Client).deleteObject(deleteCaptor.capture());
+        assertThat(deleteCaptor.getValue().bucket()).isEqualTo("ufo-bucket");
+        assertThat(deleteCaptor.getValue().key()).isEqualTo("profiles/1/old-avatar");
+    }
+
+    @Test
+    @DisplayName("기본 프로필 이미지는 새 이미지 연결 후에도 삭제하지 않아야 한다")
+    void completeProfileImageReplacement_DefaultPreviousImage_DoesNotDeleteDefaultImage() {
+        imageService.completeProfileImageReplacement("profiles/1/new-avatar", "defaults/profile.png");
+
+        verify(s3Client).putObjectTagging(any(PutObjectTaggingRequest.class));
+        verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
     }
 
     private PresignedPutObjectRequest mockPresignedRequest(String url) throws MalformedURLException {

@@ -3,6 +3,7 @@ package com.ufo.ufo.domain.user.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.image.application.ImageService;
@@ -11,6 +12,7 @@ import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.domain.user.dto.request.UpdateMyInfoRequest;
 import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
+import com.ufo.ufo.domain.user.event.ProfileImageChangedEvent;
 import com.ufo.ufo.global.exception.UserNotFoundException;
 import com.ufo.ufo.global.security.types.Role;
 import com.ufo.ufo.support.fixture.UserFixture;
@@ -20,8 +22,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("User 서비스 테스트")
@@ -32,6 +36,9 @@ class UserServiceTest {
 
     @Mock
     private ImageService imageService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private UserService userService;
@@ -80,6 +87,12 @@ class UserServiceTest {
         assertThat(response.profileImage()).isEqualTo("https://cdn.ufo.com/profiles/10/updated.png");
         assertThat(user.getNickname()).isEqualTo("updatedName");
         assertThat(user.getProfileImage()).isEqualTo("profiles/10/updated.png");
+
+        ArgumentCaptor<ProfileImageChangedEvent> eventCaptor =
+                ArgumentCaptor.forClass(ProfileImageChangedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().previousImageKey()).isEqualTo("profiles/1/profile.png");
+        assertThat(eventCaptor.getValue().newImageKey()).isEqualTo("profiles/10/updated.png");
     }
 
     @Test
@@ -97,6 +110,7 @@ class UserServiceTest {
         assertThat(response.profileImage()).isEqualTo("https://cdn.ufo.com/profiles/1/profile.png");
         assertThat(user.getNickname()).isEqualTo("updatedName");
         assertThat(user.getProfileImage()).isEqualTo("profiles/1/profile.png");
+        verify(eventPublisher, never()).publishEvent(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
