@@ -31,6 +31,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -129,7 +130,7 @@ public class ImageService {
                 presignedRequest.url().toString(),
                 key,
                 buildImageUrl(key),
-                Map.of(S3_TAGGING_HEADER, issuedUploadTaggingHeaderValue())
+                buildUploadHeaders(fileInfo.contentType())
         );
     }
 
@@ -231,6 +232,13 @@ public class ImageService {
         if (purpose != ImagePurpose.PROFILE) {
             throw new InvalidImagePurposeException();
         }
+    }
+
+    private Map<String, String> buildUploadHeaders(String contentType) {
+        return Map.of(
+                HttpHeaders.CONTENT_TYPE, contentType,
+                S3_TAGGING_HEADER, issuedUploadTaggingHeaderValue()
+        );
     }
 
     private String formatKst(Instant instant) {
