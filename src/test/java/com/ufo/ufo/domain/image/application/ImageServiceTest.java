@@ -332,6 +332,15 @@ class ImageServiceTest {
     }
 
     @Test
+    @DisplayName("프로필 이미지 키 검증은 percent escape를 거부해야 한다")
+    void validateProfileImageKey_PercentEscapes_Throws() {
+        assertThatThrownBy(() -> imageService.validateProfileImageKey(user, "profiles/1/a%2Fb"))
+                .isInstanceOf(InvalidProfileImageUrlException.class);
+        assertThatThrownBy(() -> imageService.validateProfileImageKey(user, "profiles/1/%2e%2e/avatar"))
+                .isInstanceOf(InvalidProfileImageUrlException.class);
+    }
+
+    @Test
     @DisplayName("프로필 이미지 키 검증에서는 S3 객체 상태를 변경하지 않아야 한다")
     void validateProfileImageKey_ValidKey_DoesNotChangeObjectState() {
         imageService.validateProfileImageKey(user, "profiles/1/avatar");
