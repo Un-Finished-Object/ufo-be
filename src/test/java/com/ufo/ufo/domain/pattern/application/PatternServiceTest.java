@@ -271,7 +271,6 @@ class PatternServiceTest {
                 1L,
                 new CreateAlternativeRequest(
                         "name",
-                        "styles/1/1.png",
                         100,
                         10000,
                         "알파카",
@@ -302,7 +301,6 @@ class PatternServiceTest {
                 30L,
                 new UpdateAlternativeYarnRequest(
                         "newName",
-                        "styles/1/new.png",
                         120,
                         20000,
                         "메리노",
@@ -342,7 +340,6 @@ class PatternServiceTest {
                 30L,
                 new UpdateAlternativeYarnRequest(
                         "newName",
-                        "styles/1/new.png",
                         120,
                         20000,
                         "메리노",
