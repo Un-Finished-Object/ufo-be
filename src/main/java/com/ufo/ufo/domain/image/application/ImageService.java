@@ -300,7 +300,7 @@ public class ImageService {
     }
 
     private String normalizeImageKey(String key) {
-        if (key == null || key.isBlank() || key.contains("://") || key.contains("?")) {
+        if (key == null || key.isBlank() || key.contains("://") || key.contains("?") || key.contains("%")) {
             throw new InvalidImageKeyException();
         }
 
