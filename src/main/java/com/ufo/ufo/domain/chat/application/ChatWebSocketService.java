@@ -14,6 +14,7 @@ import com.ufo.ufo.domain.chat.dto.websocket.response.ChatEventType;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatMessageCreatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatSocketEvent;
+import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import java.security.Principal;
@@ -35,6 +36,7 @@ public class ChatWebSocketService {
     private final UserRepository userRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatReadStatusRepository chatReadStatusRepository;
+    private final ImageService imageService;
 
     @Transactional
     public void publishMessage(Principal principal, ChatMessageSendRequest request) {
@@ -86,7 +88,7 @@ public class ChatWebSocketService {
                 savedMessage.getId(),
                 clientMessageId,
                 sender.getId(),
-                sender.getProfileImage(),
+                imageService.buildImageUrl(sender.getProfileImage()),
                 sender.getNickname(),
                 text,
                 replyMessage == null ? null : replyMessage.getUser().getNickname(),
