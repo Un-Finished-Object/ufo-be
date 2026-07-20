@@ -14,6 +14,7 @@ import com.ufo.ufo.domain.chat.dto.response.ChatRoomLastMessage;
 import com.ufo.ufo.domain.chat.dto.response.ChatRoomUserCount;
 import com.ufo.ufo.domain.chat.dto.response.UserChatRoomListResponse;
 import com.ufo.ufo.domain.chat.dto.response.ChatUnreadCount;
+import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
@@ -45,6 +46,9 @@ class ChatRoomQueryServiceTest {
 
     @Mock
     private UserService userService;
+
+    @Mock
+    private ImageService imageService;
 
     @InjectMocks
     private ChatRoomQueryService chatRoomQueryService;
@@ -98,6 +102,8 @@ class ChatRoomQueryServiceTest {
                         new ChatRoomLastMessage(100L, "hello"),
                         new ChatRoomLastMessage(101L, "world")
                 ));
+        when(imageService.buildImageUrl("./patterns/1.png"))
+                .thenReturn("https://cdn.example.com/patterns/1.png");
 
         UserChatRoomListResponse response = chatRoomQueryService.getMyChats(user, 1);
 
@@ -111,14 +117,16 @@ class ChatRoomQueryServiceTest {
         assertThat(response.chats().getFirst().unRead()).isEqualTo(3);
         assertThat(response.chats().getFirst().userCount()).isEqualTo(2);
         assertThat(response.chats().getFirst().lastMessage()).isEqualTo("hello");
-        assertThat(response.chats().getFirst().chatImageUrl()).isEqualTo(pattern1.getThumbnailUrl());
+        assertThat(response.chats().getFirst().chatImageUrl())
+                .isEqualTo("https://cdn.example.com/patterns/1.png");
         assertThat(response.chats().getFirst().createdAt()).isEqualTo(room1.getCreatedAt());
         assertThat(response.chats().get(1).patternId()).isEqualTo(11L);
         assertThat(response.chats().get(1).chatId()).isEqualTo(101L);
         assertThat(response.chats().get(1).unRead()).isEqualTo(0);
         assertThat(response.chats().get(1).userCount()).isEqualTo(1);
         assertThat(response.chats().get(1).lastMessage()).isEqualTo("world");
-        assertThat(response.chats().get(1).chatImageUrl()).isEqualTo(pattern2.getThumbnailUrl());
+        assertThat(response.chats().get(1).chatImageUrl())
+                .isEqualTo("https://cdn.example.com/patterns/1.png");
         assertThat(response.chats().get(1).createdAt()).isEqualTo(room2.getCreatedAt());
     }
 

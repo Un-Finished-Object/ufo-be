@@ -9,6 +9,7 @@ import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.credit.dao.UnlockRepository;
 import com.ufo.ufo.domain.credit.domain.Unlock;
 import com.ufo.ufo.domain.credit.domain.UnlockType;
+import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.domain.User;
@@ -39,6 +40,9 @@ class UserProjectServiceTest {
     @Mock
     private PatternRepository patternRepository;
 
+    @Mock
+    private ImageService imageService;
+
     @InjectMocks
     private UserProjectService userProjectService;
 
@@ -64,6 +68,8 @@ class UserProjectServiceTest {
         when(patternRepository.findAllById(List.of(10L))).thenReturn(List.of(bothPurchasedPattern));
         when(chatRoomStatusRepository.findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(1L))
                 .thenReturn(List.of(chatOnlyStatus, bothChatStatus));
+        when(imageService.buildImageUrl("./patterns/1.png"))
+                .thenReturn("https://cdn.example.com/patterns/1.png");
 
         PurchasedProjectsResponse response = userProjectService.getPurchasedProjects(user, 1);
 
@@ -73,10 +79,14 @@ class UserProjectServiceTest {
         assertThat(response.projects().getFirst().purchaseYarn()).isFalse();
         assertThat(response.projects().getFirst().purchaseChat()).isTrue();
         assertThat(response.projects().getFirst().purchaseChatId()).isEqualTo(200L);
+        assertThat(response.projects().getFirst().thumbnailUrl())
+                .isEqualTo("https://cdn.example.com/patterns/1.png");
         assertThat(response.projects().get(1).patternId()).isEqualTo(10L);
         assertThat(response.projects().get(1).purchaseYarn()).isTrue();
         assertThat(response.projects().get(1).purchaseChat()).isTrue();
         assertThat(response.projects().get(1).purchaseChatId()).isEqualTo(100L);
+        assertThat(response.projects().get(1).thumbnailUrl())
+                .isEqualTo("https://cdn.example.com/patterns/1.png");
     }
 
     @Test

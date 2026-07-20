@@ -145,6 +145,17 @@ class ImageServiceTest {
     }
 
     @Test
+    @DisplayName("최종 이미지 URL 생성은 객체 키의 특수문자를 경로 세그먼트별로 인코딩해야 한다")
+    void buildImageUrl_SpecialCharacters_EncodesPathSegments() {
+        String imageUrl = imageService.buildImageUrl("patterns/37/sample+image #50%?.webp");
+
+        assertThat(imageUrl).isEqualTo(
+                "https://cdn.ufo.com/patterns/37/"
+                        + "sample%2Bimage%20%2350%25%3F.webp"
+        );
+    }
+
+    @Test
     @DisplayName("fileCount가 정책 범위를 벗어나면 예외가 발생해야 한다")
     void issuePresignedUrls_InvalidFileCount_Throws() {
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
