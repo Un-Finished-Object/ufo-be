@@ -47,8 +47,7 @@ class ChatControllerTest {
                 true,
                 20L,
                 List.of(new ChatMessageItemResponse(
-                        1L,
-                        "테스터",
+                        "민트 메리노",
                         49L,
                         "안녕하세요",
                         null,
@@ -66,8 +65,7 @@ class ChatControllerTest {
         assertThat(response.getBody().data().hasNext()).isTrue();
         assertThat(response.getBody().data().nextMessageId()).isEqualTo(20L);
         assertThat(response.getBody().data().messages()).hasSize(1);
-        assertThat(response.getBody().data().messages().getFirst().senderId()).isEqualTo(1L);
-        assertThat(response.getBody().data().messages().getFirst().senderName()).isEqualTo("테스터");
+        assertThat(response.getBody().data().messages().getFirst().senderName()).isEqualTo("민트 메리노");
         assertThat(response.getBody().data().messages().getFirst().messageId()).isEqualTo(49L);
         assertThat(response.getBody().data().messages().getFirst().replyMessageId()).isNull();
         assertThat(response.getBody().error()).isNull();

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.chat.application.ChatNicknameGenerator;
 import com.ufo.ufo.domain.chat.application.ChatRoomProvisioningService;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
@@ -53,6 +54,9 @@ class PatternPurchaseServiceTest {
     @Mock
     private ChatRoomStatusRepository chatRoomStatusRepository;
 
+    @Mock
+    private ChatNicknameGenerator chatNicknameGenerator;
+
     @InjectMocks
     private PatternPurchaseService patternPurchaseService;
 
@@ -68,6 +72,9 @@ class PatternPurchaseServiceTest {
         when(chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(false);
         when(chatRoomProvisioningService.assignJoinableRoom(any(Pattern.class)))
                 .thenReturn(room);
+        when(chatRoomProvisioningService.lockRoom(room)).thenReturn(room);
+        when(chatRoomStatusRepository.countByRoom_Id(20L)).thenReturn(1L);
+        when(chatNicknameGenerator.generate(1L)).thenReturn("버건디 린넨");
         when(chatRoomStatusRepository.save(any(ChatRoomStatus.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -79,6 +86,7 @@ class PatternPurchaseServiceTest {
         verify(creditService, times(0)).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
         verify(chatRoomProvisioningService, times(1)).assignJoinableRoom(any(Pattern.class));
         verify(chatRoomStatusRepository, times(1)).save(any(ChatRoomStatus.class));
+        verify(chatNicknameGenerator).generate(1L);
     }
 
     @Test
@@ -123,6 +131,7 @@ class PatternPurchaseServiceTest {
                 .room(room)
                 .favorite(false)
                 .hidden(false)
+                .nickname("민트 메리노")
                 .build();
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(chatRoomStatusRepository.findFirstByUser_IdAndRoom_Pattern_IdOrderByCreatedAtDescIdDesc(1L, 10L))
