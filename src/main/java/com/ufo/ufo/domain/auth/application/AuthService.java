@@ -7,6 +7,7 @@ import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
+import com.ufo.ufo.domain.user.domain.NicknamePolicy;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.exception.InvalidTokenException;
 import com.ufo.ufo.global.exception.UserNotFoundException;
@@ -30,9 +31,10 @@ public class AuthService {
 
     @Transactional
     public SignupResponse signup(User user, SignupRequest request) {
+        String normalizedNickname = NicknamePolicy.normalizeAndValidate(request.userName());
         User loginUser = userService.getUserById(user.getId());
         User updatedUser = userService.updateNameAndProfileImage(
-                loginUser, request.userName().trim(), request.profileImageKey());
+                loginUser, normalizedNickname, request.profileImageKey());
         List<String> keywords = interestService.replaceMyInterests(loginUser, request.keywords());
         loginUser.promoteToUserIfGuest();
 

@@ -1,6 +1,7 @@
 package com.ufo.ufo.domain.user.application;
 
 import com.ufo.ufo.domain.user.dao.UserRepository;
+import com.ufo.ufo.domain.user.domain.NicknamePolicy;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.domain.user.dto.request.UpdateMyInfoRequest;
 import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
@@ -42,7 +43,7 @@ public class UserService {
     }
 
     public NicknameExistsResponse checkNicknameExists(String nickname) {
-        String normalizedNickname = nickname.trim();
+        String normalizedNickname = NicknamePolicy.normalizeAndValidate(nickname);
         return NicknameExistsResponse.from(userRepository.existsByNickname(normalizedNickname));
     }
 
@@ -55,9 +56,11 @@ public class UserService {
     @Transactional
     public User updateNameAndProfileImage(User user, String userName, String profileImageKey) {
         User loginUser = getUserById(user.getId());
-        String updatedUserName = userName == null ? loginUser.getNickname() : userName;
+        String updatedUserName = userName == null
+                ? loginUser.getNickname()
+                : NicknamePolicy.normalizeAndValidate(userName);
         if (userName != null
-                && userRepository.existsByNicknameAndIdNot(userName, loginUser.getId())) {
+                && userRepository.existsByNicknameAndIdNot(updatedUserName, loginUser.getId())) {
             throw new DuplicateNicknameException();
         }
         String previousProfileImage = loginUser.getProfileImage();
