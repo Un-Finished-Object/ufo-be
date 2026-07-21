@@ -5,7 +5,6 @@ import java.lang.reflect.Field;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -29,9 +28,6 @@ import com.ufo.ufo.domain.alternative.exception.AlternativeCommentPermissionDeni
 import com.ufo.ufo.domain.alternative.exception.AlternativeInteractionPermissionDeniedException;
 import com.ufo.ufo.domain.alternative.exception.AlternativeNotFoundException;
 import com.ufo.ufo.domain.alternative.exception.InvalidAlternativeReactionTypeException;
-import com.ufo.ufo.domain.credit.application.CreditService;
-import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
-import com.ufo.ufo.domain.credit.policy.CreditPolicy;
 import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.user.application.UserService;
@@ -60,9 +56,6 @@ class AlternativeServiceTest {
     private UserService userService;
 
     @Mock
-    private CreditService creditService;
-
-    @Mock
     private PatternAlternativeYarnRepository patternAlternativeYarnRepository;
 
     @Mock
@@ -73,56 +66,6 @@ class AlternativeServiceTest {
 
     @InjectMocks
     private AlternativeService alternativeService;
-
-    @Test
-    @DisplayName("추천 수가 5개를 초과하면 작성자에게 볼을 1회 지급해야 한다")
-    void updateReaction_RewardsAuthorOnceWhenLikesExceedThreshold() {
-        User reactor = UserFixture.createUserWithId(1L);
-        User author = UserFixture.createUserWithId(2L);
-        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
-                10L,
-                PatternFixture.createPatternWithId(100L),
-                author,
-                YarnFixture.createYarnWithId(20L)
-        );
-
-        when(patternAlternativeYarnRepository.findById(10L)).thenReturn(Optional.of(alternative));
-        when(userService.getUserById(1L)).thenReturn(reactor);
-        when(alternativeReactionRepository.findByAlternative_IdAndUser_Id(10L, 1L)).thenReturn(Optional.empty());
-        when(alternativeReactionRepository.countByAlternative_IdAndType(
-                10L, com.ufo.ufo.domain.alternative.domain.AlternativeReactionType.LIKE)).thenReturn(6L);
-
-        AlternativeReactionUpdateResponse response =
-                alternativeService.updateReaction(reactor, 10L, new UpdateAlternativeReactionRequest(1));
-
-        assertThat(response.likesCount()).isEqualTo(6L);
-        verify(creditService).addCredits(author, CreditPolicy.ALT_YARN_RECOMMENDED_BALLS, CreditTransactionType.ALT_YARN_RECOMMENDED);
-        assertThat(alternative.getRecommendedRewardedAt()).isNotNull();
-    }
-
-    @Test
-    @DisplayName("이미 보상 지급된 대체 실은 추천 수가 증가해도 다시 지급되지 않아야 한다")
-    void updateReaction_DoesNotRewardAgainWhenAlreadyRewarded() {
-        User reactor = UserFixture.createUserWithId(1L);
-        User author = UserFixture.createUserWithId(2L);
-        PatternAlternativeYarn alternative = PatternAlternativeYarnFixture.createWithId(
-                11L,
-                PatternFixture.createPatternWithId(101L),
-                author,
-                YarnFixture.createYarnWithId(21L)
-        );
-        alternative.markRecommendedRewarded();
-
-        when(patternAlternativeYarnRepository.findById(11L)).thenReturn(Optional.of(alternative));
-        when(userService.getUserById(1L)).thenReturn(reactor);
-        when(alternativeReactionRepository.findByAlternative_IdAndUser_Id(11L, 1L)).thenReturn(Optional.empty());
-        when(alternativeReactionRepository.countByAlternative_IdAndType(
-                11L, com.ufo.ufo.domain.alternative.domain.AlternativeReactionType.LIKE)).thenReturn(7L);
-
-        alternativeService.updateReaction(reactor, 11L, new UpdateAlternativeReactionRequest(1));
-
-        verify(creditService, never()).addCredits(any(), anyInt(), any());
-    }
 
     @Test
     @DisplayName("취소 반응은 기존 반응을 취소 상태로 변경하고 변경 시각을 보존해야 한다")
@@ -150,7 +93,6 @@ class AlternativeServiceTest {
                 alternativeService.updateReaction(reactor, 12L, new UpdateAlternativeReactionRequest(2));
 
         verify(alternativeReactionRepository, never()).delete(existing);
-        verify(creditService, never()).addCredits(any(), anyInt(), any());
         assertThat(existing.getType()).isEqualTo(AlternativeReactionType.CANCEL);
         assertThat(response.type()).isEqualTo(2);
         assertThat(response.updatedAt()).isEqualTo(existing.getUpdatedAt());

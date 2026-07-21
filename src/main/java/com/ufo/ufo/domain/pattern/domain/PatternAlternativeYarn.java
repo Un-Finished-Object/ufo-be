@@ -55,9 +55,6 @@ public class PatternAlternativeYarn extends BaseEntity {
     @Column(name = "needle_score")
     private Integer needleScore;
 
-    @Column(name = "recommended_rewarded_at")
-    private LocalDateTime recommendedRewardedAt;
-
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -76,11 +73,4 @@ public class PatternAlternativeYarn extends BaseEntity {
         return this.user != null && user != null && this.user.getId().equals(user.getId());
     }
 
-    public boolean canRewardForRecommended(long likesCount, int threshold) {
-        return this.user != null && this.recommendedRewardedAt == null && likesCount > threshold;
-    }
-
-    public void markRecommendedRewarded() {
-        this.recommendedRewardedAt = LocalDateTime.now();
-    }
 }

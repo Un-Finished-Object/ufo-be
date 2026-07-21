@@ -19,7 +19,6 @@ import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.pattern.domain.PatternOriginalYarn;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
-import com.ufo.ufo.domain.pattern.dto.request.AlternativeGaugeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternDetailResponse;
@@ -284,8 +283,7 @@ class PatternServiceTest {
                         "알파카 90%, 나일론 10%",
                         "store",
                         "2",
-                        180,
-                        List.of(new AlternativeGaugeRequest("5.5", 17, 24))
+                        180
                 )))
                 .isInstanceOf(ApiException.class);
     }
@@ -314,8 +312,7 @@ class PatternServiceTest {
                         "메리노 100%",
                         "newStore",
                         "1",
-                        140,
-                        List.of(new AlternativeGaugeRequest("4.0", 22, 30))
+                        140
                 )
         );
 
@@ -323,7 +320,6 @@ class PatternServiceTest {
         assertThat(response.yarnName()).isEqualTo("newName");
         assertThat(response.cost()).isEqualTo(20000);
         assertThat(response.weight()).isEqualTo(120);
-        assertThat(response.gauges()).hasSize(1);
     }
 
     @Test
@@ -353,8 +349,7 @@ class PatternServiceTest {
                         "메리노 100%",
                         "newStore",
                         "1",
-                        140,
-                        List.of(new AlternativeGaugeRequest("4.0", 22, 30))
+                        140
                 )))
                 .isInstanceOf(ApiException.class);
     }
