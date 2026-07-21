@@ -40,6 +40,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/v1/auth/login/**", "/v1/auth/oauth/**", "/v1/auth/token/refresh").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/v1/users/nicknames/*/check").permitAll()
                         .requestMatchers("/login/**", "/oauth2/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/v1/patterns", "/v1/patterns/search", "/v1/patterns/recommend").permitAll()

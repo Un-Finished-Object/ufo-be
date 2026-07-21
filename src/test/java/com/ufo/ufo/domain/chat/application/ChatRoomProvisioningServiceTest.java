@@ -72,4 +72,17 @@ class ChatRoomProvisioningServiceTest {
         assertThat(result).isSameAs(existingRoom);
         verify(chatRoomRepository).findByPattern_IdAndSegmentStartAt(eq(10L), eq(targetAt));
     }
+
+    @Test
+    @DisplayName("채팅방별 닉네임 생성 전 채팅방 행을 쓰기 잠금해야 한다")
+    void lockRoom_ReturnsPessimisticallyLockedRoom() {
+        Pattern pattern = PatternFixture.createPatternWithId(10L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, 100L);
+        when(chatRoomRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(room));
+
+        ChatRoom result = chatRoomProvisioningService.lockRoom(room);
+
+        assertThat(result).isSameAs(room);
+        verify(chatRoomRepository).findByIdForUpdate(100L);
+    }
 }

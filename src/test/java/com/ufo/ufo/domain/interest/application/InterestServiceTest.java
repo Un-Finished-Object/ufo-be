@@ -53,8 +53,8 @@ class InterestServiceTest {
     }
 
     @Test
-    @DisplayName("내 관심사 수정 시 키워드를 정규화·교체 저장하고 게스트 권한을 회원 권한으로 승급해야 한다")
-    void updateMyInterests_NormalizesReplacesAndPromotesRole() {
+    @DisplayName("내 관심사 수정 시 키워드를 정규화하고 교체 저장하되 사용자 역할은 변경하지 않아야 한다")
+    void updateMyInterests_NormalizesAndReplacesWithoutPromotingRole() {
         User user = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUser("test@example.com", Role.ROLE_GUEST);
         UserFixture.setId(loginUser, 1L);
@@ -65,7 +65,7 @@ class InterestServiceTest {
         MyInterestsResponse response = interestService.updateMyInterests(user, request);
 
         assertThat(response.keywords()).containsExactly("빈티지", "캐주얼");
-        assertThat(loginUser.getRole()).isEqualTo(Role.ROLE_USER);
+        assertThat(loginUser.getRole()).isEqualTo(Role.ROLE_GUEST);
         verify(userInterestRepository).deleteAllByUser_Id(1L);
 
         ArgumentCaptor<List<UserInterest>> captor = ArgumentCaptor.forClass(List.class);

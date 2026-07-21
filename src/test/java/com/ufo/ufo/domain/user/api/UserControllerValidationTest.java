@@ -1,6 +1,7 @@
 package com.ufo.ufo.domain.user.api;
 
 import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
+import com.ufo.ufo.domain.user.dto.response.NicknameExistsResponse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -63,6 +64,26 @@ class UserControllerValidationTest {
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
     @Test
+    @DisplayName("닉네임 중복 확인은 exists 값을 반환해야 한다")
+    void checkNicknameExists_ValidNickname_ReturnsExists() throws Exception {
+        when(userService.checkNicknameExists("뜨개러"))
+                .thenReturn(new NicknameExistsResponse(true));
+
+        mockMvc.perform(get("/v1/users/nicknames/{nickname}/check", "뜨개러"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.exists").value(true))
+                .andExpect(jsonPath("$.error").isEmpty());
+    }
+
+    @Test
+    @DisplayName("닉네임 중복 확인에서 2자 미만 닉네임은 400을 반환해야 한다")
+    void checkNicknameExists_TooShortNickname_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/v1/users/nicknames/{nickname}/check", "실"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("nickname은 2자 이상 20자 이하여야 합니다."));
+    }
+
+    @Test
     @DisplayName("내 찜 목록 조회에서 page를 생략하면 1로 기본 처리해야 한다")
     void getMyScraps_MissingPage_UsesDefaultPageOne() throws Exception {
         when(scrapService.getMyScraps(any(), eq(1)))
@@ -105,6 +126,25 @@ class UserControllerValidationTest {
         mockMvc.perform(get("/v1/users/me/chats").param("page", "0"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value("page는 1 이상이어야 합니다."));
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
+    @DisplayName("내 관심사 수정에서 키워드가 3개를 초과하면 400을 반환해야 한다")
+    void updateMyInterests_MoreThanThreeKeywords_ReturnsBadRequest() throws Exception {
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
+
+        mockMvc.perform(patch("/v1/users/me/interests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "keywords": ["빈티지", "캐주얼", "클래식", "로맨틱"]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message")
+                        .value("keywords는 최대 3개까지 입력할 수 있습니다."));
     }
 
     @Test

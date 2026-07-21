@@ -15,6 +15,7 @@ import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.chat.dto.response.ChatMessagesResponse;
 import com.ufo.ufo.domain.chat.exception.InvalidChatMessageIdException;
+import com.ufo.ufo.domain.chat.exception.ChatNicknameNotFoundException;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
@@ -68,6 +69,7 @@ class ChatMessageServiceTest {
                 .room(room)
                 .favorite(false)
                 .hidden(false)
+                .nickname("민트 메리노")
                 .build();
 
         ChatMessage message = ChatMessage.builder()
@@ -90,6 +92,8 @@ class ChatMessageServiceTest {
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(1L, roomId)).thenReturn(Optional.of(roomStatus));
         when(chatMessageRepository.findByRoom_IdOrderByIdDesc(roomId, PageRequest.of(0, 31)))
                 .thenReturn(List.of(message));
+        when(chatRoomStatusRepository.findAllByRoom_IdAndUser_IdIn(roomId, List.of(1L)))
+                .thenReturn(List.of(roomStatus));
         when(chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, 1L))
                 .thenReturn(Optional.of(readStatus));
 
@@ -99,8 +103,7 @@ class ChatMessageServiceTest {
         assertThat(response.hasNext()).isFalse();
         assertThat(response.nextMessageId()).isNull();
         assertThat(response.messages()).hasSize(1);
-        assertThat(response.messages().getFirst().senderId()).isEqualTo(1L);
-        assertThat(response.messages().getFirst().senderName()).isEqualTo("tester");
+        assertThat(response.messages().getFirst().senderName()).isEqualTo("민트 메리노");
         assertThat(response.messages().getFirst().messageId()).isEqualTo(50L);
         assertThat(response.messages().getFirst().text()).isEqualTo("안녕하세요");
         assertThat(response.messages().getFirst().replySenderName()).isNull();
@@ -121,6 +124,14 @@ class ChatMessageServiceTest {
                 .room(room)
                 .favorite(false)
                 .hidden(false)
+                .nickname("민트 메리노")
+                .build();
+        ChatRoomStatus replyRoomStatus = ChatRoomStatus.builder()
+                .user(replySender)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .nickname("블루 코튼")
                 .build();
 
         ChatMessage replyMessage = ChatMessage.builder()
@@ -144,14 +155,49 @@ class ChatMessageServiceTest {
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(1L, roomId)).thenReturn(Optional.of(roomStatus));
         when(chatMessageRepository.findByRoom_IdOrderByIdDesc(roomId, PageRequest.of(0, 31)))
                 .thenReturn(List.of(message));
+        when(chatRoomStatusRepository.findAllByRoom_IdAndUser_IdIn(roomId, List.of(1L, 2L)))
+                .thenReturn(List.of(roomStatus, replyRoomStatus));
         when(chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, 1L))
                 .thenReturn(Optional.empty());
 
         ChatMessagesResponse response = chatMessageService.getMessages(user, roomId, null);
 
         assertThat(response.messages()).hasSize(1);
-        assertThat(response.messages().getFirst().replySenderName()).isEqualTo("tester");
+        assertThat(response.messages().getFirst().replySenderName()).isEqualTo("블루 코튼");
         assertThat(response.messages().getFirst().replyMessageId()).isEqualTo(49L);
+    }
+
+    @Test
+    @DisplayName("메시지 작성자의 채팅방 닉네임이 없으면 예외가 발생해야 한다")
+    void getMessages_WhenChatNicknameMissing_ThrowsException() {
+        Long roomId = 10L;
+        User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
+        ChatRoomStatus roomStatus = ChatRoomStatus.builder()
+                .user(user)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .nickname("민트 메리노")
+                .build();
+        ChatMessage message = ChatMessage.builder()
+                .room(room)
+                .user(user)
+                .text("안녕하세요")
+                .build();
+        setId(message, 50L);
+
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
+        when(userService.getUserById(1L)).thenReturn(user);
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(1L, roomId)).thenReturn(Optional.of(roomStatus));
+        when(chatMessageRepository.findByRoom_IdOrderByIdDesc(roomId, PageRequest.of(0, 31)))
+                .thenReturn(List.of(message));
+        when(chatRoomStatusRepository.findAllByRoom_IdAndUser_IdIn(roomId, List.of(1L)))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> chatMessageService.getMessages(user, roomId, null))
+                .isInstanceOf(ChatNicknameNotFoundException.class);
     }
 
     @Test
@@ -167,6 +213,7 @@ class ChatMessageServiceTest {
                 .room(room)
                 .favorite(false)
                 .hidden(false)
+                .nickname("민트 메리노")
                 .build();
 
         when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
@@ -198,6 +245,7 @@ class ChatMessageServiceTest {
                 .room(room)
                 .favorite(false)
                 .hidden(false)
+                .nickname("민트 메리노")
                 .build();
         List<ChatMessage> fetchedMessages = new ArrayList<>();
         for (long id = 100L; id >= 70L; id--) {
@@ -216,6 +264,8 @@ class ChatMessageServiceTest {
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(1L, roomId)).thenReturn(Optional.of(roomStatus));
         when(chatMessageRepository.findByRoom_IdOrderByIdDesc(roomId, PageRequest.of(0, 31)))
                 .thenReturn(fetchedMessages);
+        when(chatRoomStatusRepository.findAllByRoom_IdAndUser_IdIn(roomId, List.of(1L)))
+                .thenReturn(List.of(roomStatus));
         when(chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, 1L))
                 .thenReturn(Optional.empty());
 
@@ -238,6 +288,7 @@ class ChatMessageServiceTest {
                 .room(room)
                 .favorite(false)
                 .hidden(false)
+                .nickname("민트 메리노")
                 .build();
 
         when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));

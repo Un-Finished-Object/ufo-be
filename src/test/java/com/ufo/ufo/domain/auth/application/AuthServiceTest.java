@@ -5,11 +5,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.auth.dto.request.SignupRequest;
+import com.ufo.ufo.domain.auth.dto.response.SignupResponse;
 import com.ufo.ufo.domain.auth.dto.response.TokenResponse;
+import com.ufo.ufo.domain.interest.application.InterestService;
+import com.ufo.ufo.domain.image.application.ImageService;
+import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.domain.user.exception.InvalidNicknameException;
 import com.ufo.ufo.global.exception.InvalidTokenException;
 import com.ufo.ufo.global.exception.UserNotFoundException;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
@@ -17,6 +24,7 @@ import com.ufo.ufo.global.security.types.Role;
 import com.ufo.ufo.support.fixture.UserFixture;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,6 +45,15 @@ class AuthServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private UserService userService;
+
+    @Mock
+    private InterestService interestService;
+
+    @Mock
+    private ImageService imageService;
+
+    @Mock
     private HttpServletRequest request;
 
     @Mock
@@ -47,6 +64,77 @@ class AuthServiceTest {
 
     @InjectMocks
     private AuthService authService;
+
+    @Test
+    @DisplayName("회원가입 완료 시 사용자 정보와 관심사를 저장하고 회원 역할로 승격해야 한다")
+    void signup_WithGuest_PromotesRoleAndReturnsSignupResponse() {
+        User guest = UserFixture.createUser("guest@example.com", Role.ROLE_GUEST);
+        UserFixture.setId(guest, 10L);
+        SignupRequest request = new SignupRequest(
+                "  user01  ",
+                "profiles/10/profile.png",
+                List.of("빈티지", "캐주얼")
+        );
+        when(userService.getUserById(10L)).thenReturn(guest);
+        when(userService.updateNameAndProfileImage(guest, "user01", "profiles/10/profile.png"))
+                .thenAnswer(invocation -> {
+                    guest.updateNameAndProfileImage("user01", "profiles/10/profile.png");
+                    return guest;
+                });
+        when(interestService.replaceMyInterests(guest, List.of("빈티지", "캐주얼")))
+                .thenReturn(List.of("빈티지", "캐주얼"));
+        when(imageService.buildImageUrl("profiles/10/profile.png"))
+                .thenReturn("https://cdn.example.com/profiles/10/profile.png");
+
+        SignupResponse response = authService.signup(guest, request);
+
+        assertThat(guest.getRole()).isEqualTo(Role.ROLE_USER);
+        assertThat(response.userId()).isEqualTo(10L);
+        assertThat(response.userName()).isEqualTo("user01");
+        assertThat(response.profileImageUrl()).isEqualTo("https://cdn.example.com/profiles/10/profile.png");
+        assertThat(response.keywords()).containsExactly("빈티지", "캐주얼");
+    }
+
+    @Test
+    @DisplayName("회원가입 정보 저장에 실패하면 게스트 역할을 유지해야 한다")
+    void signup_WhenInterestUpdateFails_KeepsGuestRole() {
+        User guest = UserFixture.createUser("guest@example.com", Role.ROLE_GUEST);
+        UserFixture.setId(guest, 10L);
+        SignupRequest request = new SignupRequest(
+                "user01",
+                "profiles/10/profile.png",
+                List.of("빈티지")
+        );
+        when(userService.getUserById(10L)).thenReturn(guest);
+        when(userService.updateNameAndProfileImage(guest, "user01", "profiles/10/profile.png"))
+                .thenAnswer(invocation -> {
+                    guest.updateNameAndProfileImage("user01", "profiles/10/profile.png");
+                    return guest;
+                });
+        when(interestService.replaceMyInterests(guest, List.of("빈티지")))
+                .thenThrow(new IllegalArgumentException("관심사 저장 실패"));
+
+        assertThatThrownBy(() -> authService.signup(guest, request))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(guest.getRole()).isEqualTo(Role.ROLE_GUEST);
+    }
+
+    @Test
+    @DisplayName("회원가입 닉네임은 정규화 후 2자 미만이면 예외가 발생해야 한다")
+    void signup_WhenNormalizedNicknameIsTooShort_ThrowsException() {
+        User guest = UserFixture.createUser("guest@example.com", Role.ROLE_GUEST);
+        SignupRequest request = new SignupRequest(
+                " a",
+                "profiles/10/profile.png",
+                List.of("빈티지")
+        );
+
+        assertThatThrownBy(() -> authService.signup(guest, request))
+                .isInstanceOf(InvalidNicknameException.class);
+
+        verifyNoInteractions(userService, interestService, imageService);
+        assertThat(guest.getRole()).isEqualTo(Role.ROLE_GUEST);
+    }
 
     @Test
     @DisplayName("유효한 refresh token이면 access token을 재발급해야 한다")

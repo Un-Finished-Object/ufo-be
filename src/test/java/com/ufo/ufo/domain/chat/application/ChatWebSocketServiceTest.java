@@ -21,7 +21,6 @@ import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatMessage;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
-import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
@@ -63,9 +62,6 @@ class ChatWebSocketServiceTest {
     @Mock
     private ChatReadStatusRepository chatReadStatusRepository;
 
-    @Mock
-    private ImageService imageService;
-
     @InjectMocks
     private ChatWebSocketService chatWebSocketService;
 
@@ -83,6 +79,7 @@ class ChatWebSocketServiceTest {
             .room(room)
             .favorite(false)
             .hidden(false)
+            .nickname("민트 메리노")
             .build();
         ChatMessage savedMessage = ChatMessage.builder()
             .room(room)
@@ -97,9 +94,6 @@ class ChatWebSocketServiceTest {
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
         when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(savedMessage);
-        when(imageService.buildImageUrl(user.getProfileImage()))
-                .thenReturn("https://cdn.ufo.com/" + user.getProfileImage());
-
         chatWebSocketService.publishMessage(principal,
                 new ChatMessageSendRequest(roomId, " 안녕하세요 ", "temp-123456", null, null));
 
@@ -113,9 +107,7 @@ class ChatWebSocketServiceTest {
         ChatMessageCreatedPayload payload = (ChatMessageCreatedPayload) event.payload();
         assertThat(payload.messageId()).isEqualTo(1L);
         assertThat(payload.clientMessageId()).isEqualTo("temp-123456");
-        assertThat(payload.senderId()).isEqualTo(21L);
-        assertThat(payload.senderProfile()).isEqualTo("https://cdn.ufo.com/" + user.getProfileImage());
-        assertThat(payload.senderName()).isEqualTo(user.getNickname());
+        assertThat(payload.senderName()).isEqualTo("민트 메리노");
         assertThat(payload.text()).isEqualTo("안녕하세요");
         assertThat(payload.replySenderName()).isNull();
         assertThat(payload.replyMessageId()).isNull();
@@ -138,6 +130,14 @@ class ChatWebSocketServiceTest {
                 .room(room)
                 .favorite(false)
                 .hidden(false)
+                .nickname("민트 메리노")
+                .build();
+        ChatRoomStatus replyRoomStatus = ChatRoomStatus.builder()
+                .user(replySender)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .nickname("블루 코튼")
                 .build();
         ChatMessage replyMessage = ChatMessage.builder()
                 .room(room)
@@ -158,6 +158,7 @@ class ChatWebSocketServiceTest {
         when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
+        when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(22L, roomId)).thenReturn(Optional.of(replyRoomStatus));
         when(chatMessageRepository.findByIdAndRoom_Id(38L, roomId)).thenReturn(Optional.of(replyMessage));
         when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(savedMessage);
 
@@ -170,7 +171,7 @@ class ChatWebSocketServiceTest {
         ChatSocketEvent<?> event = (ChatSocketEvent<?>) payloadCaptor.getValue();
         ChatMessageCreatedPayload payload = (ChatMessageCreatedPayload) event.payload();
         assertThat(payload.messageId()).isEqualTo(52L);
-        assertThat(payload.replySenderName()).isEqualTo(replySender.getNickname());
+        assertThat(payload.replySenderName()).isEqualTo("블루 코튼");
         assertThat(payload.replyMessageId()).isEqualTo(38L);
     }
 
@@ -188,6 +189,7 @@ class ChatWebSocketServiceTest {
                 .room(room)
                 .favorite(false)
                 .hidden(false)
+                .nickname("민트 메리노")
                 .build();
         Principal principal = () -> userEmail;
 
@@ -224,6 +226,7 @@ class ChatWebSocketServiceTest {
                 .room(room)
                 .favorite(false)
                 .hidden(false)
+                .nickname("민트 메리노")
                 .build();
         Principal principal = () -> userEmail;
 
@@ -281,7 +284,13 @@ class ChatWebSocketServiceTest {
         UserFixture.setId(user, 21L);
         Pattern pattern = PatternFixture.createPatternWithId(100L);
         ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
-        ChatRoomStatus roomStatus = ChatRoomStatus.builder().user(user).room(room).favorite(false).hidden(false).build();
+        ChatRoomStatus roomStatus = ChatRoomStatus.builder()
+                .user(user)
+                .room(room)
+                .favorite(false)
+                .hidden(false)
+                .nickname("민트 메리노")
+                .build();
         Principal principal = () -> userEmail;
 
         when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));

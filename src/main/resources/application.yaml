@@ -14,10 +14,13 @@ server:
   forward-headers-strategy: framework
 
 app:
+  referral:
+    hmac-secret: ${REFERRAL_HMAC_SECRET:}
   chat:
     segment-days: 7
   oauth:
     redirect-url: ${OAUTH_REDIRECT_URL:}
+    signup-redirect-url: ${OAUTH_SIGNUP_REDIRECT_URL:}
     cookie-domain: ${OAUTH_COOKIE_DOMAIN:}
   cors:
     allowed-origins:

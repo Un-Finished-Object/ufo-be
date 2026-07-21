@@ -2,15 +2,16 @@ package com.ufo.ufo.domain.chat.application;
 
 import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
+import com.ufo.ufo.domain.chat.exception.ChatRoomNotFoundException;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
+import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 
 @Service
 @RequiredArgsConstructor
@@ -49,6 +50,12 @@ public class ChatRoomProvisioningService {
             return chatRoomRepository.findByPattern_IdAndSegmentStartAt(pattern.getId(), segmentStartAt)
                     .orElseThrow(() -> exception);
         }
+    }
+
+    @Transactional
+    public ChatRoom lockRoom(ChatRoom room) {
+        return chatRoomRepository.findByIdForUpdate(room.getId())
+                .orElseThrow(ChatRoomNotFoundException::new);
     }
 
 }

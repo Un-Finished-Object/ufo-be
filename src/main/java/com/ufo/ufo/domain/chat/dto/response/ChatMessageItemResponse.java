@@ -4,7 +4,6 @@ import com.ufo.ufo.domain.chat.domain.ChatMessage;
 import java.time.LocalDateTime;
 
 public record ChatMessageItemResponse(
-        Long senderId,
         String senderName,
         Long messageId,
         String text,
@@ -12,14 +11,17 @@ public record ChatMessageItemResponse(
         Long replyMessageId,
         LocalDateTime createdAt
 ) {
-    public static ChatMessageItemResponse from(ChatMessage chatMessage) {
+    public static ChatMessageItemResponse from(
+            ChatMessage chatMessage,
+            String senderName,
+            String replySenderName
+    ) {
         ChatMessage replyMessage = chatMessage.getReplyMessage();
         return new ChatMessageItemResponse(
-                chatMessage.getUser().getId(),
-                chatMessage.getUser().getNickname(),
+                senderName,
                 chatMessage.getId(),
                 chatMessage.getText(),
-                replyMessage == null ? null : replyMessage.getUser().getNickname(),
+                replySenderName,
                 replyMessage == null ? null : replyMessage.getId(),
                 chatMessage.getCreatedAt()
         );

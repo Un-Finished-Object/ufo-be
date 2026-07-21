@@ -4,6 +4,7 @@ import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import com.ufo.ufo.global.security.oauth.CustomOAuth2User;
 import com.ufo.ufo.global.security.oauth.OAuthCookieManager;
 import com.ufo.ufo.global.security.oauth.OAuthRedirectProperties;
+import com.ufo.ufo.global.security.types.Role;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -35,7 +36,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         log.info("Social Login Success: email={}, role={}", email, role);
 
-        String targetUrl = oAuthRedirectProperties.requiredRedirectUrl();
+        String targetUrl = Role.ROLE_GUEST.name().equals(role)
+                ? oAuthRedirectProperties.requiredSignupRedirectUrl()
+                : oAuthRedirectProperties.requiredRedirectUrl();
 
         response.addHeader(HttpHeaders.SET_COOKIE,
                 oAuthCookieManager.createRefreshTokenCookie(
