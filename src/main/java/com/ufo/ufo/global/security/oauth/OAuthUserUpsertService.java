@@ -1,6 +1,7 @@
 package com.ufo.ufo.global.security.oauth;
 
 import com.ufo.ufo.domain.image.config.ImageProperties;
+import com.ufo.ufo.domain.user.application.TemporaryNicknameGenerator;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.security.dto.OAuth2Response;
@@ -15,6 +16,7 @@ public class OAuthUserUpsertService {
 
     private final UserRepository userRepository;
     private final ImageProperties imageProperties;
+    private final TemporaryNicknameGenerator temporaryNicknameGenerator;
 
     @Transactional
     public User saveOrUpdate(OAuth2Response response) {
@@ -24,7 +26,7 @@ public class OAuthUserUpsertService {
         if (user == null) {
             user = User.builder()
                     .email(response.getEmail())
-                    .nickname(response.getName())
+                    .nickname(temporaryNicknameGenerator.generate(response.getName()))
                     .profileImage(imageProperties.defaultProfileImageKey())
                     .role(Role.ROLE_GUEST)
                     .provider(response.getProvider())

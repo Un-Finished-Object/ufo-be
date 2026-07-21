@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.oauth")
 public record OAuthRedirectProperties(
         String redirectUrl,
+        String signupRedirectUrl,
         String cookieDomain
 ) {
 
@@ -22,5 +23,12 @@ public record OAuthRedirectProperties(
             throw new OAuthCookieDomainNotConfiguredException();
         }
         return cookieDomain;
+    }
+
+    public String requiredSignupRedirectUrl() {
+        if (signupRedirectUrl == null || signupRedirectUrl.isBlank()) {
+            throw new OAuthRedirectUrlNotConfiguredException();
+        }
+        return signupRedirectUrl;
     }
 }
