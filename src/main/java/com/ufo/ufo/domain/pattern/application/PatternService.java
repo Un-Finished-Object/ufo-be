@@ -14,8 +14,6 @@ import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.pattern.domain.PatternImage;
 import com.ufo.ufo.domain.pattern.domain.PatternSort;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
-import com.ufo.ufo.domain.pattern.domain.YarnGauge;
-import com.ufo.ufo.domain.pattern.dto.request.AlternativeGaugeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternAlternativeResponse;
@@ -171,7 +169,6 @@ public class PatternService {
                 .mainComponent(request.mainComponent())
                 .subComponent(request.subComponent())
                 .thickness(request.thickness())
-                .gauges(toGaugeEntities(request.gauges()))
                 .build());
     }
 
@@ -202,20 +199,9 @@ public class PatternService {
                 request.length(),
                 request.mainComponent(),
                 request.subComponent(),
-                request.thickness(),
-                toGaugeEntities(request.gauges())
+                request.thickness()
         );
         alternative.update(yarn);
-    }
-
-    private List<YarnGauge> toGaugeEntities(List<AlternativeGaugeRequest> gauges) {
-        return gauges.stream()
-                .map(gauge -> YarnGauge.builder()
-                        .needleSize(gauge.needleSize())
-                        .stitch(gauge.stitch())
-                        .rowCount(gauge.row())
-                        .build())
-                .toList();
     }
 
     private boolean isScrapsSort(PatternSort sort) {
