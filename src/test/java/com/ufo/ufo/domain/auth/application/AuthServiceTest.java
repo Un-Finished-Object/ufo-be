@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.auth.dto.request.SignupRequest;
@@ -15,6 +16,7 @@ import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.domain.user.exception.InvalidNicknameException;
 import com.ufo.ufo.global.exception.InvalidTokenException;
 import com.ufo.ufo.global.exception.UserNotFoundException;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
@@ -114,6 +116,23 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.signup(guest, request))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThat(guest.getRole()).isEqualTo(Role.ROLE_GUEST);
+    }
+
+    @Test
+    @DisplayName("회원가입 닉네임은 정규화 후 2자 미만이면 예외가 발생해야 한다")
+    void signup_WhenNormalizedNicknameIsTooShort_ThrowsException() {
+        User guest = UserFixture.createUser("guest@example.com", Role.ROLE_GUEST);
+        SignupRequest request = new SignupRequest(
+                " a",
+                "profiles/10/profile.png",
+                List.of("빈티지")
+        );
+
+        assertThatThrownBy(() -> authService.signup(guest, request))
+                .isInstanceOf(InvalidNicknameException.class);
+
+        verifyNoInteractions(userService, interestService, imageService);
         assertThat(guest.getRole()).isEqualTo(Role.ROLE_GUEST);
     }
 

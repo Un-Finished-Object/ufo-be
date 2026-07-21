@@ -14,6 +14,7 @@ import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.domain.user.dto.response.NicknameExistsResponse;
 import com.ufo.ufo.domain.user.exception.DuplicateNicknameException;
+import com.ufo.ufo.domain.user.exception.InvalidNicknameException;
 import com.ufo.ufo.domain.user.event.ProfileImageChangedEvent;
 import com.ufo.ufo.global.exception.UserNotFoundException;
 import com.ufo.ufo.global.security.types.Role;
@@ -92,6 +93,15 @@ class UserServiceTest {
 
         assertThat(response.exists()).isTrue();
         verify(userRepository).existsByNickname("뜨개러");
+    }
+
+    @Test
+    @DisplayName("닉네임 중복 확인은 정규화 후 2자 미만이면 예외가 발생해야 한다")
+    void checkNicknameExists_WhenNormalizedNicknameIsTooShort_ThrowsException() {
+        assertThatThrownBy(() -> userService.checkNicknameExists("a "))
+                .isInstanceOf(InvalidNicknameException.class);
+
+        verify(userRepository, never()).existsByNickname(org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
