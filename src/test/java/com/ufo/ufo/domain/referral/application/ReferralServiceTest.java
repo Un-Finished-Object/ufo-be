@@ -2,6 +2,10 @@ package com.ufo.ufo.domain.referral.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("친구 초대 서비스 테스트")
@@ -33,6 +38,9 @@ class ReferralServiceTest {
     @Mock
     private ReferralCodeGenerator referralCodeGenerator;
 
+    @Mock
+    private ReferralCodePersistenceService referralCodePersistenceService;
+
     @InjectMocks
     private ReferralService referralService;
 
@@ -43,6 +51,8 @@ class ReferralServiceTest {
         User loginUser = UserFixture.createUserWithId(1L);
         when(userService.getUserById(1L)).thenReturn(loginUser);
         when(referralCodeGenerator.generate(1L, 0)).thenReturn("UFOaB3xZ9");
+        when(referralCodePersistenceService.assignAndFlush(1L, "UFOaB3xZ9"))
+                .thenReturn("UFOaB3xZ9");
 
         ReferralCodeResponse response = referralService.createReferralCode(requestUser);
 
@@ -51,19 +61,23 @@ class ReferralServiceTest {
     }
 
     @Test
-    @DisplayName("생성한 코드가 이미 존재하면 nonce를 변경해 다시 생성해야 한다")
-    void createReferralCode_WhenHashCollides_RetriesWithNextNonce() {
+    @DisplayName("초대 코드 저장 충돌 시 nonce를 변경해 다시 생성해야 한다")
+    void createReferralCode_WhenSaveCollides_RetriesWithNextNonce() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
         when(userService.getUserById(1L)).thenReturn(loginUser);
         when(referralCodeGenerator.generate(1L, 0)).thenReturn("UFOAAAAAA");
         when(referralCodeGenerator.generate(1L, 1)).thenReturn("UFOBBBBBB");
-        when(userRepository.existsByReferralCode("UFOAAAAAA")).thenReturn(true);
-        when(userRepository.existsByReferralCode("UFOBBBBBB")).thenReturn(false);
+        when(referralCodePersistenceService.assignAndFlush(1L, "UFOAAAAAA"))
+                .thenThrow(new DataIntegrityViolationException("referral code collision"));
+        when(referralCodePersistenceService.assignAndFlush(1L, "UFOBBBBBB"))
+                .thenReturn("UFOBBBBBB");
 
         ReferralCodeResponse response = referralService.createReferralCode(requestUser);
 
         assertThat(response.referralCode()).isEqualTo("UFOBBBBBB");
+        verify(referralCodePersistenceService).assignAndFlush(1L, "UFOAAAAAA");
+        verify(referralCodePersistenceService).assignAndFlush(1L, "UFOBBBBBB");
     }
 
     @Test
@@ -89,6 +103,8 @@ class ReferralServiceTest {
         ReferralCodeResponse response = referralService.createReferralCode(requestUser);
 
         assertThat(response.referralCode()).isEqualTo("UFOaB3xZ9");
+        verify(referralCodeGenerator, never()).generate(eq(1L), anyInt());
+        verify(referralCodePersistenceService, never()).assignAndFlush(eq(1L), anyString());
     }
 
     @Test
