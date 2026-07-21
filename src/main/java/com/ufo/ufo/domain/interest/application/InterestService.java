@@ -39,11 +39,15 @@ public class InterestService {
     @Transactional
     public MyInterestsResponse updateMyInterests(User user, UpdateMyInterestsRequest request) {
         User loginUser = userService.getUserById(user.getId());
-        List<String> normalizedKeywords = normalizeAndValidate(request.keywords());
-
-        replaceUserInterests(loginUser, normalizedKeywords);
-        promoteUserIfGuest(loginUser);
+        List<String> normalizedKeywords = replaceMyInterests(loginUser, request.keywords());
         return new MyInterestsResponse(normalizedKeywords);
+    }
+
+    @Transactional
+    public List<String> replaceMyInterests(User user, List<String> keywords) {
+        List<String> normalizedKeywords = normalizeAndValidate(keywords);
+        replaceUserInterests(user, normalizedKeywords);
+        return normalizedKeywords;
     }
 
     private void replaceUserInterests(User user, List<String> normalizedKeywords) {
@@ -56,10 +60,6 @@ public class InterestService {
                         .build())
                 .toList();
         userInterestRepository.saveAll(userInterests);
-    }
-
-    private void promoteUserIfGuest(User user) {
-        user.promoteToUserIfGuest();
     }
 
     private List<String> normalizeAndValidate(List<String> keywords) {

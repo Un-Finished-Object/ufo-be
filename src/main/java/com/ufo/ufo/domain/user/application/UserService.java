@@ -48,20 +48,26 @@ public class UserService {
 
     @Transactional
     public UpdateMyInfoResponse updateMyInfo(User user, UpdateMyInfoRequest request) {
+        User updatedUser = updateNameAndProfileImage(user, request.userName(), request.profileImageKey());
+        return UpdateMyInfoResponse.from(updatedUser, imageService.buildImageUrl(updatedUser.getProfileImage()));
+    }
+
+    @Transactional
+    public User updateNameAndProfileImage(User user, String userName, String profileImageKey) {
         User loginUser = getUserById(user.getId());
-        String userName = request.userName() == null ? loginUser.getNickname() : request.userName();
-        if (request.userName() != null
-                && userRepository.existsByNicknameAndIdNot(request.userName(), loginUser.getId())) {
+        String updatedUserName = userName == null ? loginUser.getNickname() : userName;
+        if (userName != null
+                && userRepository.existsByNicknameAndIdNot(userName, loginUser.getId())) {
             throw new DuplicateNicknameException();
         }
         String previousProfileImage = loginUser.getProfileImage();
         String profileImage = previousProfileImage;
-        if (request.profileImageKey() != null) {
-            imageService.validateProfileImageKey(loginUser, request.profileImageKey());
-            profileImage = request.profileImageKey();
+        if (profileImageKey != null) {
+            imageService.validateProfileImageKey(loginUser, profileImageKey);
+            profileImage = profileImageKey;
         }
-        loginUser.updateNameAndProfileImage(userName, profileImage);
-        if (request.userName() != null) {
+        loginUser.updateNameAndProfileImage(updatedUserName, profileImage);
+        if (userName != null) {
             try {
                 userRepository.flush();
             } catch (DataIntegrityViolationException exception) {
@@ -71,6 +77,6 @@ public class UserService {
         if (!Objects.equals(profileImage, previousProfileImage)) {
             eventPublisher.publishEvent(new ProfileImageChangedEvent(previousProfileImage, profileImage));
         }
-        return UpdateMyInfoResponse.from(loginUser, imageService.buildImageUrl(loginUser.getProfileImage()));
+        return loginUser;
     }
 }

@@ -1,15 +1,21 @@
 package com.ufo.ufo.domain.auth.api;
 
 import com.ufo.ufo.domain.auth.application.AuthService;
+import com.ufo.ufo.domain.auth.dto.request.SignupRequest;
+import com.ufo.ufo.domain.auth.dto.response.SignupResponse;
 import com.ufo.ufo.domain.auth.dto.response.TokenResponse;
+import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
+import com.ufo.ufo.global.security.annotation.LoginUser;
 import com.ufo.ufo.global.security.oauth.OAuthCookieManager;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
@@ -21,6 +27,14 @@ public class AuthController {
 
     private final AuthService authService;
     private final OAuthCookieManager oauthCookieManager;
+
+    @PostMapping("/signup")
+    public ResponseEntity<ApiResponse<SignupResponse>> signup(
+            @LoginUser User user,
+            @RequestBody @Valid SignupRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(authService.signup(user, request)));
+    }
 
     @PostMapping("/token/refresh")
     public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(@CookieValue("refresh_token") String refreshToken) {
