@@ -32,12 +32,12 @@ class ReferralControllerTest {
     @DisplayName("친구 초대 코드 생성 API는 서비스 응답을 data에 담아 반환해야 한다")
     void createReferralCode_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
-        when(referralService.createReferralCode(user)).thenReturn(new ReferralCodeResponse("INVITE2026"));
+        when(referralService.createReferralCode(user)).thenReturn(new ReferralCodeResponse("UFOaB3xZ9"));
 
         ResponseEntity<ApiResponse<ReferralCodeResponse>> response = referralController.createReferralCode(user);
 
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().data().referralCode()).isEqualTo("INVITE2026");
+        assertThat(response.getBody().data().referralCode()).isEqualTo("UFOaB3xZ9");
         assertThat(response.getBody().error()).isNull();
         verify(referralService).createReferralCode(user);
     }
@@ -45,16 +45,16 @@ class ReferralControllerTest {
     @Test
     @DisplayName("친구 초대 코드 확인 API는 서비스 응답을 data에 담아 반환해야 한다")
     void verifyReferralCode_ReturnsServiceResponse() {
-        when(referralService.verifyReferralCode("INVITE2026"))
+        when(referralService.verifyReferralCode("UFOaB3xZ9"))
                 .thenReturn(new ReferralCodeValidationResponse(true, "tester"));
 
         ResponseEntity<ApiResponse<ReferralCodeValidationResponse>> response =
-                referralController.verifyReferralCode("INVITE2026");
+                referralController.verifyReferralCode("UFOaB3xZ9");
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().valid()).isTrue();
         assertThat(response.getBody().data().ownerNickname()).isEqualTo("tester");
         assertThat(response.getBody().error()).isNull();
-        verify(referralService).verifyReferralCode("INVITE2026");
+        verify(referralService).verifyReferralCode("UFOaB3xZ9");
     }
 }
