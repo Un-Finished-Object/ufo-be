@@ -130,6 +130,25 @@ class UserControllerValidationTest {
 
     @Test
     @WithMockUser(username = "test@example.com")
+    @DisplayName("내 관심사 수정에서 키워드가 3개를 초과하면 400을 반환해야 한다")
+    void updateMyInterests_MoreThanThreeKeywords_ReturnsBadRequest() throws Exception {
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUser("test@example.com", Role.ROLE_USER)));
+
+        mockMvc.perform(patch("/v1/users/me/interests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "keywords": ["빈티지", "캐주얼", "클래식", "로맨틱"]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message")
+                        .value("keywords는 최대 3개까지 입력할 수 있습니다."));
+    }
+
+    @Test
+    @WithMockUser(username = "test@example.com")
     @DisplayName("내 정보 수정에서 userName을 생략하면 200을 반환해야 한다")
     void updateMyInfo_MissingUserName_ReturnsOk() throws Exception {
         when(userRepository.findByEmail("test@example.com"))
