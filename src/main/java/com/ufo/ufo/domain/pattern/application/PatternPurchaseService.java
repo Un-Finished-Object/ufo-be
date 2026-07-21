@@ -1,5 +1,6 @@
 package com.ufo.ufo.domain.pattern.application;
 
+import com.ufo.ufo.domain.chat.application.ChatNicknameGenerator;
 import com.ufo.ufo.domain.chat.application.ChatRoomProvisioningService;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
@@ -31,6 +32,7 @@ public class PatternPurchaseService {
     private final UserService userService;
     private final ChatRoomProvisioningService chatRoomProvisioningService;
     private final ChatRoomStatusRepository chatRoomStatusRepository;
+    private final ChatNicknameGenerator chatNicknameGenerator;
 
     @Transactional
     public PatternPurchaseResponse purchase(User user, Long patternId, PatternPurchaseRequest request) {
@@ -72,13 +74,17 @@ public class PatternPurchaseService {
             throw new ChatRoomAlreadyPurchasedException();
         }
 
-        ChatRoom chatRoom = chatRoomProvisioningService.assignJoinableRoom(pattern);
+        ChatRoom assignedRoom = chatRoomProvisioningService.assignJoinableRoom(pattern);
+        ChatRoom chatRoom = chatRoomProvisioningService.lockRoom(assignedRoom);
+        long roomStatusCount = chatRoomStatusRepository.countByRoom_Id(chatRoom.getId());
+        String chatNickname = chatNicknameGenerator.generate(roomStatusCount);
         try {
             chatRoomStatusRepository.save(ChatRoomStatus.builder()
                     .user(loginUser)
                     .room(chatRoom)
                     .favorite(false)
                     .hidden(false)
+                    .nickname(chatNickname)
                     .build());
         } catch (DataIntegrityViolationException exception) {
             throw new ChatRoomAlreadyPurchasedException();

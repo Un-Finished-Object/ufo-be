@@ -7,6 +7,7 @@ import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatMessage;
 import com.ufo.ufo.domain.chat.domain.ChatReadStatus;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
+import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.chat.dto.websocket.request.ChatMessageSendRequest;
 import com.ufo.ufo.domain.chat.dto.websocket.request.ChatReadUpdateRequest;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatErrorPayload;
@@ -14,7 +15,7 @@ import com.ufo.ufo.domain.chat.dto.websocket.response.ChatEventType;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatMessageCreatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatSocketEvent;
-import com.ufo.ufo.domain.image.application.ImageService;
+import com.ufo.ufo.domain.chat.exception.ChatNicknameNotFoundException;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import java.security.Principal;
@@ -36,7 +37,6 @@ public class ChatWebSocketService {
     private final UserRepository userRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatReadStatusRepository chatReadStatusRepository;
-    private final ImageService imageService;
 
     @Transactional
     public void publishMessage(Principal principal, ChatMessageSendRequest request) {
@@ -58,10 +58,13 @@ public class ChatWebSocketService {
         }
 
         User sender = maybeUser.get();
-        if (isNotJoinedRoom(sender.getId(), roomId)) {
+        Optional<ChatRoomStatus> senderRoomStatusOptional =
+                chatRoomStatusRepository.findByUser_IdAndRoom_Id(sender.getId(), roomId);
+        if (senderRoomStatusOptional.isEmpty()) {
             sendError(roomId, "CHAT_ROOM_FORBIDDEN", "접근 권한이 없는 채팅방입니다.", clientMessageId);
             return;
         }
+        ChatRoomStatus senderRoomStatus = senderRoomStatusOptional.get();
 
         String text = normalizeText(request.text());
         if (text == null) {
@@ -87,11 +90,9 @@ public class ChatWebSocketService {
         ChatMessageCreatedPayload payload = new ChatMessageCreatedPayload(
                 savedMessage.getId(),
                 clientMessageId,
-                sender.getId(),
-                imageService.buildImageUrl(sender.getProfileImage()),
-                sender.getNickname(),
+                senderRoomStatus.getNickname(),
                 text,
-                replyMessage == null ? null : replyMessage.getUser().getNickname(),
+                replyMessage == null ? null : getChatNickname(replyMessage.getUser().getId(), roomId),
                 replyMessage == null ? null : replyMessage.getId(),
                 savedMessage.getCreatedAt()
         );
@@ -211,6 +212,13 @@ public class ChatWebSocketService {
 
     private boolean isNotJoinedRoom(Long userId, Long roomId) {
         return chatRoomStatusRepository.findByUser_IdAndRoom_Id(userId, roomId).isEmpty();
+    }
+
+    private String getChatNickname(Long userId, Long roomId) {
+        return chatRoomStatusRepository.findByUser_IdAndRoom_Id(userId, roomId)
+                .map(ChatRoomStatus::getNickname)
+                .filter(nickname -> !nickname.isBlank())
+                .orElseThrow(ChatNicknameNotFoundException::new);
     }
 
     private void sendError(Long roomId, String code, String message, String clientMessageId) {

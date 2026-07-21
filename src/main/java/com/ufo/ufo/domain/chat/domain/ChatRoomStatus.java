@@ -22,7 +22,11 @@ import lombok.NoArgsConstructor;
 @Table(
         name = "chat_room_statuses",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_chat_room_status_user_room", columnNames = {"user_id", "chat_room_id"})
+                @UniqueConstraint(name = "uk_chat_room_status_user_room", columnNames = {"user_id", "chat_room_id"}),
+                @UniqueConstraint(
+                        name = "uk_chat_room_status_room_nickname",
+                        columnNames = {"chat_room_id", "nickname"}
+                )
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -47,12 +51,16 @@ public class ChatRoomStatus extends BaseEntity {
     @Column(name = "hidden", nullable = false)
     private boolean hidden;
 
+    @Column(name = "nickname", nullable = false, length = 20)
+    private String nickname;
+
     @Builder
-    public ChatRoomStatus(User user, ChatRoom room, boolean favorite, boolean hidden) {
+    public ChatRoomStatus(User user, ChatRoom room, boolean favorite, boolean hidden, String nickname) {
         this.user = user;
         this.room = room;
         this.favorite = favorite;
         this.hidden = hidden;
+        this.nickname = nickname;
     }
 
     public void update(Boolean favorite, Boolean hidden) {
