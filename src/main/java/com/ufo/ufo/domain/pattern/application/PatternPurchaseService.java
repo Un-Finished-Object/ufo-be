@@ -76,10 +76,10 @@ public class PatternPurchaseService {
 
         ChatRoom assignedRoom = chatRoomProvisioningService.assignJoinableRoom(pattern);
         ChatRoom chatRoom = chatRoomProvisioningService.lockRoom(assignedRoom);
-        long roomStatusCount = chatRoomStatusRepository.countByRoom_Id(chatRoom.getId());
+        long roomStatusCount = chatRoomStatusRepository.countByRoomIdForUpdate(chatRoom.getId());
         String chatNickname = chatNicknameGenerator.generate(roomStatusCount);
         try {
-            chatRoomStatusRepository.save(ChatRoomStatus.builder()
+            chatRoomStatusRepository.saveAndFlush(ChatRoomStatus.builder()
                     .user(loginUser)
                     .room(chatRoom)
                     .favorite(false)
