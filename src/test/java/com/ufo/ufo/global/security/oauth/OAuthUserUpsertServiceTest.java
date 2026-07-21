@@ -2,6 +2,7 @@ package com.ufo.ufo.global.security.oauth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -21,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("OAuth 사용자 업서트 서비스 테스트")
@@ -35,6 +37,9 @@ class OAuthUserUpsertServiceTest {
     @Mock
     private TemporaryNicknameGenerator temporaryNicknameGenerator;
 
+    @Mock
+    private OAuthUserPersistenceService oAuthUserPersistenceService;
+
     @InjectMocks
     private OAuthUserUpsertService oauthUserUpsertService;
 
@@ -47,7 +52,8 @@ class OAuthUserUpsertServiceTest {
         when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
         when(imageProperties.defaultProfileImageKey()).thenReturn("defaults/profile.png");
         when(temporaryNicknameGenerator.generate("new-user")).thenReturn("new-user");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(oAuthUserPersistenceService.saveAndFlush(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         User saved = oauthUserUpsertService.saveOrUpdate(response);
 
@@ -67,11 +73,34 @@ class OAuthUserUpsertServiceTest {
         when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
         when(imageProperties.defaultProfileImageKey()).thenReturn("defaults/profile.png");
         when(temporaryNicknameGenerator.generate("new-user")).thenReturn("new-user#11");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(oAuthUserPersistenceService.saveAndFlush(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         User saved = oauthUserUpsertService.saveOrUpdate(response);
 
         assertThat(saved.getNickname()).isEqualTo("new-user#11");
+    }
+
+    @Test
+    @DisplayName("OAuth 임시 닉네임 저장 충돌 시 새 suffix로 재시도해야 한다")
+    void saveOrUpdate_WhenTemporaryNicknameConflicts_RetriesWithNextNickname() {
+        OAuth2Response response = oauthResponse(
+                "new@example.com", "new-user", "https://example.com/new.png", Provider.GOOGLE
+        );
+        when(userRepository.findByEmail("new@example.com"))
+                .thenReturn(Optional.empty(), Optional.empty());
+        when(imageProperties.defaultProfileImageKey()).thenReturn("defaults/profile.png");
+        when(temporaryNicknameGenerator.generate("new-user"))
+                .thenReturn("new-user", "new-user#1");
+        when(oAuthUserPersistenceService.saveAndFlush(any(User.class)))
+                .thenThrow(new DataIntegrityViolationException("nickname collision"))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        User saved = oauthUserUpsertService.saveOrUpdate(response);
+
+        assertThat(saved.getNickname()).isEqualTo("new-user#1");
+        verify(temporaryNicknameGenerator, times(2)).generate("new-user");
+        verify(oAuthUserPersistenceService, times(2)).saveAndFlush(any(User.class));
     }
 
     @Test
