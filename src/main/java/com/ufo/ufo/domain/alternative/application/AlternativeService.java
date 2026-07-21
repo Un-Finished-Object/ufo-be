@@ -18,9 +18,6 @@ import com.ufo.ufo.domain.alternative.exception.AlternativeCommentNotFoundExcept
 import com.ufo.ufo.domain.alternative.exception.AlternativeCommentPermissionDeniedException;
 import com.ufo.ufo.domain.alternative.exception.AlternativeInteractionPermissionDeniedException;
 import com.ufo.ufo.domain.alternative.exception.AlternativeNotFoundException;
-import com.ufo.ufo.domain.credit.application.CreditService;
-import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
-import com.ufo.ufo.domain.credit.policy.CreditPolicy;
 import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.user.application.UserService;
@@ -42,7 +39,6 @@ public class AlternativeService {
     private static final int COMMENTS_PAGE_SIZE = 5;
 
     private final UserService userService;
-    private final CreditService creditService;
     private final PatternAlternativeYarnRepository patternAlternativeYarnRepository;
     private final AlternativeReactionRepository alternativeReactionRepository;
     private final AlternativeCommentRepository alternativeCommentRepository;
@@ -67,7 +63,6 @@ public class AlternativeService {
         reaction.updateType(reactionType);
 
         long likesCount = alternativeReactionRepository.countByAlternative_IdAndType(altId, AlternativeReactionType.LIKE);
-        rewardAlternativeAuthorIfEligible(alternative, reactionType, likesCount);
         return AlternativeReactionUpdateResponse.from(
                 altId,
                 reactionType,
@@ -179,25 +174,6 @@ public class AlternativeService {
             return 0;
         }
         return Math.min(remainingPages, 5);
-    }
-
-    private void rewardAlternativeAuthorIfEligible(
-            PatternAlternativeYarn alternative,
-            AlternativeReactionType reactionType,
-            long likesCount
-    ) {
-        if (reactionType != AlternativeReactionType.LIKE) {
-            return;
-        }
-        if (!alternative.canRewardForRecommended(likesCount, CreditPolicy.ALT_YARN_RECOMMEND_REWARD_THRESHOLD)) {
-            return;
-        }
-        creditService.addCredits(
-                alternative.getUser(),
-                CreditPolicy.ALT_YARN_RECOMMENDED_BALLS,
-                CreditTransactionType.ALT_YARN_RECOMMENDED
-        );
-        alternative.markRecommendedRewarded();
     }
 
     private LocalDateTime resolveReactionUpdatedAt(AlternativeReaction reaction) {
