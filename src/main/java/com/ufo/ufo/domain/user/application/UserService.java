@@ -4,13 +4,16 @@ import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.domain.user.dto.request.UpdateMyInfoRequest;
 import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
+import com.ufo.ufo.domain.user.dto.response.NicknameExistsResponse;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.domain.user.event.ProfileImageChangedEvent;
+import com.ufo.ufo.domain.user.exception.DuplicateNicknameException;
 import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.global.exception.UserNotFoundException;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,10 +41,19 @@ public class UserService {
                 .orElseThrow(UserNotFoundException::new);
     }
 
+    public NicknameExistsResponse checkNicknameExists(String nickname) {
+        String normalizedNickname = nickname.trim();
+        return NicknameExistsResponse.from(userRepository.existsByNickname(normalizedNickname));
+    }
+
     @Transactional
     public UpdateMyInfoResponse updateMyInfo(User user, UpdateMyInfoRequest request) {
         User loginUser = getUserById(user.getId());
         String userName = request.userName() == null ? loginUser.getNickname() : request.userName();
+        if (request.userName() != null
+                && userRepository.existsByNicknameAndIdNot(request.userName(), loginUser.getId())) {
+            throw new DuplicateNicknameException();
+        }
         String previousProfileImage = loginUser.getProfileImage();
         String profileImage = previousProfileImage;
         if (request.profileImageKey() != null) {
@@ -49,6 +61,13 @@ public class UserService {
             profileImage = request.profileImageKey();
         }
         loginUser.updateNameAndProfileImage(userName, profileImage);
+        if (request.userName() != null) {
+            try {
+                userRepository.flush();
+            } catch (DataIntegrityViolationException exception) {
+                throw new DuplicateNicknameException();
+            }
+        }
         if (!Objects.equals(profileImage, previousProfileImage)) {
             eventPublisher.publishEvent(new ProfileImageChangedEvent(previousProfileImage, profileImage));
         }

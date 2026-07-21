@@ -12,17 +12,21 @@ import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.domain.user.dto.request.UpdateMyInfoRequest;
 import com.ufo.ufo.domain.user.dto.response.PurchasedProjectsResponse;
+import com.ufo.ufo.domain.user.dto.response.NicknameExistsResponse;
 import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import com.ufo.ufo.global.validation.ValidPage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -43,6 +47,16 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(@LoginUser User user) {
         return ResponseEntity.ok(ApiResponse.success(userService.getMyInfo(user)));
+    }
+
+    @GetMapping("/nicknames/{nickname}/check")
+    public ResponseEntity<ApiResponse<NicknameExistsResponse>> checkNicknameExists(
+            @PathVariable("nickname")
+            @Pattern(regexp = ".*\\S.*", message = "nickname 필드의 정보가 올바르지 않습니다.")
+            @Size(min = 2, max = 20, message = "nickname은 2자 이상 20자 이하여야 합니다.")
+            String nickname
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(userService.checkNicknameExists(nickname)));
     }
 
     @PatchMapping("/me")
