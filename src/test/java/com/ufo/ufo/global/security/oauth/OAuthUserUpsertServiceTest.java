@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.image.config.ImageProperties;
 import com.ufo.ufo.domain.user.dao.UserRepository;
+import com.ufo.ufo.domain.user.application.TemporaryNicknameGenerator;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.security.dto.OAuth2Response;
 import com.ufo.ufo.global.security.types.Provider;
@@ -31,6 +32,9 @@ class OAuthUserUpsertServiceTest {
     @Mock
     private ImageProperties imageProperties;
 
+    @Mock
+    private TemporaryNicknameGenerator temporaryNicknameGenerator;
+
     @InjectMocks
     private OAuthUserUpsertService oauthUserUpsertService;
 
@@ -42,6 +46,7 @@ class OAuthUserUpsertServiceTest {
         );
         when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
         when(imageProperties.defaultProfileImageKey()).thenReturn("defaults/profile.png");
+        when(temporaryNicknameGenerator.generate("new-user")).thenReturn("new-user");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         User saved = oauthUserUpsertService.saveOrUpdate(response);
@@ -51,6 +56,22 @@ class OAuthUserUpsertServiceTest {
         assertThat(saved.getProfileImage()).isEqualTo("defaults/profile.png");
         assertThat(saved.getRole()).isEqualTo(Role.ROLE_GUEST);
         assertThat(saved.getProvider()).isEqualTo(Provider.GOOGLE);
+    }
+
+    @Test
+    @DisplayName("OAuth 닉네임이 중복되면 생성된 임시 닉네임을 저장해야 한다")
+    void saveOrUpdate_WhenNicknameExists_UsesTemporaryNickname() {
+        OAuth2Response response = oauthResponse(
+                "new@example.com", "new-user", "https://example.com/new.png", Provider.GOOGLE
+        );
+        when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
+        when(imageProperties.defaultProfileImageKey()).thenReturn("defaults/profile.png");
+        when(temporaryNicknameGenerator.generate("new-user")).thenReturn("new-user#11");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User saved = oauthUserUpsertService.saveOrUpdate(response);
+
+        assertThat(saved.getNickname()).isEqualTo("new-user#11");
     }
 
     @Test

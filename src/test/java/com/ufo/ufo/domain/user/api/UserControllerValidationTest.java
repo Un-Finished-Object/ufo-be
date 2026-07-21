@@ -1,6 +1,7 @@
 package com.ufo.ufo.domain.user.api;
 
 import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
+import com.ufo.ufo.domain.user.dto.response.NicknameExistsResponse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -61,6 +62,26 @@ class UserControllerValidationTest {
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
+    @Test
+    @DisplayName("닉네임 중복 확인은 exists 값을 반환해야 한다")
+    void checkNicknameExists_ValidNickname_ReturnsExists() throws Exception {
+        when(userService.checkNicknameExists("뜨개러"))
+                .thenReturn(new NicknameExistsResponse(true));
+
+        mockMvc.perform(get("/v1/users/nicknames/{nickname}/check", "뜨개러"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.exists").value(true))
+                .andExpect(jsonPath("$.error").isEmpty());
+    }
+
+    @Test
+    @DisplayName("닉네임 중복 확인에서 2자 미만 닉네임은 400을 반환해야 한다")
+    void checkNicknameExists_TooShortNickname_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/v1/users/nicknames/{nickname}/check", "실"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value("nickname은 2자 이상 20자 이하여야 합니다."));
+    }
 
     @Test
     @DisplayName("내 찜 목록 조회에서 page를 생략하면 1로 기본 처리해야 한다")

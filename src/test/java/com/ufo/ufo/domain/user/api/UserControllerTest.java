@@ -18,6 +18,7 @@ import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.domain.user.dto.request.UpdateMyInfoRequest;
 import com.ufo.ufo.domain.user.dto.response.UpdateMyInfoResponse;
 import com.ufo.ufo.domain.user.dto.response.PurchasedProjectsResponse;
+import com.ufo.ufo.domain.user.dto.response.NicknameExistsResponse;
 import com.ufo.ufo.domain.user.dto.response.UserResponse;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.support.fixture.UserFixture;
@@ -96,6 +97,20 @@ class UserControllerTest {
         assertThat(response.getBody().data().userName()).isEqualTo("newName");
         assertThat(response.getBody().data().profileImage()).isEqualTo("https://example.com/new.png");
         verify(userService).updateMyInfo(user, request);
+    }
+
+    @Test
+    @DisplayName("닉네임 중복 확인은 exists 값을 data에 담아 응답해야 한다")
+    void checkNicknameExists_ReturnsServiceResponse() {
+        when(userService.checkNicknameExists("뜨개러")).thenReturn(new NicknameExistsResponse(true));
+
+        ResponseEntity<ApiResponse<NicknameExistsResponse>> response =
+                userController.checkNicknameExists("뜨개러");
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().exists()).isTrue();
+        assertThat(response.getBody().error()).isNull();
+        verify(userService).checkNicknameExists("뜨개러");
     }
 
     @Test
