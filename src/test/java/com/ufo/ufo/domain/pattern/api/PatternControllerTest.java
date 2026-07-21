@@ -6,7 +6,6 @@ import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.pattern.application.PatternService;
 import com.ufo.ufo.domain.pattern.application.PatternPurchaseService;
-import com.ufo.ufo.domain.pattern.dto.request.AlternativeGaugeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.PatternPurchaseRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
@@ -231,8 +230,7 @@ class PatternControllerTest {
                 "알파카 90%, 나일론 10%",
                 "s",
                 "2",
-                180,
-                List.of(new AlternativeGaugeRequest("5.5", 17, 24))
+                180
         );
     }
 
@@ -245,8 +243,7 @@ class PatternControllerTest {
                 "알파카 90%, 나일론 10%",
                 "s",
                 "2",
-                180,
-                List.of(new AlternativeGaugeRequest("5.5", 17, 24))
+                180
         );
     }
 
@@ -262,7 +259,6 @@ class PatternControllerTest {
                 "s",
                 "2",
                 180,
-                List.of(new PatternAlternativeResponse.Gauge("5.5", 17, 24)),
                 "admin"
         );
     }
