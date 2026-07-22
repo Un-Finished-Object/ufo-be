@@ -2,9 +2,10 @@ package com.ufo.ufo.domain.pattern.application;
 
 import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.credit.domain.UnlockType;
-import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternOriginalYarnRepository;
+import com.ufo.ufo.domain.pattern.dao.YarnAlternativeRepository;
 import com.ufo.ufo.domain.pattern.domain.PatternOriginalYarn;
+import com.ufo.ufo.domain.pattern.domain.Yarn;
 import com.ufo.ufo.domain.pattern.dto.response.YarnAlternativesResponse;
 import com.ufo.ufo.domain.pattern.exception.AlternativeYarnAccessDeniedException;
 import com.ufo.ufo.domain.pattern.exception.OriginalYarnSetNotFoundException;
@@ -22,7 +23,7 @@ public class AlternativeYarnQueryService {
     private static final int ALTERNATIVE_LIMIT = 15;
 
     private final PatternOriginalYarnRepository patternOriginalYarnRepository;
-    private final PatternAlternativeYarnRepository patternAlternativeYarnRepository;
+    private final YarnAlternativeRepository yarnAlternativeRepository;
     private final CreditService creditService;
 
     public YarnAlternativesResponse getAlternatives(User user, Long originalYarnSetId) {
@@ -30,18 +31,19 @@ public class AlternativeYarnQueryService {
                 .orElseThrow(OriginalYarnSetNotFoundException::new);
         Long patternId = originalYarnSet.getPattern().getId();
         validateYarnInfoUnlocked(user, patternId);
-        List<YarnAlternativesResponse.Item> alternatives = findAlternatives(patternId);
-
         return new YarnAlternativesResponse(
                 originalYarnSetId,
-                alternatives,
-                originalYarnSet.getSecondYarn() == null ? List.of() : alternatives,
-                originalYarnSet.getSubYarn() == null ? List.of() : alternatives
+                findAlternatives(originalYarnSet.getMainYarn()),
+                findAlternatives(originalYarnSet.getSecondYarn()),
+                findAlternatives(originalYarnSet.getSubYarn())
         );
     }
 
-    private List<YarnAlternativesResponse.Item> findAlternatives(Long patternId) {
-        return patternAlternativeYarnRepository.findActiveByPatternId(patternId).stream()
+    private List<YarnAlternativesResponse.Item> findAlternatives(Yarn originalYarn) {
+        if (originalYarn == null) {
+            return List.of();
+        }
+        return yarnAlternativeRepository.findAllByOriginalYarnId(originalYarn.getYarnId()).stream()
                 .limit(ALTERNATIVE_LIMIT)
                 .map(YarnAlternativesResponse.Item::from)
                 .toList();

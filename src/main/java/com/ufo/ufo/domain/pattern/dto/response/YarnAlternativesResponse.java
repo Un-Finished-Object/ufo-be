@@ -1,7 +1,7 @@
 package com.ufo.ufo.domain.pattern.dto.response;
 
-import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
+import com.ufo.ufo.domain.pattern.domain.YarnAlternative;
 import java.util.List;
 
 public record YarnAlternativesResponse(
@@ -26,12 +26,11 @@ public record YarnAlternativesResponse(
             Integer componentScore,
             Integer lengthScore,
             Integer gaugeScore,
-            Integer needleScore,
-            String username
+            Integer needleScore
     ) {
 
-        public static Item from(PatternAlternativeYarn alternative) {
-            Yarn yarn = alternative.getYarn();
+        public static Item from(YarnAlternative alternative) {
+            Yarn yarn = alternative.getAlternativeYarn();
             return new Item(
                     alternative.getId(),
                     alternative.getRanking(),
@@ -47,8 +46,7 @@ public record YarnAlternativesResponse(
                     alternative.getComponentScore(),
                     alternative.getLengthScore(),
                     alternative.getGaugeScore(),
-                    alternative.getNeedleScore(),
-                    alternative.getUser().getNickname()
+                    alternative.getNeedleScore()
             );
         }
     }
