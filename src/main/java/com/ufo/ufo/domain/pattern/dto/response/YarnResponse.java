@@ -5,6 +5,7 @@ import com.ufo.ufo.domain.pattern.domain.Yarn;
 public record YarnResponse(
         Long yarnId,
         String yarnName,
+        Integer ply,
         Integer weight,
         Integer cost,
         String component,
@@ -15,6 +16,7 @@ public record YarnResponse(
         return new YarnResponse(
                 yarn.getYarnId(),
                 yarn.getName() == null ? "" : yarn.getName(),
+                yarn.getPly(),
                 yarn.getWeightG() == null ? 0 : yarn.getWeightG(),
                 yarn.getPrice() == null ? 0 : yarn.getPrice(),
                 yarn.getSubComponent() == null ? "" : yarn.getSubComponent(),

@@ -31,12 +31,14 @@ class YarnQueryServiceTest {
     @DisplayName("실 상세 조회는 응답 DTO로 변환해서 반환해야 한다")
     void getYarnDetail_ReturnsYarnResponse() {
         Yarn yarn = YarnFixture.createYarnWithId(10L);
+        YarnFixture.setPly(yarn, 4);
         when(yarnRepository.findByYarnIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(yarn));
 
         YarnResponse response = yarnQueryService.getYarnDetail(10L);
 
         assertThat(response.yarnId()).isEqualTo(10L);
         assertThat(response.yarnName()).isEqualTo("old");
+        assertThat(response.ply()).isEqualTo(4);
         assertThat(response.weight()).isEqualTo(100);
         assertThat(response.cost()).isEqualTo(1000);
         assertThat(response.component()).isEqualTo("wool 80%, nylon 20%");

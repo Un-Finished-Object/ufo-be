@@ -226,6 +226,7 @@ class PatternServiceTest {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(2L);
         Yarn mainYarn1 = YarnFixture.createYarnWithId(10L);
+        YarnFixture.setPly(mainYarn1, 4);
         Yarn mainYarn2 = YarnFixture.createYarnWithId(11L);
         Yarn secondYarn = YarnFixture.createYarnWithId(13L);
         Yarn subYarn = YarnFixture.createYarnWithId(12L);
@@ -243,6 +244,7 @@ class PatternServiceTest {
         assertThat(response.meta().originalYarn().get(0).originalYarnSetId()).isEqualTo(100L);
         assertThat(response.meta().originalYarn().get(0).firstYarn().yarnId()).isEqualTo(10L);
         assertThat(response.meta().originalYarn().get(0).firstYarn().yarnName()).isEqualTo("old");
+        assertThat(response.meta().originalYarn().get(0).firstYarn().ply()).isEqualTo(4);
         assertThat(response.meta().originalYarn().get(0).firstYarn().weight()).isEqualTo(100);
         assertThat(response.meta().originalYarn().get(0).firstYarn().cost()).isEqualTo(1000);
         assertThat(response.meta().originalYarn().get(0).firstYarn().component()).isEqualTo("wool 80%, nylon 20%");

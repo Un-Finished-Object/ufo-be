@@ -38,6 +38,16 @@ public final class YarnFixture {
         }
     }
 
+    public static void setPly(Yarn yarn, Integer ply) {
+        try {
+            Field plyField = Yarn.class.getDeclaredField("ply");
+            plyField.setAccessible(true);
+            plyField.set(yarn, ply);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     public static void setDeletedAt(Yarn yarn, LocalDateTime deletedAt) {
         try {
             Field deletedAtField = Yarn.class.getDeclaredField("deletedAt");

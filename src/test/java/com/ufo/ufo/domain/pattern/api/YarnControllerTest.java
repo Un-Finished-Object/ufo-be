@@ -35,6 +35,7 @@ class YarnControllerTest {
         YarnResponse serviceResponse = new YarnResponse(
                 1L,
                 "앨모",
+                2,
                 100,
                 17000,
                 "알파카 90%, 나일론 10%",
