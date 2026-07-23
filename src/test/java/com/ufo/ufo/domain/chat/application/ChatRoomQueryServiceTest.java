@@ -82,12 +82,14 @@ class ChatRoomQueryServiceTest {
                 .room(room1)
                 .favorite(true)
                 .hidden(false)
+                .nickname("뜨개고수")
                 .build();
         ChatRoomStatus status2 = ChatRoomStatus.builder()
                 .user(user)
                 .room(room2)
                 .favorite(false)
                 .hidden(true)
+                .nickname("코바늘러")
                 .build();
 
         when(userService.getUserById(1L)).thenReturn(user);
@@ -112,6 +114,7 @@ class ChatRoomQueryServiceTest {
         assertThat(response.nextPage()).isEqualTo(0);
         assertThat(response.chats().getFirst().patternId()).isEqualTo(10L);
         assertThat(response.chats().getFirst().chatId()).isEqualTo(100L);
+        assertThat(response.chats().getFirst().nickname()).isEqualTo("뜨개고수");
         assertThat(response.chats().getFirst().favorite()).isTrue();
         assertThat(response.chats().getFirst().isHidden()).isFalse();
         assertThat(response.chats().getFirst().unRead()).isEqualTo(3);
@@ -147,6 +150,7 @@ class ChatRoomQueryServiceTest {
                     .room(room)
                     .favorite(false)
                     .hidden(false)
+                    .nickname("뜨개러" + index)
                     .build());
         }
 
