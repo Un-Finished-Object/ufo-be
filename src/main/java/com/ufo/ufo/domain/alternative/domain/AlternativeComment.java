@@ -1,6 +1,6 @@
 package com.ufo.ufo.domain.alternative.domain;
 
-import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
+import com.ufo.ufo.domain.pattern.domain.YarnAlternative;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.base.BaseEntity;
 import jakarta.persistence.Column;
@@ -21,7 +21,7 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@Table(name = "pattern_alternative_comments")
+@Table(name = "yarn_alternative_comments")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AlternativeComment extends BaseEntity {
 
@@ -31,8 +31,8 @@ public class AlternativeComment extends BaseEntity {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "alternative_id")
-    private PatternAlternativeYarn alternative;
+    @JoinColumn(name = "yarn_alternative_id", nullable = false)
+    private YarnAlternative yarnAlternative;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id")
@@ -46,8 +46,8 @@ public class AlternativeComment extends BaseEntity {
     private LocalDateTime deletedAt;
 
     @Builder
-    public AlternativeComment(PatternAlternativeYarn alternative, User user, String content) {
-        this.alternative = alternative;
+    public AlternativeComment(YarnAlternative yarnAlternative, User user, String content) {
+        this.yarnAlternative = yarnAlternative;
         this.user = user;
         this.content = content;
     }

@@ -10,8 +10,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface AlternativeCommentRepository extends JpaRepository<AlternativeComment, Long> {
 
     @EntityGraph(attributePaths = "user")
-    Page<AlternativeComment> findAllByAlternative_IdAndDeletedAtIsNull(Long altId, Pageable pageable);
+    Page<AlternativeComment> findAllByYarnAlternative_IdAndDeletedAtIsNull(Long yarnAlternativeId, Pageable pageable);
 
     @EntityGraph(attributePaths = "user")
-    Optional<AlternativeComment> findByIdAndAlternative_IdAndDeletedAtIsNull(Long commentId, Long altId);
+    Optional<AlternativeComment> findByIdAndYarnAlternative_IdAndDeletedAtIsNull(Long commentId, Long yarnAlternativeId);
 }

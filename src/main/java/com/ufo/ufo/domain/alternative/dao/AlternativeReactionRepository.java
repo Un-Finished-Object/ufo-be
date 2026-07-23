@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AlternativeReactionRepository extends JpaRepository<AlternativeReaction, Long> {
 
-    Optional<AlternativeReaction> findByAlternative_IdAndUser_Id(Long altId, Long userId);
+    Optional<AlternativeReaction> findByYarnAlternative_IdAndUser_Id(Long yarnAlternativeId, Long userId);
 
-    long countByAlternative_IdAndType(Long altId, AlternativeReactionType type);
+    long countByYarnAlternative_IdAndType(Long yarnAlternativeId, AlternativeReactionType type);
 }

@@ -1,6 +1,6 @@
 package com.ufo.ufo.domain.alternative.domain;
 
-import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
+import com.ufo.ufo.domain.pattern.domain.YarnAlternative;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.base.BaseEntity;
 import jakarta.persistence.Column;
@@ -24,9 +24,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @Table(
-        name = "pattern_alternative_reactions",
+        name = "yarn_alternative_reactions",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_alt_reaction_user", columnNames = {"alternative_id", "user_id"})
+                @UniqueConstraint(name = "uk_yarn_alt_reaction_user", columnNames = {"yarn_alternative_id", "user_id"})
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -38,8 +38,8 @@ public class AlternativeReaction extends BaseEntity {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "alternative_id")
-    private PatternAlternativeYarn alternative;
+    @JoinColumn(name = "yarn_alternative_id", nullable = false)
+    private YarnAlternative yarnAlternative;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id")
@@ -53,8 +53,8 @@ public class AlternativeReaction extends BaseEntity {
     private LocalDateTime updatedAt;
 
     @Builder
-    public AlternativeReaction(PatternAlternativeYarn alternative, User user, AlternativeReactionType type) {
-        this.alternative = alternative;
+    public AlternativeReaction(YarnAlternative yarnAlternative, User user, AlternativeReactionType type) {
+        this.yarnAlternative = yarnAlternative;
         this.user = user;
         this.type = type;
         this.updatedAt = LocalDateTime.now();
