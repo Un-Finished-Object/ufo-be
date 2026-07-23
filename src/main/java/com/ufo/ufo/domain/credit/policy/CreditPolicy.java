@@ -20,7 +20,7 @@ public final class CreditPolicy {
                 new CreditRulesResponse.Rule("STYLE_POST", 5, "스타일 탭에 글 업로드 완료 시", false),
                 new CreditRulesResponse.Rule("COMMENT_WRITE", 1, "스타일/커뮤니티 글에 15자 이상 작성 시", false),
                 new CreditRulesResponse.Rule("CHATROOM_COLLECTION", 2, "유료 채팅방 입장 3회 누적마다", false),
-                new CreditRulesResponse.Rule("REFERRAL_BONUS", 10, "피추천인이 내 코드 입력 시 (쌍방 지급)", true)
+                new CreditRulesResponse.Rule("REFERRAL_BONUS", 150, "친구 초대 코드 등록 시 쌍방 지급", true)
         );
     }
 

@@ -164,6 +164,7 @@ class UserControllerTest {
                 List.of(UserChatRoomItemResponse.of(
                         10L,
                         1L,
+                        "뜨개고수",
                         "가디건",
                         "chatRoom1.png",
                         true,

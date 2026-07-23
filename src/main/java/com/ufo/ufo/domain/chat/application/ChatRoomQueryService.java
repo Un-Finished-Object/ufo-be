@@ -75,6 +75,7 @@ public class ChatRoomQueryService {
                     return UserChatRoomItemResponse.of(
                             pattern.getId(),
                             chatId,
+                            status.getNickname(),
                             pattern.getTitle(),
                             imageService.buildImageUrl(pattern.getThumbnailUrl()),
                             status.isFavorite(),

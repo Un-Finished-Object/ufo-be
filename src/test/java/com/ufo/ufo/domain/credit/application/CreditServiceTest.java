@@ -13,6 +13,7 @@ import com.ufo.ufo.domain.credit.dto.response.CreditRulesResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditTransactionsResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditWalletResponse;
 import com.ufo.ufo.domain.user.application.UserService;
+import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.util.List;
@@ -32,6 +33,9 @@ class CreditServiceTest {
 
     @Mock
     private UserService userService;
+
+    @Mock
+    private UserRepository userRepository;
 
     @Mock
     private CreditTransactionRepository creditTransactionRepository;
@@ -106,6 +110,22 @@ class CreditServiceTest {
         ArgumentCaptor<CreditTransaction> captor = ArgumentCaptor.forClass(CreditTransaction.class);
         verify(creditTransactionRepository).save(captor.capture());
         assertThat(captor.getValue().getAmount()).isEqualTo(5);
+        assertThat(captor.getValue().getType()).isEqualTo(CreditTransactionType.REFERRAL_BONUS);
+    }
+
+    @Test
+    @DisplayName("친구 초대 보상은 잔액을 원자적으로 증가시키고 로그를 저장해야 한다")
+    void awardReferralBonus_IncrementsBalanceAndSavesLog() {
+        User user = UserFixture.createUserWithId(1L);
+        when(userRepository.incrementBallBalance(1L, 150)).thenReturn(1);
+
+        creditService.awardReferralBonus(user, 150);
+
+        verify(userRepository).incrementBallBalance(1L, 150);
+        ArgumentCaptor<CreditTransaction> captor = ArgumentCaptor.forClass(CreditTransaction.class);
+        verify(creditTransactionRepository).save(captor.capture());
+        assertThat(captor.getValue().getUser()).isEqualTo(user);
+        assertThat(captor.getValue().getAmount()).isEqualTo(150);
         assertThat(captor.getValue().getType()).isEqualTo(CreditTransactionType.REFERRAL_BONUS);
     }
 

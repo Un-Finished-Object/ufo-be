@@ -13,7 +13,9 @@ import com.ufo.ufo.domain.credit.dto.response.CreditTransactionsResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditWalletResponse;
 import com.ufo.ufo.domain.credit.policy.CreditPolicy;
 import com.ufo.ufo.domain.user.application.UserService;
+import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.global.exception.UserNotFoundException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,6 +36,7 @@ public class CreditService {
     private static final int TRANSACTION_PAGE_SIZE = 20;
 
     private final UserService userService;
+    private final UserRepository userRepository;
     private final CreditTransactionRepository creditTransactionRepository;
     private final UnlockRepository unlockRepository;
 
@@ -92,6 +95,14 @@ public class CreditService {
         }
         loginUser.addCredits(appliedAmount);
         saveTransaction(loginUser, appliedAmount, type);
+    }
+
+    @Transactional
+    public void awardReferralBonus(User user, int amount) {
+        if (userRepository.incrementBallBalance(user.getId(), amount) == 0) {
+            throw new UserNotFoundException();
+        }
+        saveTransaction(user, amount, CreditTransactionType.REFERRAL_BONUS);
     }
 
     private int resolveAppliedAmount(User user, int amount, CreditTransactionType type) {
