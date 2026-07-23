@@ -19,7 +19,6 @@ import com.ufo.ufo.domain.referral.exception.ReferralCodeGenerationException;
 import com.ufo.ufo.domain.referral.exception.ReferralCodeNotFoundException;
 import com.ufo.ufo.domain.referral.exception.SelfReferralCodeException;
 import com.ufo.ufo.domain.credit.application.CreditService;
-import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
@@ -139,8 +138,8 @@ class ReferralServiceTest {
         );
 
         assertThat(response.valid()).isTrue();
-        verify(creditService).addCredits(referee, 150, CreditTransactionType.REFERRAL_BONUS);
-        verify(creditService).addCredits(referrer, 150, CreditTransactionType.REFERRAL_BONUS);
+        verify(creditService).awardReferralBonus(referee, 150);
+        verify(creditService).awardReferralBonus(referrer, 150);
     }
 
     @Test

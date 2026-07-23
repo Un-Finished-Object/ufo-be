@@ -73,8 +73,8 @@ public class ReferralService {
                 .referee(referee)
                 .referrer(referrer)
                 .build());
-        creditService.addCredits(referee, REFERRAL_REWARD_CREDITS, CreditTransactionType.REFERRAL_BONUS);
-        creditService.addCredits(referrer, REFERRAL_REWARD_CREDITS, CreditTransactionType.REFERRAL_BONUS);
+        creditService.awardReferralBonus(referee, REFERRAL_REWARD_CREDITS);
+        creditService.awardReferralBonus(referrer, REFERRAL_REWARD_CREDITS);
         return new ReferralCodeRegistrationResponse(true);
     }
 
