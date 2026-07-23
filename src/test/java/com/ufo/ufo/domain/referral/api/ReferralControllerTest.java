@@ -5,8 +5,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.referral.application.ReferralService;
+import com.ufo.ufo.domain.referral.dto.request.RegisterReferralCodeRequest;
 import com.ufo.ufo.domain.referral.dto.response.ReferralCodeResponse;
-import com.ufo.ufo.domain.referral.dto.response.ReferralCodeValidationResponse;
+import com.ufo.ufo.domain.referral.dto.response.ReferralCodeRegistrationResponse;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.support.fixture.UserFixture;
@@ -29,32 +30,35 @@ class ReferralControllerTest {
     private ReferralController referralController;
 
     @Test
-    @DisplayName("친구 초대 코드 생성 API는 서비스 응답을 data에 담아 반환해야 한다")
-    void createReferralCode_ReturnsServiceResponse() {
+    @DisplayName("친구 초대 코드 등록 API는 서비스 응답을 data에 담아 반환해야 한다")
+    void registerReferralCode_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
-        when(referralService.createReferralCode(user)).thenReturn(new ReferralCodeResponse("UFOaB3xZ9"));
+        RegisterReferralCodeRequest request = new RegisterReferralCodeRequest("UFOaB3xZ9");
+        when(referralService.registerReferralCode(user, request))
+                .thenReturn(new ReferralCodeRegistrationResponse(true));
 
-        ResponseEntity<ApiResponse<ReferralCodeResponse>> response = referralController.createReferralCode(user);
-
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().data().referralCode()).isEqualTo("UFOaB3xZ9");
-        assertThat(response.getBody().error()).isNull();
-        verify(referralService).createReferralCode(user);
-    }
-
-    @Test
-    @DisplayName("친구 초대 코드 확인 API는 서비스 응답을 data에 담아 반환해야 한다")
-    void verifyReferralCode_ReturnsServiceResponse() {
-        when(referralService.verifyReferralCode("UFOaB3xZ9"))
-                .thenReturn(new ReferralCodeValidationResponse(true, "tester"));
-
-        ResponseEntity<ApiResponse<ReferralCodeValidationResponse>> response =
-                referralController.verifyReferralCode("UFOaB3xZ9");
+        ResponseEntity<ApiResponse<ReferralCodeRegistrationResponse>> response =
+                referralController.registerReferralCode(user, request);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().valid()).isTrue();
-        assertThat(response.getBody().data().ownerNickname()).isEqualTo("tester");
         assertThat(response.getBody().error()).isNull();
-        verify(referralService).verifyReferralCode("UFOaB3xZ9");
+        verify(referralService).registerReferralCode(user, request);
+    }
+
+    @Test
+    @DisplayName("친구 초대 코드 조회 API는 서비스 응답을 data에 담아 반환해야 한다")
+    void getReferralCode_ReturnsServiceResponse() {
+        User user = UserFixture.createUserWithId(1L);
+        when(referralService.getReferralCode(user))
+                .thenReturn(new ReferralCodeResponse("tester", "UFOaB3xZ9"));
+
+        ResponseEntity<ApiResponse<ReferralCodeResponse>> response = referralController.getReferralCode(user);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().username()).isEqualTo("tester");
+        assertThat(response.getBody().data().referralCode()).isEqualTo("UFOaB3xZ9");
+        assertThat(response.getBody().error()).isNull();
+        verify(referralService).getReferralCode(user);
     }
 }

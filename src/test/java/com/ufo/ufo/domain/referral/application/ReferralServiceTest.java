@@ -10,12 +10,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.referral.dto.response.ReferralCodeResponse;
-import com.ufo.ufo.domain.referral.dto.response.ReferralCodeValidationResponse;
+import com.ufo.ufo.domain.referral.dto.request.RegisterReferralCodeRequest;
+import com.ufo.ufo.domain.referral.dto.response.ReferralCodeRegistrationResponse;
+import com.ufo.ufo.domain.referral.dao.ReferralRegistrationRepository;
+import com.ufo.ufo.domain.referral.exception.ReferralCodeAlreadyRegisteredException;
+import com.ufo.ufo.domain.referral.exception.ReferralCodeExpiredException;
 import com.ufo.ufo.domain.referral.exception.ReferralCodeGenerationException;
+import com.ufo.ufo.domain.referral.exception.ReferralCodeNotFoundException;
+import com.ufo.ufo.domain.referral.exception.SelfReferralCodeException;
+import com.ufo.ufo.domain.credit.application.CreditService;
+import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.UserFixture;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,12 +50,18 @@ class ReferralServiceTest {
     @Mock
     private ReferralCodePersistenceService referralCodePersistenceService;
 
+    @Mock
+    private ReferralRegistrationRepository referralRegistrationRepository;
+
+    @Mock
+    private CreditService creditService;
+
     @InjectMocks
     private ReferralService referralService;
 
     @Test
     @DisplayName("친구 초대 코드 생성은 기존 코드가 없으면 새 코드를 생성해 반환해야 한다")
-    void createReferralCode_GeneratesWhenMissing() {
+    void getReferralCode_GeneratesWhenMissing() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
         when(userService.getUserById(1L)).thenReturn(loginUser);
@@ -54,7 +69,7 @@ class ReferralServiceTest {
         when(referralCodePersistenceService.assignAndFlush(1L, "UFOaB3xZ9"))
                 .thenReturn("UFOaB3xZ9");
 
-        ReferralCodeResponse response = referralService.createReferralCode(requestUser);
+        ReferralCodeResponse response = referralService.getReferralCode(requestUser);
 
         assertThat(response.referralCode()).isEqualTo("UFOaB3xZ9");
         assertThat(response.referralCode()).hasSize(9);
@@ -62,7 +77,7 @@ class ReferralServiceTest {
 
     @Test
     @DisplayName("초대 코드 저장 충돌 시 nonce를 변경해 다시 생성해야 한다")
-    void createReferralCode_WhenSaveCollides_RetriesWithNextNonce() {
+    void getReferralCode_WhenSaveCollides_RetriesWithNextNonce() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
         when(userService.getUserById(1L)).thenReturn(loginUser);
@@ -73,7 +88,7 @@ class ReferralServiceTest {
         when(referralCodePersistenceService.assignAndFlush(1L, "UFOBBBBBB"))
                 .thenReturn("UFOBBBBBB");
 
-        ReferralCodeResponse response = referralService.createReferralCode(requestUser);
+        ReferralCodeResponse response = referralService.getReferralCode(requestUser);
 
         assertThat(response.referralCode()).isEqualTo("UFOBBBBBB");
         verify(referralCodePersistenceService).assignAndFlush(1L, "UFOAAAAAA");
@@ -82,25 +97,25 @@ class ReferralServiceTest {
 
     @Test
     @DisplayName("HMAC 코드 생성에 실패하면 전용 예외가 발생해야 한다")
-    void createReferralCode_WhenHmacGenerationFails_ThrowsException() {
+    void getReferralCode_WhenHmacGenerationFails_ThrowsException() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
         when(userService.getUserById(1L)).thenReturn(loginUser);
         when(referralCodeGenerator.generate(1L, 0)).thenThrow(new ReferralCodeGenerationException());
 
-        assertThatThrownBy(() -> referralService.createReferralCode(requestUser))
+        assertThatThrownBy(() -> referralService.getReferralCode(requestUser))
                 .isInstanceOf(ReferralCodeGenerationException.class);
     }
 
     @Test
     @DisplayName("친구 초대 코드 생성은 기존 코드가 있으면 그대로 반환해야 한다")
-    void createReferralCode_ReturnsExistingCode() {
+    void getReferralCode_ReturnsExistingCode() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
         loginUser.assignReferralCode("UFOaB3xZ9");
         when(userService.getUserById(1L)).thenReturn(loginUser);
 
-        ReferralCodeResponse response = referralService.createReferralCode(requestUser);
+        ReferralCodeResponse response = referralService.getReferralCode(requestUser);
 
         assertThat(response.referralCode()).isEqualTo("UFOaB3xZ9");
         verify(referralCodeGenerator, never()).generate(eq(1L), anyInt());
@@ -108,26 +123,84 @@ class ReferralServiceTest {
     }
 
     @Test
-    @DisplayName("친구 초대 코드 확인은 코드가 존재하면 유효 응답과 소유자 닉네임을 반환해야 한다")
-    void verifyReferralCode_ValidCode_ReturnsOwner() {
-        User owner = UserFixture.createUser();
-        when(userRepository.findByReferralCode("UFOaB3xZ9")).thenReturn(Optional.of(owner));
+    @DisplayName("친구 초대 코드 등록은 등록자와 코드 소유자 모두에게 150 크레딧을 지급해야 한다")
+    void registerReferralCode_RewardsBothUsers() {
+        User requestUser = UserFixture.createUserWithId(1L);
+        User referee = UserFixture.createUserWithId(1L);
+        UserFixture.setCreatedAt(referee, LocalDateTime.now().minusDays(6));
+        User referrer = UserFixture.createUserWithId(2L);
+        when(userService.getUserById(1L)).thenReturn(referee);
+        when(referralRegistrationRepository.existsByReferee_Id(1L)).thenReturn(false);
+        when(userRepository.findByReferralCode("UFOaB3xZ9")).thenReturn(Optional.of(referrer));
 
-        ReferralCodeValidationResponse response = referralService.verifyReferralCode("UFOaB3xZ9");
+        ReferralCodeRegistrationResponse response = referralService.registerReferralCode(
+                requestUser,
+                new RegisterReferralCodeRequest("UFOaB3xZ9")
+        );
 
         assertThat(response.valid()).isTrue();
-        assertThat(response.ownerNickname()).isEqualTo(owner.getNickname());
-        verify(userRepository).findByReferralCode("UFOaB3xZ9");
+        verify(creditService).addCredits(referee, 150, CreditTransactionType.REFERRAL_BONUS);
+        verify(creditService).addCredits(referrer, 150, CreditTransactionType.REFERRAL_BONUS);
     }
 
     @Test
-    @DisplayName("친구 초대 코드 확인은 코드가 없으면 유효하지 않음 응답을 반환해야 한다")
-    void verifyReferralCode_InvalidCode_ReturnsFalse() {
+    @DisplayName("친구 초대 코드는 가입 후 7일이 지나면 등록할 수 없다")
+    void registerReferralCode_ExpiredUser_ThrowsException() {
+        User requestUser = UserFixture.createUserWithId(1L);
+        User referee = UserFixture.createUserWithId(1L);
+        UserFixture.setCreatedAt(referee, LocalDateTime.now().minusDays(7).minusSeconds(1));
+        when(userService.getUserById(1L)).thenReturn(referee);
+
+        assertThatThrownBy(() -> referralService.registerReferralCode(
+                requestUser,
+                new RegisterReferralCodeRequest("UFOaB3xZ9")
+        )).isInstanceOf(ReferralCodeExpiredException.class);
+    }
+
+    @Test
+    @DisplayName("친구 초대 코드는 한 번만 등록할 수 있다")
+    void registerReferralCode_AlreadyRegistered_ThrowsException() {
+        User requestUser = UserFixture.createUserWithId(1L);
+        User referee = UserFixture.createUserWithId(1L);
+        UserFixture.setCreatedAt(referee, LocalDateTime.now().minusDays(1));
+        when(userService.getUserById(1L)).thenReturn(referee);
+        when(referralRegistrationRepository.existsByReferee_Id(1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> referralService.registerReferralCode(
+                requestUser,
+                new RegisterReferralCodeRequest("UFOaB3xZ9")
+        )).isInstanceOf(ReferralCodeAlreadyRegisteredException.class);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 친구 초대 코드는 등록할 수 없다")
+    void registerReferralCode_UnknownCode_ThrowsException() {
+        User requestUser = UserFixture.createUserWithId(1L);
+        User referee = UserFixture.createUserWithId(1L);
+        UserFixture.setCreatedAt(referee, LocalDateTime.now().minusDays(1));
+        when(userService.getUserById(1L)).thenReturn(referee);
+        when(referralRegistrationRepository.existsByReferee_Id(1L)).thenReturn(false);
         when(userRepository.findByReferralCode("NOTFOUND")).thenReturn(Optional.empty());
 
-        ReferralCodeValidationResponse response = referralService.verifyReferralCode("NOTFOUND");
+        assertThatThrownBy(() -> referralService.registerReferralCode(
+                requestUser,
+                new RegisterReferralCodeRequest("NOTFOUND")
+        )).isInstanceOf(ReferralCodeNotFoundException.class);
+    }
 
-        assertThat(response.valid()).isFalse();
-        assertThat(response.ownerNickname()).isNull();
+    @Test
+    @DisplayName("본인의 친구 초대 코드는 등록할 수 없다")
+    void registerReferralCode_SelfCode_ThrowsException() {
+        User requestUser = UserFixture.createUserWithId(1L);
+        User referee = UserFixture.createUserWithId(1L);
+        UserFixture.setCreatedAt(referee, LocalDateTime.now().minusDays(1));
+        when(userService.getUserById(1L)).thenReturn(referee);
+        when(referralRegistrationRepository.existsByReferee_Id(1L)).thenReturn(false);
+        when(userRepository.findByReferralCode("UFOaB3xZ9")).thenReturn(Optional.of(referee));
+
+        assertThatThrownBy(() -> referralService.registerReferralCode(
+                requestUser,
+                new RegisterReferralCodeRequest("UFOaB3xZ9")
+        )).isInstanceOf(SelfReferralCodeException.class);
     }
 }
