@@ -69,10 +69,14 @@ public class ReferralService {
             throw new SelfReferralCodeException();
         }
 
-        referralRegistrationRepository.saveAndFlush(ReferralRegistration.builder()
-                .referee(referee)
-                .referrer(referrer)
-                .build());
+        try {
+            referralRegistrationRepository.saveAndFlush(ReferralRegistration.builder()
+                    .referee(referee)
+                    .referrer(referrer)
+                    .build());
+        } catch (DataIntegrityViolationException exception) {
+            throw new ReferralCodeAlreadyRegisteredException();
+        }
         creditService.awardReferralBonus(referee, REFERRAL_REWARD_CREDITS);
         creditService.awardReferralBonus(referrer, REFERRAL_REWARD_CREDITS);
         return new ReferralCodeRegistrationResponse(true);

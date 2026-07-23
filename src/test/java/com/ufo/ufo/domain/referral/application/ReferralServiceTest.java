@@ -172,6 +172,28 @@ class ReferralServiceTest {
     }
 
     @Test
+    @DisplayName("동시 등록으로 등록 이력 저장이 충돌하면 중복 등록 예외가 발생하고 보상을 지급하지 않는다")
+    void registerReferralCode_WhenRegistrationSaveCollides_ThrowsDuplicateException() {
+        User requestUser = UserFixture.createUserWithId(1L);
+        User referee = UserFixture.createUserWithId(1L);
+        UserFixture.setCreatedAt(referee, LocalDateTime.now().minusDays(1));
+        User referrer = UserFixture.createUserWithId(2L);
+        when(userService.getUserById(1L)).thenReturn(referee);
+        when(referralRegistrationRepository.existsByReferee_Id(1L)).thenReturn(false);
+        when(userRepository.findByReferralCode("UFOaB3xZ9")).thenReturn(Optional.of(referrer));
+        when(referralRegistrationRepository.saveAndFlush(org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new DataIntegrityViolationException("duplicate referee"));
+
+        assertThatThrownBy(() -> referralService.registerReferralCode(
+                requestUser,
+                new RegisterReferralCodeRequest("UFOaB3xZ9")
+        )).isInstanceOf(ReferralCodeAlreadyRegisteredException.class);
+
+        verify(creditService, never()).awardReferralBonus(referee, 150);
+        verify(creditService, never()).awardReferralBonus(referrer, 150);
+    }
+
+    @Test
     @DisplayName("존재하지 않는 친구 초대 코드는 등록할 수 없다")
     void registerReferralCode_UnknownCode_ThrowsException() {
         User requestUser = UserFixture.createUserWithId(1L);
