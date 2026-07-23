@@ -154,6 +154,15 @@ API는 `/v1` 경로 아래에 제공됩니다.
 
 배포에는 `DOCKER_USERNAME`, `DOCKER_PASSWORD`, `EC2_HOST`, `EC2_USERNAME`, `EC2_SSH_KEY` GitHub Secrets가 필요합니다. 운영용 `application-prod.yml`은 서버 외부에서 관리합니다.
 
+`docker-compose.yml`은 로컬 개발용 백엔드·MySQL 구성을 정의합니다. `.env`에서 DB 자격 증명, 도메인 및 S3 설정을 주입하며, 백엔드와 MySQL 포트는 기본적으로 `127.0.0.1`에만 바인딩됩니다.
+
+현재 Dockerfile은 빌드된 JAR를 입력으로 사용하므로, Compose 실행 전 JAR를 생성합니다.
+
+```powershell
+.\gradlew.bat bootJar
+docker compose --env-file .env up --build
+```
+
 ## License
 
 [LICENSE](LICENSE)를 참고하세요.
