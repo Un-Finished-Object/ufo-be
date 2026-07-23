@@ -18,8 +18,8 @@ import com.ufo.ufo.domain.alternative.exception.AlternativeCommentNotFoundExcept
 import com.ufo.ufo.domain.alternative.exception.AlternativeCommentPermissionDeniedException;
 import com.ufo.ufo.domain.alternative.exception.AlternativeInteractionPermissionDeniedException;
 import com.ufo.ufo.domain.alternative.exception.AlternativeNotFoundException;
-import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
-import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
+import com.ufo.ufo.domain.pattern.dao.YarnAlternativeRepository;
+import com.ufo.ufo.domain.pattern.domain.YarnAlternative;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import java.time.LocalDateTime;
@@ -39,7 +39,7 @@ public class AlternativeService {
     private static final int COMMENTS_PAGE_SIZE = 5;
 
     private final UserService userService;
-    private final PatternAlternativeYarnRepository patternAlternativeYarnRepository;
+    private final YarnAlternativeRepository yarnAlternativeRepository;
     private final AlternativeReactionRepository alternativeReactionRepository;
     private final AlternativeCommentRepository alternativeCommentRepository;
 
@@ -47,13 +47,14 @@ public class AlternativeService {
     public AlternativeReactionUpdateResponse updateReaction(User user, Long altId, UpdateAlternativeReactionRequest request) {
         validateInteractionPermission(user);
         AlternativeReactionType reactionType = AlternativeReactionType.from(request.type());
-        PatternAlternativeYarn alternative = findAlternativeById(altId);
+        YarnAlternative alternative = findAlternativeById(altId);
         User loginUser = userService.getUserById(user.getId());
-        Optional<AlternativeReaction> existing = alternativeReactionRepository.findByAlternative_IdAndUser_Id(altId, loginUser.getId());
+        Optional<AlternativeReaction> existing = alternativeReactionRepository
+                .findByYarnAlternative_IdAndUser_Id(altId, loginUser.getId());
 
         AlternativeReaction reaction = existing.orElseGet(() -> {
             AlternativeReaction createdReaction = AlternativeReaction.builder()
-                    .alternative(alternative)
+                    .yarnAlternative(alternative)
                     .user(loginUser)
                     .type(reactionType)
                     .build();
@@ -62,7 +63,8 @@ public class AlternativeService {
         });
         reaction.updateType(reactionType);
 
-        long likesCount = alternativeReactionRepository.countByAlternative_IdAndType(altId, AlternativeReactionType.LIKE);
+        long likesCount = alternativeReactionRepository
+                .countByYarnAlternative_IdAndType(altId, AlternativeReactionType.LIKE);
         return AlternativeReactionUpdateResponse.from(
                 altId,
                 reactionType,
@@ -75,13 +77,14 @@ public class AlternativeService {
         validateInteractionPermission(user);
         findAlternativeById(altId);
         Optional<AlternativeReaction> reaction = alternativeReactionRepository
-                .findByAlternative_IdAndUser_Id(altId, user.getId());
+                .findByYarnAlternative_IdAndUser_Id(altId, user.getId());
         int type = reaction
                 .filter(existing -> existing.getType() == AlternativeReactionType.LIKE)
                 .map(existing -> AlternativeReactionType.LIKE.code())
                 .orElse(AlternativeReactionType.CANCEL.code());
         LocalDateTime updatedAt = reaction.map(this::resolveReactionUpdatedAt).orElse(null);
-        long likesCount = alternativeReactionRepository.countByAlternative_IdAndType(altId, AlternativeReactionType.LIKE);
+        long likesCount = alternativeReactionRepository
+                .countByYarnAlternative_IdAndType(altId, AlternativeReactionType.LIKE);
         return AlternativeReactionResponse.from(altId, type, likesCount, updatedAt);
     }
 
@@ -89,7 +92,7 @@ public class AlternativeService {
         validateInteractionPermission(user);
         findAlternativeById(altId);
         int pageNumber = normalizePage(page);
-        Page<AlternativeComment> commentPage = alternativeCommentRepository.findAllByAlternative_IdAndDeletedAtIsNull(
+        Page<AlternativeComment> commentPage = alternativeCommentRepository.findAllByYarnAlternative_IdAndDeletedAtIsNull(
                         altId,
                         PageRequest.of(
                                 pageNumber - 1,
@@ -104,10 +107,10 @@ public class AlternativeService {
     @Transactional
     public AlternativeCommentCreateResponse createComment(User user, Long altId, CreateAlternativeCommentRequest request) {
         validateInteractionPermission(user);
-        PatternAlternativeYarn alternative = findAlternativeById(altId);
+        YarnAlternative alternative = findAlternativeById(altId);
         User loginUser = userService.getUserById(user.getId());
         AlternativeComment comment = alternativeCommentRepository.save(AlternativeComment.builder()
-                .alternative(alternative)
+                .yarnAlternative(alternative)
                 .user(loginUser)
                 .content(request.content())
                 .build());
@@ -139,13 +142,13 @@ public class AlternativeService {
         return AlternativeCommentDeleteResponse.from(altSetId, comment);
     }
 
-    private PatternAlternativeYarn findAlternativeById(Long altId) {
-        return patternAlternativeYarnRepository.findById(altId)
+    private YarnAlternative findAlternativeById(Long altId) {
+        return yarnAlternativeRepository.findById(altId)
                 .orElseThrow(AlternativeNotFoundException::new);
     }
 
     private AlternativeComment findActiveComment(Long altSetId, Long commentId) {
-        return alternativeCommentRepository.findByIdAndAlternative_IdAndDeletedAtIsNull(commentId, altSetId)
+        return alternativeCommentRepository.findByIdAndYarnAlternative_IdAndDeletedAtIsNull(commentId, altSetId)
                 .orElseThrow(AlternativeCommentNotFoundException::new);
     }
 
