@@ -23,7 +23,7 @@ public class ReferralController {
 
     private final ReferralService referralService;
 
-    @PostMapping("/")
+    @PostMapping
     public ResponseEntity<ApiResponse<ReferralCodeRegistrationResponse>> registerReferralCode(
             @LoginUser User user,
             @RequestBody @Valid RegisterReferralCodeRequest request
@@ -31,7 +31,7 @@ public class ReferralController {
         return ResponseEntity.ok(ApiResponse.success(referralService.registerReferralCode(user, request)));
     }
 
-    @GetMapping("/")
+    @GetMapping
     public ResponseEntity<ApiResponse<ReferralCodeResponse>> getReferralCode(@LoginUser User user) {
         return ResponseEntity.ok(ApiResponse.success(referralService.getReferralCode(user)));
     }
