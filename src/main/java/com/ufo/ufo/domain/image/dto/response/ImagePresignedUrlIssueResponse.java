@@ -13,15 +13,15 @@ public record ImagePresignedUrlIssueResponse(
             String presignedUrl,
             String imageKey,
             String imageUrl,
-            Map<String, String> uploadHeaders
+            Map<String, String> uploadFields
     ) {
         public static UrlInfo from(
                 String presignedUrl,
                 String imageKey,
                 String imageUrl,
-                Map<String, String> uploadHeaders
+                Map<String, String> uploadFields
         ) {
-            return new UrlInfo(presignedUrl, imageKey, imageUrl, uploadHeaders);
+            return new UrlInfo(presignedUrl, imageKey, imageUrl, uploadFields);
         }
     }
 
