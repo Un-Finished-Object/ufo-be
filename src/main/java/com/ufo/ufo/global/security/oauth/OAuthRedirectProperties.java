@@ -8,6 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record OAuthRedirectProperties(
         String redirectUrl,
         String signupRedirectUrl,
+        String adminPage,
         String cookieDomain
 ) {
 
@@ -30,5 +31,13 @@ public record OAuthRedirectProperties(
             throw new OAuthRedirectUrlNotConfiguredException();
         }
         return signupRedirectUrl;
+    }
+
+    public String requiredAdminRedirectUrl() {
+        if (adminPage == null || adminPage.isBlank()) {
+            throw new OAuthRedirectUrlNotConfiguredException();
+        }
+        String page = adminPage.startsWith("/") ? adminPage.substring(1) : adminPage;
+        return "/admin/" + page;
     }
 }

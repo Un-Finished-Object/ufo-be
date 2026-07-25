@@ -21,6 +21,7 @@ app:
   oauth:
     redirect-url: ${OAUTH_REDIRECT_URL:}
     signup-redirect-url: ${OAUTH_SIGNUP_REDIRECT_URL:}
+    admin-page: ${ADMIN_PAGE:}
     cookie-domain: ${OAUTH_COOKIE_DOMAIN:}
   cors:
     allowed-origins:
