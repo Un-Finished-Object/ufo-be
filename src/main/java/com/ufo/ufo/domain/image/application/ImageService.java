@@ -177,6 +177,9 @@ public class ImageService {
         String key;
         try {
             key = normalizeImageKey(imageKey);
+            if (isDefaultProfileImageKey(key)) {
+                return;
+            }
             validatePrefix(key, ImagePurpose.PROFILE);
         } catch (InvalidImageKeyException e) {
             throw new InvalidProfileImageUrlException();
@@ -186,8 +189,10 @@ public class ImageService {
 
     public void completeProfileImageReplacement(String newImageKey, String previousImageKey) {
         String normalizedNewImageKey = normalizeImageKey(newImageKey);
-        validatePrefix(normalizedNewImageKey, ImagePurpose.PROFILE);
-        markImageLinked(normalizedNewImageKey);
+        if (!isDefaultProfileImageKey(normalizedNewImageKey)) {
+            validatePrefix(normalizedNewImageKey, ImagePurpose.PROFILE);
+            markImageLinked(normalizedNewImageKey);
+        }
 
         if (shouldDeletePreviousProfileImage(previousImageKey, normalizedNewImageKey)) {
             deleteObject(normalizeImageKey(previousImageKey));
@@ -390,11 +395,15 @@ public class ImageService {
                 .build());
     }
 
+    private boolean isDefaultProfileImageKey(String key) {
+        return key != null && key.equals(imageProperties.defaultProfileImageKey());
+    }
+
     private boolean shouldDeletePreviousProfileImage(String previousImageKey, String newImageKey) {
         return previousImageKey != null
                 && !previousImageKey.isBlank()
                 && !previousImageKey.equals(newImageKey)
-                && !previousImageKey.equals(imageProperties.defaultProfileImageKey());
+                && !isDefaultProfileImageKey(previousImageKey);
     }
 
     private void deleteObject(String key) {
