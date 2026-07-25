@@ -496,5 +496,81 @@ class PatternServiceTest {
                 .isInstanceOf(ApiException.class);
     }
 
-}
+    @Test
+    @DisplayName("추천 도안 조회에서 핏 키워드(5,6,7) 포함 시 WithFit 쿼리로 필터링해야 한다")
+    void getRecommendedPatterns_FitKeywordSelected_UsesWithFitQuery() {
+        User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithInterestNumbers(
+                "슬림핏 니트", "artist", "apparel", "sweater", "./patterns/1.png",
+                List.of(1, 6)
+        );
+        PatternFixture.setId(pattern, 20L);
 
+        when(userInterestRepository.findAllByUser_Id(1L))
+                .thenReturn(List.of(
+                        UserInterestFixture.createUserInterest(user, "빈티지"),
+                        UserInterestFixture.createUserInterest(user, "슬림핏")
+                ));
+        when(patternRepository.findRecommendedByInterestNumbersWithFit(List.of(1, 6), List.of(6)))
+                .thenReturn(List.of(pattern));
+        when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 20L)).thenReturn(false);
+
+        PatternItemsResponse response = patternService.getRecommendedPatterns(user);
+
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().getFirst().id()).isEqualTo(20L);
+        verify(patternRepository).findRecommendedByInterestNumbersWithFit(List.of(1, 6), List.of(6));
+    }
+
+    @Test
+    @DisplayName("추천 도안 조회에서 핏 키워드 없이 일반 키워드만 선택하면 기존 쿼리를 사용해야 한다")
+    void getRecommendedPatterns_NoFitKeyword_UsesDefaultQuery() {
+        User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithInterestNumbers(
+                "빈티지 니트", "artist", "apparel", "sweater", "./patterns/1.png",
+                List.of(1, 2)
+        );
+        PatternFixture.setId(pattern, 21L);
+
+        when(userInterestRepository.findAllByUser_Id(1L))
+                .thenReturn(List.of(
+                        UserInterestFixture.createUserInterest(user, "빈티지"),
+                        UserInterestFixture.createUserInterest(user, "클래식")
+                ));
+        when(patternRepository.findRecommendedByInterestNumbers(List.of(1, 2)))
+                .thenReturn(List.of(pattern));
+        when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 21L)).thenReturn(false);
+
+        PatternItemsResponse response = patternService.getRecommendedPatterns(user);
+
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().getFirst().id()).isEqualTo(21L);
+        verify(patternRepository).findRecommendedByInterestNumbers(List.of(1, 2));
+    }
+
+    @Test
+    @DisplayName("추천 도안 조회에서 핏 키워드 포함 시 매칭 결과가 없으면 기본 추천으로 fallback해야 한다")
+    void getRecommendedPatterns_FitKeywordNoMatch_FallbackToDefault() {
+        User user = UserFixture.createUserWithId(1L);
+        Pattern fallbackPattern = PatternFixture.createPattern(
+                "기본 추천", "artist", "apparel", "sweater", "./patterns/1.png"
+        );
+        PatternFixture.setId(fallbackPattern, 22L);
+
+        when(userInterestRepository.findAllByUser_Id(1L))
+                .thenReturn(List.of(
+                        UserInterestFixture.createUserInterest(user, "오버사이즈")
+                ));
+        when(patternRepository.findRecommendedByInterestNumbersWithFit(List.of(5), List.of(5)))
+                .thenReturn(List.of());
+        when(patternRepository.findRecommended()).thenReturn(List.of(fallbackPattern));
+        when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 22L)).thenReturn(false);
+
+        PatternItemsResponse response = patternService.getRecommendedPatterns(user);
+
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().getFirst().id()).isEqualTo(22L);
+        verify(patternRepository).findRecommendedByInterestNumbersWithFit(List.of(5), List.of(5));
+        verify(patternRepository).findRecommended();
+    }
+}
