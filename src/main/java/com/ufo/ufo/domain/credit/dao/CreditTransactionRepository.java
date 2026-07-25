@@ -15,7 +15,10 @@ public interface CreditTransactionRepository extends JpaRepository<CreditTransac
             from CreditTransaction c
             where c.user.id = :userId
               and c.amount > 0
-              and c.type <> com.ufo.ufo.domain.credit.domain.CreditTransactionType.REFERRAL_BONUS
+              and c.type not in (
+                  com.ufo.ufo.domain.credit.domain.CreditTransactionType.SIGNUP_BONUS,
+                  com.ufo.ufo.domain.credit.domain.CreditTransactionType.REFERRAL_BONUS
+              )
               and c.createdAt >= :from
               and c.createdAt < :to
             """)

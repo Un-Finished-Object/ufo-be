@@ -31,7 +31,7 @@ public class AttendanceService {
 
     @Transactional
     public AttendanceCheckResponse check(User user) {
-        User loginUser = userService.getUserById(user.getId());
+        User loginUser = userService.getUserByIdForUpdate(user.getId());
         LocalDate today = LocalDate.now();
 
         if (isAlreadyCheckedToday(loginUser, today)) {
