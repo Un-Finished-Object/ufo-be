@@ -3,7 +3,6 @@ package com.ufo.ufo.domain.credit.domain;
 public enum CreditTransactionType {
     SIGNUP_BONUS,
     ATTENDANCE_DAILY,
-    STYLE_POST,
     REFERRAL_BONUS,
     CHATROOM_ENTRY,
     ALT_YARN_VIEW;

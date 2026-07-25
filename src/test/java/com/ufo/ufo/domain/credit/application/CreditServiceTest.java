@@ -150,13 +150,13 @@ class CreditServiceTest {
                 org.mockito.ArgumentMatchers.any()))
                 .thenReturn(19);
 
-        creditService.addCredits(requestUser, 5, CreditTransactionType.STYLE_POST);
+        creditService.addCredits(requestUser, 5, CreditTransactionType.ATTENDANCE_DAILY);
 
         assertThat(loginUser.getBallBalance()).isEqualTo(1);
         ArgumentCaptor<CreditTransaction> captor = ArgumentCaptor.forClass(CreditTransaction.class);
         verify(creditTransactionRepository).save(captor.capture());
         assertThat(captor.getValue().getAmount()).isEqualTo(1);
-        assertThat(captor.getValue().getType()).isEqualTo(CreditTransactionType.STYLE_POST);
+        assertThat(captor.getValue().getType()).isEqualTo(CreditTransactionType.ATTENDANCE_DAILY);
     }
 
     @Test
