@@ -348,6 +348,7 @@ class ChatMessageServiceTest {
 
         assertThat(response.messages()).hasSize(1);
         assertThat(response.messages().getFirst().senderName()).isEqualTo("발신자");
+        assertThat(response.messages().getFirst().text()).isEqualTo("");
         assertThat(response.messages().getFirst().deletedAt()).isEqualTo(deletedAt);
     }
 

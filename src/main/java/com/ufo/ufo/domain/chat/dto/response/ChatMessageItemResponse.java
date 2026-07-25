@@ -21,7 +21,7 @@ public record ChatMessageItemResponse(
         return new ChatMessageItemResponse(
                 senderName,
                 chatMessage.getId(),
-                chatMessage.getText(),
+                chatMessage.getDeletedAt() != null ? "" : chatMessage.getText(),
                 replySenderName,
                 replyMessage == null ? null : replyMessage.getId(),
                 chatMessage.getCreatedAt(),
