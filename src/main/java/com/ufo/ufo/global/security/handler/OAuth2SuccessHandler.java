@@ -36,9 +36,14 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         log.info("Social Login Success: email={}, role={}", email, role);
 
-        String targetUrl = Role.ROLE_GUEST.name().equals(role)
-                ? oAuthRedirectProperties.requiredSignupRedirectUrl()
-                : oAuthRedirectProperties.requiredRedirectUrl();
+        String targetUrl;
+        if (Role.ROLE_ADMIN.name().equals(role)) {
+            targetUrl = oAuthRedirectProperties.requiredAdminRedirectUrl();
+        } else if (Role.ROLE_GUEST.name().equals(role)) {
+            targetUrl = oAuthRedirectProperties.requiredSignupRedirectUrl();
+        } else {
+            targetUrl = oAuthRedirectProperties.requiredRedirectUrl();
+        }
 
         response.addHeader(HttpHeaders.SET_COOKIE,
                 oAuthCookieManager.createRefreshTokenCookie(

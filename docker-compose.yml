@@ -24,6 +24,7 @@ services:
       DOMAIN_URL: ${DOMAIN_URL:-http://localhost:3000}
       OAUTH_REDIRECT_URL: ${OAUTH_REDIRECT_URL:-http://localhost:3000/auth/callback}
       OAUTH_SIGNUP_REDIRECT_URL: ${OAUTH_SIGNUP_REDIRECT_URL:-http://localhost:3000/auth/signup}
+      OAUTH_ADMIN_REDIRECT_URL: ${OAUTH_ADMIN_REDIRECT_URL:-http://localhost:3000/admin/dashboard}
       OAUTH_COOKIE_DOMAIN: ${OAUTH_COOKIE_DOMAIN:-localhost}
       S3_IMAGE_BUCKET: ${S3_IMAGE_BUCKET:?S3 image bucket is required}
       S3_REGION: ${S3_REGION:-ap-northeast-2}
