@@ -21,6 +21,8 @@ public enum InterestKeyword {
     STOCKINETTE(10, "메리야스"),
     COLOR_BLOCK(11, "배색");
 
+    private static final List<Integer> FIT_KEYWORD_NUMBERS = List.of(5, 6, 7, 8);
+
     private final int number;
     private final String keyword;
 
@@ -40,5 +42,11 @@ public enum InterestKeyword {
                 .filter(value -> value.keyword.equals(keyword))
                 .map(InterestKeyword::getNumber)
                 .findFirst();
+    }
+
+    public static List<Integer> extractFitKeywords(List<Integer> interestNumbers) {
+        return interestNumbers.stream()
+                .filter(FIT_KEYWORD_NUMBERS::contains)
+                .toList();
     }
 }

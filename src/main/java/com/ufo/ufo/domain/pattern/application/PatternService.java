@@ -271,7 +271,12 @@ public class PatternService {
         if (interestNumbers.isEmpty()) {
             return patternRepository.findRecommended();
         }
-        List<Pattern> interestMatched = patternRepository.findRecommendedByInterestNumbers(interestNumbers);
+
+        List<Integer> fitKeywords = InterestKeyword.extractFitKeywords(interestNumbers);
+        List<Pattern> interestMatched = fitKeywords.isEmpty()
+                ? patternRepository.findRecommendedByInterestNumbers(interestNumbers)
+                : patternRepository.findRecommendedByInterestNumbersWithFit(interestNumbers, fitKeywords);
+
         if (!interestMatched.isEmpty()) {
             List<Pattern> shuffled = new ArrayList<>(interestMatched);
             Collections.shuffle(shuffled);

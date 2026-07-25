@@ -74,4 +74,20 @@ public interface PatternRepository extends JpaRepository<Pattern, Long> {
               and interestNumber in :interestNumbers
             """)
     List<Pattern> findRecommendedByInterestNumbers(@Param("interestNumbers") List<Integer> interestNumbers);
+
+    @Query("""
+            select distinct p from Pattern p
+            join p.interestNumbers interestNumber
+            where p.deletedAt is null
+              and interestNumber in :interestNumbers
+              and exists (
+                  select 1 from Pattern p2
+                  join p2.interestNumbers fitNumber
+                  where p2 = p and fitNumber in :fitNumbers
+              )
+            """)
+    List<Pattern> findRecommendedByInterestNumbersWithFit(
+            @Param("interestNumbers") List<Integer> interestNumbers,
+            @Param("fitNumbers") List<Integer> fitNumbers
+    );
 }
