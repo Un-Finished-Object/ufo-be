@@ -7,7 +7,8 @@ import lombok.RequiredArgsConstructor;
 public enum PatternSubCategoryQuery {
     ALL("all"),
     OUTER("outer"),
-    SWEATER("sweater"),
+    LONG_SWEATER("long_sweater"),
+    SHORT_SWEATER("short_sweater"),
     VEST("vest"),
     DRESS("dress"),
     OTHERS("others");
