@@ -73,7 +73,7 @@ class AlternativeControllerTest {
     void getComments_ReturnsServiceResponse() {
         User user = UserFixture.createUserWithId(1L);
         AlternativeCommentsResponse.Comment item = new AlternativeCommentsResponse.Comment(
-                3L, "hello", "tester", LocalDateTime.now()
+                3L, "hello", "tester", true, LocalDateTime.now()
         );
         when(alternativeService.getComments(user, 7L, 1))
                 .thenReturn(new AlternativeCommentsResponse(7L, java.util.List.of(item), 1, 0));

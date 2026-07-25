@@ -23,6 +23,9 @@ import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.UserFixture;
 import com.ufo.ufo.support.fixture.YarnAlternativeFixture;
 import com.ufo.ufo.support.fixture.YarnFixture;
+import com.ufo.ufo.domain.alternative.domain.AlternativeComment;
+import com.ufo.ufo.domain.alternative.dto.response.AlternativeCommentsResponse;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +33,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("대체 실 서비스 테스트")
@@ -129,6 +135,36 @@ class AlternativeServiceTest {
         assertThatThrownBy(() -> alternativeService.createComment(
                 user, 99L, new CreateAlternativeCommentRequest("comment")
         )).isInstanceOf(AlternativeNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("대체 실 댓글 목록 조회 시 본인 작성 여부(isMine)가 올바르게 계산되어 반환되어야 한다")
+    void getComments_ReturnsCommentsWithIsMineFlag() {
+        User user1 = UserFixture.createUserWithId(1L);
+        User user2 = UserFixture.createUserWithId(2L);
+        YarnAlternative yarnAlternative = yarnAlternative(10L);
+
+        AlternativeComment comment1 = AlternativeComment.builder()
+                .yarnAlternative(yarnAlternative)
+                .user(user1)
+                .content("내 댓글")
+                .build();
+        AlternativeComment comment2 = AlternativeComment.builder()
+                .yarnAlternative(yarnAlternative)
+                .user(user2)
+                .content("다른 사람 댓글")
+                .build();
+
+        PageRequest pageRequest = PageRequest.of(0, 5, Sort.by(Sort.Direction.ASC, "createdAt").and(Sort.by(Sort.Direction.ASC, "id")));
+        when(yarnAlternativeRepository.findById(10L)).thenReturn(Optional.of(yarnAlternative));
+        when(alternativeCommentRepository.findAllByYarnAlternative_IdAndDeletedAtIsNull(10L, pageRequest))
+                .thenReturn(new PageImpl<>(List.of(comment1, comment2), pageRequest, 2));
+
+        AlternativeCommentsResponse response = alternativeService.getComments(user1, 10L, 1);
+
+        assertThat(response.comments()).hasSize(2);
+        assertThat(response.comments().get(0).isMine()).isTrue();
+        assertThat(response.comments().get(1).isMine()).isFalse();
     }
 
     private YarnAlternative yarnAlternative(Long id) {
