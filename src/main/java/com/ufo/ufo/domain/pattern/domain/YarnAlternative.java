@@ -46,16 +46,16 @@ public class YarnAlternative extends BaseEntity {
     @Column(name = "ranking", nullable = false)
     private Integer ranking;
 
-    @Column(name = "component_score", nullable = false)
+    @Column(name = "component_score")
     private Integer componentScore;
 
-    @Column(name = "length_score", nullable = false)
+    @Column(name = "length_score")
     private Integer lengthScore;
 
-    @Column(name = "gauge_score", nullable = false)
+    @Column(name = "gauge_score")
     private Integer gaugeScore;
 
-    @Column(name = "needle_score", nullable = false)
+    @Column(name = "needle_score")
     private Integer needleScore;
 
     @Builder
