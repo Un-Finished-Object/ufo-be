@@ -107,6 +107,7 @@ class ImageServiceTest {
         assertThat(response.urls().getFirst().imageUrl()).startsWith("https://cdn.ufo.com/profiles/1/");
         assertThat(response.urls().getFirst().uploadHeaders())
                 .containsEntry(HttpHeaders.CONTENT_TYPE, "image/jpeg")
+                .containsEntry(HttpHeaders.CONTENT_LENGTH, "1024")
                 .containsEntry("x-amz-tagging", "ufo-upload-status=issued");
         verify(s3Presigner, times(2)).presignPutObject(any(PutObjectPresignRequest.class));
 
