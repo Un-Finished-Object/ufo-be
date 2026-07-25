@@ -9,7 +9,8 @@ public record ChatMessageItemResponse(
         String text,
         String replySenderName,
         Long replyMessageId,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        LocalDateTime deletedAt
 ) {
     public static ChatMessageItemResponse from(
             ChatMessage chatMessage,
@@ -23,7 +24,8 @@ public record ChatMessageItemResponse(
                 chatMessage.getText(),
                 replySenderName,
                 replyMessage == null ? null : replyMessage.getId(),
-                chatMessage.getCreatedAt()
+                chatMessage.getCreatedAt(),
+                chatMessage.getDeletedAt()
         );
     }
 }
