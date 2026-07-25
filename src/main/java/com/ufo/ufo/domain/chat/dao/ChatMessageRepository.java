@@ -42,7 +42,10 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     Optional<ChatMessage> findByIdAndRoom_Id(Long id, Long roomId);
 
     @Query("""
-            select new com.ufo.ufo.domain.chat.dto.response.ChatRoomLastMessage(cm.room.id, cm.text)
+            select new com.ufo.ufo.domain.chat.dto.response.ChatRoomLastMessage(
+                cm.room.id,
+                case when cm.deletedAt is not null then '' else cm.text end
+            )
             from ChatMessage cm
             where cm.room.id in :roomIds
               and cm.id = (
@@ -59,6 +62,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             left join ChatReadStatus cr
               on cr.room = cm.room and cr.user.id = :userId
             where cm.room.id in :roomIds
+              and cm.deletedAt is null
               and cm.id > coalesce(cr.lastReadMessageId, 0)
             group by cm.room.id
             """)

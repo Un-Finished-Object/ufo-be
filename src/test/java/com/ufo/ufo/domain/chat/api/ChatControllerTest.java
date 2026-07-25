@@ -52,7 +52,8 @@ class ChatControllerTest {
                         "안녕하세요",
                         null,
                         null,
-                        LocalDateTime.of(2026, 3, 9, 13, 20, 10)
+                        LocalDateTime.of(2026, 3, 9, 13, 20, 10),
+                        null
                 ))
         );
         when(chatMessageService.getMessages(user, roomId, messageId)).thenReturn(serviceResponse);

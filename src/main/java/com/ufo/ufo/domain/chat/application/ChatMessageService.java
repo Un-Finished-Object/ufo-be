@@ -15,6 +15,7 @@ import com.ufo.ufo.domain.chat.exception.ChatNicknameNotFoundException;
 import com.ufo.ufo.domain.chat.exception.InvalidChatMessageIdException;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.global.security.types.Role;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -43,7 +44,9 @@ public class ChatMessageService {
                 .orElseThrow(ChatRoomNotFoundException::new);
 
         User loginUser = userService.getUserById(user.getId());
-        validateRoomAccess(loginUser.getId(), roomId);
+        if (loginUser.getRole() != Role.ROLE_ADMIN) {
+            validateRoomAccess(loginUser.getId(), roomId);
+        }
         PageRequest pageable = PageRequest.of(0, MESSAGE_PAGE_SIZE + 1);
 
         List<ChatMessage> fetchedMessages = findMessages(roomId, messageId, pageable);
