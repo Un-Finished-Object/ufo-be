@@ -18,7 +18,7 @@ public final class PatternFixture {
                 .title("patternA")
                 .designer("artist")
                 .categoryMain("apparel")
-                .categorySub("sweater")
+                .categorySub("long_sweater")
                 .thumbnailUrl("./patterns/1.png")
                 .build();
     }

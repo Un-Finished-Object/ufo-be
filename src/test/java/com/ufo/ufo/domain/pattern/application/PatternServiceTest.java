@@ -88,14 +88,14 @@ class PatternServiceTest {
                 .thenReturn(new PageImpl<>(List.of(pattern)));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 1L)).thenReturn(true);
 
-        PatternListResponse response = patternService.getPatterns(user, "apparel", "sweater", "news", 1);
+        PatternListResponse response = patternService.getPatterns(user, "apparel", "long_sweater", "news", 1);
 
         assertThat(response.page()).isEqualTo(1);
         assertThat(response.nextPage()).isEqualTo(0);
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().id()).isEqualTo(1L);
         assertThat(response.items().getFirst().category()).isEqualTo("apparel");
-        assertThat(response.items().getFirst().subCategory()).isEqualTo("sweater");
+        assertThat(response.items().getFirst().subCategory()).isEqualTo("long_sweater");
         assertThat(response.items().getFirst().stats().scraps()).isEqualTo(0L);
         assertThat(response.items().getFirst().my().scrapped()).isTrue();
     }
@@ -209,7 +209,7 @@ class PatternServiceTest {
     @DisplayName("도안 상세 조회에서 이미지가 없으면 썸네일을 images에 포함해야 한다")
     void getPatternDetail_UsesThumbnailWhenImageEmpty() {
         User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPattern("patternA", "artist", "apparel", "sweater", "./patterns/t.png");
+        Pattern pattern = PatternFixture.createPattern("patternA", "artist", "apparel", "long_sweater", "./patterns/t.png");
         PatternFixture.setId(pattern, 2L);
         when(patternRepository.findDetailById(2L)).thenReturn(Optional.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 2L)).thenReturn(false);
@@ -393,7 +393,7 @@ class PatternServiceTest {
                 "올드무드 니트",
                 "artist",
                 "apparel",
-                "sweater",
+                "long_sweater",
                 "./patterns/1.png",
                 List.of(1)
         );
@@ -415,7 +415,7 @@ class PatternServiceTest {
     @DisplayName("추천 도안 조회에서 관심사가 없으면 기본 추천 목록을 반환해야 한다")
     void getRecommendedPatterns_NoInterest_ReturnsDefaultRecommend() {
         User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPattern("기본 추천", "artist", "apparel", "sweater", "./patterns/1.png");
+        Pattern pattern = PatternFixture.createPattern("기본 추천", "artist", "apparel", "long_sweater", "./patterns/1.png");
         PatternFixture.setId(pattern, 12L);
         when(userInterestRepository.findAllByUser_Id(1L)).thenReturn(List.of());
         when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
@@ -432,7 +432,7 @@ class PatternServiceTest {
     @DisplayName("추천 도안 조회에서 관심사 매칭 결과가 없으면 기본 추천 목록으로 fallback해야 한다")
     void getRecommendedPatterns_EmptyMatched_FallbackToDefaultRecommend() {
         User user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPattern("fallback 추천", "artist", "apparel", "sweater", "./patterns/1.png");
+        Pattern pattern = PatternFixture.createPattern("fallback 추천", "artist", "apparel", "long_sweater", "./patterns/1.png");
         PatternFixture.setId(pattern, 13L);
         when(userInterestRepository.findAllByUser_Id(1L))
                 .thenReturn(List.of(UserInterestFixture.createUserInterest(user, "빈티지")));
@@ -501,7 +501,7 @@ class PatternServiceTest {
     void getRecommendedPatterns_FitKeywordSelected_UsesWithFitQuery() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithInterestNumbers(
-                "슬림핏 니트", "artist", "apparel", "sweater", "./patterns/1.png",
+                "슬림핏 니트", "artist", "apparel", "long_sweater", "./patterns/1.png",
                 List.of(1, 6)
         );
         PatternFixture.setId(pattern, 20L);
@@ -527,7 +527,7 @@ class PatternServiceTest {
     void getRecommendedPatterns_NoFitKeyword_UsesDefaultQuery() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithInterestNumbers(
-                "빈티지 니트", "artist", "apparel", "sweater", "./patterns/1.png",
+                "빈티지 니트", "artist", "apparel", "long_sweater", "./patterns/1.png",
                 List.of(1, 2)
         );
         PatternFixture.setId(pattern, 21L);
@@ -553,7 +553,7 @@ class PatternServiceTest {
     void getRecommendedPatterns_FitKeywordNoMatch_FallbackToDefault() {
         User user = UserFixture.createUserWithId(1L);
         Pattern fallbackPattern = PatternFixture.createPattern(
-                "기본 추천", "artist", "apparel", "sweater", "./patterns/1.png"
+                "기본 추천", "artist", "apparel", "long_sweater", "./patterns/1.png"
         );
         PatternFixture.setId(fallbackPattern, 22L);
 

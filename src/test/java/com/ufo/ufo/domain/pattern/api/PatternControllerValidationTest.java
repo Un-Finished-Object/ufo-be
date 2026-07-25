@@ -115,7 +115,7 @@ class PatternControllerValidationTest {
                         .param("sort", "news")
                         .param("page", "1"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.message").value("subCategory는 all, outer, sweater, vest, dress, others 중 하나여야 합니다."));
+                .andExpect(jsonPath("$.error.message").value("subCategory는 all, outer, long_sweater, short_sweater, vest, dress, others 중 하나여야 합니다."));
 
         verify(patternService, never()).getPatterns(any(), any(), any(), any(), any());
     }
