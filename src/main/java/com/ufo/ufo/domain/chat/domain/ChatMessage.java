@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -42,11 +43,19 @@ public class ChatMessage extends BaseEntity {
     @JoinColumn(name = "reply_to_message_id")
     private ChatMessage replyMessage;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Builder
-    public ChatMessage(ChatRoom room, User user, String text, ChatMessage replyMessage) {
+    public ChatMessage(ChatRoom room, User user, String text, ChatMessage replyMessage, LocalDateTime deletedAt) {
         this.room = room;
         this.user = user;
         this.text = text;
         this.replyMessage = replyMessage;
+        this.deletedAt = deletedAt;
+    }
+
+    public void delete(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
     }
 }
