@@ -299,6 +299,58 @@ class ChatMessageServiceTest {
                 .isInstanceOf(InvalidChatMessageIdException.class);
     }
 
+    @Test
+    @DisplayName("관리자(ROLE_ADMIN) 요청 시 채팅방 참여 권한 검증을 우회하고 메시지를 조회할 수 있어야 한다")
+    void getMessages_AdminUser_BypassesRoomAccessValidation() {
+        Long roomId = 10L;
+        User adminUser = User.builder()
+                .email("admin@ufo.com")
+                .nickname("어드민")
+                .role(com.ufo.ufo.global.security.types.Role.ROLE_ADMIN)
+                .build();
+        try {
+            Field idField = User.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(adminUser, 999L);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+
+        User sender = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(100L);
+        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, roomId);
+        ChatRoomStatus senderStatus = ChatRoomStatus.builder()
+                .user(sender)
+                .room(room)
+                .nickname("발신자")
+                .build();
+
+        LocalDateTime deletedAt = LocalDateTime.of(2026, 3, 9, 12, 5);
+        ChatMessage message = ChatMessage.builder()
+                .room(room)
+                .user(sender)
+                .text("삭제된 메시지")
+                .deletedAt(deletedAt)
+                .build();
+        setId(message, 50L);
+        setCreatedAt(message, LocalDateTime.of(2026, 3, 9, 12, 0));
+
+        when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
+        when(userService.getUserById(999L)).thenReturn(adminUser);
+        when(chatMessageRepository.findByRoom_IdOrderByIdDesc(roomId, PageRequest.of(0, 31)))
+                .thenReturn(List.of(message));
+        when(chatRoomStatusRepository.findAllByRoom_IdAndUser_IdIn(roomId, List.of(1L)))
+                .thenReturn(List.of(senderStatus));
+        when(chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, 999L))
+                .thenReturn(Optional.empty());
+
+        ChatMessagesResponse response = chatMessageService.getMessages(adminUser, roomId, null);
+
+        assertThat(response.messages()).hasSize(1);
+        assertThat(response.messages().getFirst().senderName()).isEqualTo("발신자");
+        assertThat(response.messages().getFirst().deletedAt()).isEqualTo(deletedAt);
+    }
+
     private void setId(ChatMessage chatMessage, Long id) {
         try {
             Field idField = ChatMessage.class.getDeclaredField("id");
