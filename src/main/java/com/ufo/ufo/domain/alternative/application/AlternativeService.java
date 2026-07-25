@@ -101,7 +101,7 @@ public class AlternativeService {
                         )
                 );
         int nextPage = resolveNextPage(pageNumber, commentPage.getTotalPages());
-        return AlternativeCommentsResponse.from(altId, commentPage.getContent(), pageNumber, nextPage);
+        return AlternativeCommentsResponse.from(altId, commentPage.getContent(), pageNumber, nextPage, user);
     }
 
     @Transactional
