@@ -8,8 +8,8 @@ UFO는 뜨개 도안 탐색·구매, 실 대체 추천, 커뮤니티 채팅을 �
 - Spring MVC, Validation, Spring Data JPA, MySQL
 - Spring Security, OAuth2 Client, JWT
 - STOMP WebSocket
-- AWS S3 Presigned URL, CDN URL 변환
-- JUnit 5, MockMvc, Spring REST Docs
+- AWS S3
+- JUnit 5, MockMvc
 - Docker, Docker Compose, GitHub Actions
 
 ## 주요 기능
