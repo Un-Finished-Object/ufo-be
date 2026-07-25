@@ -101,7 +101,7 @@ public class ImageService {
                 presignedRequest.url().toString(),
                 key,
                 buildImageUrl(key),
-                buildUploadHeaders(fileInfo.contentType())
+                buildUploadHeaders(fileInfo.contentType(), fileInfo.contentLength())
         );
     }
 
@@ -211,9 +211,10 @@ public class ImageService {
         }
     }
 
-    private Map<String, String> buildUploadHeaders(String contentType) {
+    private Map<String, String> buildUploadHeaders(String contentType, long contentLength) {
         return Map.of(
                 HttpHeaders.CONTENT_TYPE, contentType,
+                HttpHeaders.CONTENT_LENGTH, String.valueOf(contentLength),
                 S3_TAGGING_HEADER, issuedUploadTaggingHeaderValue()
         );
     }
