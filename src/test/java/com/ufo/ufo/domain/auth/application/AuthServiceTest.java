@@ -11,6 +11,9 @@ import static org.mockito.Mockito.when;
 import com.ufo.ufo.domain.auth.dto.request.SignupRequest;
 import com.ufo.ufo.domain.auth.dto.response.SignupResponse;
 import com.ufo.ufo.domain.auth.dto.response.TokenResponse;
+import com.ufo.ufo.domain.credit.application.CreditService;
+import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
+import com.ufo.ufo.domain.credit.policy.CreditPolicy;
 import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.user.application.UserService;
@@ -54,6 +57,9 @@ class AuthServiceTest {
     private ImageService imageService;
 
     @Mock
+    private CreditService creditService;
+
+    @Mock
     private HttpServletRequest request;
 
     @Mock
@@ -75,7 +81,7 @@ class AuthServiceTest {
                 "profiles/10/profile.png",
                 List.of("빈티지", "캐주얼")
         );
-        when(userService.getUserById(10L)).thenReturn(guest);
+        when(userService.getUserByIdForUpdate(10L)).thenReturn(guest);
         when(userService.updateNameAndProfileImage(guest, "user01", "profiles/10/profile.png"))
                 .thenAnswer(invocation -> {
                     guest.updateNameAndProfileImage("user01", "profiles/10/profile.png");
@@ -93,6 +99,30 @@ class AuthServiceTest {
         assertThat(response.userName()).isEqualTo("user01");
         assertThat(response.profileImageUrl()).isEqualTo("https://cdn.example.com/profiles/10/profile.png");
         assertThat(response.keywords()).containsExactly("빈티지", "캐주얼");
+        verify(creditService).addCredits(guest, CreditPolicy.SIGNUP_BONUS_BALLS, CreditTransactionType.SIGNUP_BONUS);
+    }
+
+    @Test
+    @DisplayName("이미 회원인 사용자가 회원가입 정보를 다시 저장해도 회원가입 크레딧은 지급하지 않아야 한다")
+    void signup_WithUser_DoesNotAwardSignupBonus() {
+        User user = UserFixture.createUser("user@example.com", Role.ROLE_USER);
+        UserFixture.setId(user, 10L);
+        SignupRequest request = new SignupRequest(
+                "user01",
+                "profiles/10/profile.png",
+                List.of("빈티지")
+        );
+        when(userService.getUserByIdForUpdate(10L)).thenReturn(user);
+        when(userService.updateNameAndProfileImage(user, request.userName(), request.profileImageKey()))
+                .thenReturn(user);
+        when(interestService.replaceMyInterests(user, request.keywords()))
+                .thenReturn(request.keywords());
+        when(imageService.buildImageUrl(user.getProfileImage()))
+                .thenReturn("https://cdn.example.com/profiles/10/profile.png");
+
+        authService.signup(user, request);
+
+        verify(creditService, never()).addCredits(user, CreditPolicy.SIGNUP_BONUS_BALLS, CreditTransactionType.SIGNUP_BONUS);
     }
 
     @Test
@@ -105,7 +135,7 @@ class AuthServiceTest {
                 "profiles/10/profile.png",
                 List.of("빈티지")
         );
-        when(userService.getUserById(10L)).thenReturn(guest);
+        when(userService.getUserByIdForUpdate(10L)).thenReturn(guest);
         when(userService.updateNameAndProfileImage(guest, "user01", "profiles/10/profile.png"))
                 .thenAnswer(invocation -> {
                     guest.updateNameAndProfileImage("user01", "profiles/10/profile.png");
@@ -117,6 +147,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.signup(guest, request))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(guest.getRole()).isEqualTo(Role.ROLE_GUEST);
+        verify(creditService, never()).addCredits(guest, CreditPolicy.SIGNUP_BONUS_BALLS, CreditTransactionType.SIGNUP_BONUS);
     }
 
     @Test
@@ -132,7 +163,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.signup(guest, request))
                 .isInstanceOf(InvalidNicknameException.class);
 
-        verifyNoInteractions(userService, interestService, imageService);
+        verifyNoInteractions(userService, interestService, imageService, creditService);
         assertThat(guest.getRole()).isEqualTo(Role.ROLE_GUEST);
     }
 

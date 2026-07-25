@@ -2,6 +2,7 @@ package com.ufo.ufo.domain.credit.application;
 
 import java.lang.reflect.Field;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.groups.Tuple.tuple;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,6 +13,7 @@ import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
 import com.ufo.ufo.domain.credit.dto.response.CreditRulesResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditTransactionsResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditWalletResponse;
+import com.ufo.ufo.domain.credit.policy.CreditPolicy;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
@@ -93,7 +95,14 @@ class CreditServiceTest {
         CreditRulesResponse response = creditService.getRules();
 
         assertThat(response.dailyMaxEarnCredits()).isEqualTo(20);
-        assertThat(response.earnRules()).isNotEmpty();
+        assertThat(response.earnRules())
+                .extracting(CreditRulesResponse.Rule::key, CreditRulesResponse.Rule::amount,
+                        CreditRulesResponse.Rule::dailyLimitExempt)
+                .contains(
+                        tuple("SIGNUP_BONUS", 50, true),
+                        tuple("ATTENDANCE_DAILY", 10, false),
+                        tuple("REFERRAL_BONUS", 150, true)
+                );
         assertThat(response.spendRules()).isNotEmpty();
     }
 
@@ -148,6 +157,22 @@ class CreditServiceTest {
         verify(creditTransactionRepository).save(captor.capture());
         assertThat(captor.getValue().getAmount()).isEqualTo(1);
         assertThat(captor.getValue().getType()).isEqualTo(CreditTransactionType.STYLE_POST);
+    }
+
+    @Test
+    @DisplayName("회원가입 보상은 일일 획득 제한과 무관하게 전체 금액을 지급해야 한다")
+    void addCredits_WithSignupBonus_IgnoresDailyLimit() {
+        User requestUser = UserFixture.createUserWithId(1L);
+        User loginUser = UserFixture.createUserWithId(1L);
+        when(userService.getUserById(1L)).thenReturn(loginUser);
+
+        creditService.addCredits(requestUser, CreditPolicy.SIGNUP_BONUS_BALLS, CreditTransactionType.SIGNUP_BONUS);
+
+        assertThat(loginUser.getBallBalance()).isEqualTo(CreditPolicy.SIGNUP_BONUS_BALLS);
+        ArgumentCaptor<CreditTransaction> captor = ArgumentCaptor.forClass(CreditTransaction.class);
+        verify(creditTransactionRepository).save(captor.capture());
+        assertThat(captor.getValue().getAmount()).isEqualTo(CreditPolicy.SIGNUP_BONUS_BALLS);
+        assertThat(captor.getValue().getType()).isEqualTo(CreditTransactionType.SIGNUP_BONUS);
     }
 
     private void setTransactionId(CreditTransaction transaction, Long id) {

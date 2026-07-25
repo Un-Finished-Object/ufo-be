@@ -51,7 +51,7 @@ class AttendanceServiceTest {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
         LocalDate today = LocalDate.now();
-        when(userService.getUserById(1L)).thenReturn(loginUser);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(loginUser);
         when(attendanceCheckRepository.findByUser_IdAndAttendanceDate(1L, today)).thenReturn(Optional.empty());
         doAnswer(invocation -> {
             User target = invocation.getArgument(0);
@@ -68,6 +68,7 @@ class AttendanceServiceTest {
         assertThat(response.balance()).isEqualTo(CreditPolicy.ATTENDANCE_DAILY_BALLS);
         verify(attendanceCheckRepository).save(any(AttendanceCheck.class));
         verify(creditService).addCredits(loginUser, CreditPolicy.ATTENDANCE_DAILY_BALLS, CreditTransactionType.ATTENDANCE_DAILY);
+        verify(userService).getUserByIdForUpdate(1L);
     }
 
     @Test
@@ -77,7 +78,7 @@ class AttendanceServiceTest {
         User loginUser = UserFixture.createUserWithId(1L);
         LocalDate today = LocalDate.now();
         AttendanceCheck existing = AttendanceCheck.builder().user(loginUser).attendanceDate(today).build();
-        when(userService.getUserById(1L)).thenReturn(loginUser);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(loginUser);
         when(attendanceCheckRepository.findByUser_IdAndAttendanceDate(1L, today)).thenReturn(Optional.of(existing));
 
         AttendanceCheckResponse response = attendanceService.check(requestUser);
@@ -88,6 +89,7 @@ class AttendanceServiceTest {
         assertThat(response.balance()).isEqualTo(0);
         verify(attendanceCheckRepository, never()).save(any(AttendanceCheck.class));
         verify(creditService, never()).addCredits(any(), any(Integer.class), any());
+        verify(userService).getUserByIdForUpdate(1L);
     }
 
     @Test
