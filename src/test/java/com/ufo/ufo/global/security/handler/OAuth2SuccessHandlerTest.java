@@ -50,7 +50,7 @@ class OAuth2SuccessHandlerTest {
         OAuthRedirectProperties properties = new OAuthRedirectProperties(
                 "https://ufo.example.com",
                 "https://ufo.example.com/auth/signup",
-                "dashboard",
+                "https://ufo.example.com/admin/dashboard",
                 ".ufo.example.com"
         );
         successHandler = new OAuth2SuccessHandler(jwtTokenProvider, oAuthCookieManager, properties);
@@ -84,7 +84,7 @@ class OAuth2SuccessHandlerTest {
 
         successHandler.onAuthenticationSuccess(request, response, authentication);
 
-        verify(redirectStrategy).sendRedirect(request, response, "/admin/dashboard");
+        verify(redirectStrategy).sendRedirect(request, response, "https://ufo.example.com/admin/dashboard");
     }
 
     private void stubAuthentication(Role role) {
