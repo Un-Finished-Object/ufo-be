@@ -42,6 +42,11 @@ public class UserService {
                 .orElseThrow(UserNotFoundException::new);
     }
 
+    public User getUserByIdForUpdate(Long userId) {
+        return userRepository.findByIdForUpdate(userId)
+                .orElseThrow(UserNotFoundException::new);
+    }
+
     public NicknameExistsResponse checkNicknameExists(String nickname) {
         String normalizedNickname = NicknamePolicy.normalizeAndValidate(nickname);
         return NicknameExistsResponse.from(userRepository.existsByNickname(normalizedNickname));

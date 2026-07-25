@@ -1,16 +1,14 @@
 package com.ufo.ufo.domain.credit.domain;
 
 public enum CreditTransactionType {
+    SIGNUP_BONUS,
     ATTENDANCE_DAILY,
     STYLE_POST,
-    COMMENT_WRITE,
-    CHATROOM_COLLECTION,
     REFERRAL_BONUS,
     CHATROOM_ENTRY,
-    ALT_YARN_VIEW,
-    BUNDLE_PURCHASE;
+    ALT_YARN_VIEW;
 
     public boolean isDailyLimitExempt() {
-        return this == REFERRAL_BONUS;
+        return this == SIGNUP_BONUS || this == REFERRAL_BONUS;
     }
 }
