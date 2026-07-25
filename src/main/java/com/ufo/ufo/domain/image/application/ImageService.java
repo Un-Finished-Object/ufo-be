@@ -86,7 +86,6 @@ public class ImageService {
                 .bucket(imageProperties.s3().bucket())
                 .key(key)
                 .contentType(fileInfo.contentType())
-                .contentLength(fileInfo.contentLength())
                 .tagging(issuedUploadTaggingHeaderValue())
                 .build();
 
@@ -101,7 +100,7 @@ public class ImageService {
                 presignedRequest.url().toString(),
                 key,
                 buildImageUrl(key),
-                buildUploadHeaders(fileInfo.contentType(), fileInfo.contentLength())
+                buildUploadHeaders(fileInfo.contentType())
         );
     }
 
@@ -211,10 +210,9 @@ public class ImageService {
         }
     }
 
-    private Map<String, String> buildUploadHeaders(String contentType, long contentLength) {
+    private Map<String, String> buildUploadHeaders(String contentType) {
         return Map.of(
                 HttpHeaders.CONTENT_TYPE, contentType,
-                HttpHeaders.CONTENT_LENGTH, String.valueOf(contentLength),
                 S3_TAGGING_HEADER, issuedUploadTaggingHeaderValue()
         );
     }
