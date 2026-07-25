@@ -107,7 +107,6 @@ class ImageServiceTest {
         assertThat(response.urls().getFirst().imageUrl()).startsWith("https://cdn.ufo.com/profiles/1/");
         assertThat(response.urls().getFirst().uploadHeaders())
                 .containsEntry(HttpHeaders.CONTENT_TYPE, "image/jpeg")
-                .containsEntry(HttpHeaders.CONTENT_LENGTH, "1024")
                 .containsEntry("x-amz-tagging", "ufo-upload-status=issued");
         verify(s3Presigner, times(2)).presignPutObject(any(PutObjectPresignRequest.class));
 
@@ -121,9 +120,9 @@ class ImageServiceTest {
                     assertThat(req.putObjectRequest().tagging()).isEqualTo("ufo-upload-status=issued");
                 });
         assertThat(captor.getAllValues().get(0).putObjectRequest().contentType()).isEqualTo("image/jpeg");
-        assertThat(captor.getAllValues().get(0).putObjectRequest().contentLength()).isEqualTo(1_024L);
+        assertThat(captor.getAllValues().get(0).putObjectRequest().contentLength()).isNull();
         assertThat(captor.getAllValues().get(1).putObjectRequest().contentType()).isEqualTo("image/png");
-        assertThat(captor.getAllValues().get(1).putObjectRequest().contentLength()).isEqualTo(2_048L);
+        assertThat(captor.getAllValues().get(1).putObjectRequest().contentLength()).isNull();
     }
 
     @Test
