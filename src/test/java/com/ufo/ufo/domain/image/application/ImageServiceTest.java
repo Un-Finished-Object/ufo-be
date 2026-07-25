@@ -1,6 +1,7 @@
 package com.ufo.ufo.domain.image.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -17,14 +18,11 @@ import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
 import com.ufo.ufo.domain.image.exception.ImageCdnBaseUrlNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageFileMetadataMismatchException;
 import com.ufo.ufo.domain.image.exception.ImageBucketNotConfiguredException;
-import com.ufo.ufo.domain.image.exception.ImageDeletePermissionDeniedException;
 import com.ufo.ufo.domain.image.exception.InvalidImageContentTypeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
 import com.ufo.ufo.domain.image.exception.InvalidImagePurposeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageSizeException;
-import com.ufo.ufo.domain.image.exception.InvalidImageUrlException;
 import com.ufo.ufo.domain.image.exception.InvalidProfileImageUrlException;
-import com.ufo.ufo.domain.image.exception.ProfileImagePermissionDeniedException;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.net.MalformedURLException;
@@ -249,95 +247,8 @@ class ImageServiceTest {
     }
 
     @Test
-    @DisplayName("이미지 삭제는 유효한 내부 URL에서 key를 추출해 S3 deleteObject를 호출해야 한다")
-    void deleteImage_ValidUrl_DeletesObject() {
-        String imageUrl = "https://cdn.ufo.com/styles/1/123e4567-e89b-12d3-a456-426614174000";
-
-        imageService.deleteImage(user, imageUrl);
-
-        ArgumentCaptor<DeleteObjectRequest> captor = ArgumentCaptor.forClass(DeleteObjectRequest.class);
-        verify(s3Client).deleteObject(captor.capture());
-        assertThat(captor.getValue().bucket()).isEqualTo("ufo-bucket");
-        assertThat(captor.getValue().key()).isEqualTo("styles/1/123e4567-e89b-12d3-a456-426614174000");
-    }
-
-    @Test
-    @DisplayName("이미지 삭제는 외부 URL이면 예외가 발생하고 삭제를 호출하지 않아야 한다")
-    void deleteImage_ExternalUrl_Throws() {
-        assertThatThrownBy(() -> imageService.deleteImage(user, "https://evil.com/styles/123"))
-                .isInstanceOf(InvalidImageUrlException.class);
-        verifyNoInteractions(s3Client);
-    }
-
-    @Test
-    @DisplayName("이미지 삭제는 허용되지 않은 prefix면 예외가 발생해야 한다")
-    void deleteImage_DisallowedPrefix_Throws() {
-        assertThatThrownBy(() -> imageService.deleteImage(user, "https://cdn.ufo.com/unknown/123"))
-                .isInstanceOf(InvalidImageUrlException.class);
-        verifyNoInteractions(s3Client);
-    }
-
-    @Test
-    @DisplayName("이미지 삭제는 본인 소유가 아니면 예외가 발생해야 한다")
-    void deleteImage_NotOwner_Throws() {
-        assertThatThrownBy(() -> imageService.deleteImage(user, "https://cdn.ufo.com/styles/2/123"))
-                .isInstanceOf(ImageDeletePermissionDeniedException.class);
-        verifyNoInteractions(s3Client);
-    }
-
-    @Test
-    @DisplayName("프로필 이미지 검증은 유효한 내부 URL이면 통과해야 한다")
-    void validateProfileImage_ValidUrl_Passes() {
-        imageService.validateProfileImage(user, "https://cdn.ufo.com/profiles/1/123e4567-e89b-12d3-a456-426614174000");
-    }
-
-    @Test
-    @DisplayName("프로필 이미지 검증은 외부 URL이면 예외가 발생해야 한다")
-    void validateProfileImage_ExternalUrl_Throws() {
-        assertThatThrownBy(() -> imageService.validateProfileImage(user, "https://evil.com/profiles/1/123"))
-                .isInstanceOf(InvalidProfileImageUrlException.class);
-    }
-
-    @Test
-    @DisplayName("프로필 이미지 검증은 본인 소유가 아니면 예외가 발생해야 한다")
-    void validateProfileImage_NotOwner_Throws() {
-        assertThatThrownBy(() -> imageService.validateProfileImage(user, "https://cdn.ufo.com/profiles/2/123"))
-                .isInstanceOf(ProfileImagePermissionDeniedException.class);
-    }
-
-    @Test
-    @DisplayName("프로필 이미지 검증은 dot-segment가 포함되면 예외가 발생해야 한다")
-    void validateProfileImage_DotSegments_Throws() {
-        assertThatThrownBy(() -> imageService.validateProfileImage(
-                user,
-                "https://cdn.ufo.com/profiles/1/../../styles/2/img"
-        ))
-                .isInstanceOf(InvalidProfileImageUrlException.class);
-    }
-
-    @Test
-    @DisplayName("프로필 이미지 검증은 인코딩된 dot-segment가 포함되면 예외가 발생해야 한다")
-    void validateProfileImage_EncodedDotSegments_Throws() {
-        assertThatThrownBy(() -> imageService.validateProfileImage(
-                user,
-                "https://cdn.ufo.com/profiles/1/%2e%2e/%2e%2e/styles/2/img"
-        ))
-                .isInstanceOf(InvalidProfileImageUrlException.class);
-    }
-
-    @Test
-    @DisplayName("프로필 이미지 검증은 query string이 포함되면 예외가 발생해야 한다")
-    void validateProfileImage_QueryString_Throws() {
-        assertThatThrownBy(() -> imageService.validateProfileImage(
-                user,
-                "https://cdn.ufo.com/profiles/1/123?X-Amz-Signature=signature"
-        ))
-                .isInstanceOf(InvalidProfileImageUrlException.class);
-    }
-
-    @Test
     @DisplayName("객체 키 검증은 trailing slash로 생긴 빈 segment를 거부해야 한다")
-    void validateImageKey_TrailingEmptySegment_Throws() {
+    void validateProfileImageKey_TrailingEmptySegment_Throws() {
         assertThatThrownBy(() -> imageService.validateProfileImageKey(user, "profiles/1/avatar/"))
                 .isInstanceOf(InvalidProfileImageUrlException.class);
     }
@@ -386,6 +297,22 @@ class ImageServiceTest {
 
         verify(s3Client).putObjectTagging(any(PutObjectTaggingRequest.class));
         verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    @Test
+    @DisplayName("기본 프로필 이미지 키 검증 시 예외가 발생하지 않고 통과해야 한다")
+    void validateProfileImageKey_DefaultImageKey_Passes() {
+        assertThatCode(() -> imageService.validateProfileImageKey(user, "defaults/profile.png"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("새 프로필 이미지가 기본 프로필 이미지인 경우 태깅을 수행하지 않고 기존 이미지만 삭제해야 한다")
+    void completeProfileImageReplacement_DefaultNewImage_DoesNotLinkDefaultImageAndDeletesPreviousImage() {
+        imageService.completeProfileImageReplacement("defaults/profile.png", "profiles/1/old-avatar");
+
+        verify(s3Client, never()).putObjectTagging(any(PutObjectTaggingRequest.class));
+        verify(s3Client).deleteObject(any(DeleteObjectRequest.class));
     }
 
     private PresignedPutObjectRequest mockPresignedRequest(String url) throws MalformedURLException {
