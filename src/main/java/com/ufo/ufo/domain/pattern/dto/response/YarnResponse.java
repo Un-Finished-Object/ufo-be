@@ -10,7 +10,8 @@ public record YarnResponse(
         Integer cost,
         String component,
         String store,
-        Integer length
+        Integer length,
+        Boolean isCalculatedLength
 ) {
     public static YarnResponse from(Yarn yarn) {
         return new YarnResponse(
@@ -21,7 +22,8 @@ public record YarnResponse(
                 yarn.getPrice() == null ? 0 : yarn.getPrice(),
                 yarn.getSubComponent() == null ? "" : yarn.getSubComponent(),
                 yarn.getVendor() == null ? "" : yarn.getVendor(),
-                yarn.getLength() == null ? 0 : yarn.getLength()
+                yarn.getLength() == null ? 0 : yarn.getLength(),
+                yarn.getIsCalculatedLength()
         );
     }
 }

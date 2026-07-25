@@ -14,6 +14,7 @@ public record PatternAlternativeResponse(
         String store,
         String thickness,
         Integer length,
+        Boolean isCalculatedLength,
         String username
 ) {
     public static PatternAlternativeResponse from(PatternAlternativeYarn alternative) {
@@ -29,6 +30,7 @@ public record PatternAlternativeResponse(
                 yarn.getVendor() == null ? "" : yarn.getVendor(),
                 yarn.getThickness() == null ? "" : yarn.getThickness(),
                 yarn.getLength() == null ? 0 : yarn.getLength(),
+                yarn.getIsCalculatedLength(),
                 alternative.getUser() == null ? "" : alternative.getUser().getNickname()
         );
     }
