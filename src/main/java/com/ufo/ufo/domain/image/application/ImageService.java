@@ -17,45 +17,59 @@ import com.ufo.ufo.domain.image.exception.InvalidImageSizeException;
 import com.ufo.ufo.domain.image.exception.InvalidProfileImageUrlException;
 import com.ufo.ufo.domain.image.exception.ProfileImagePermissionDeniedException;
 import com.ufo.ufo.domain.user.domain.User;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Deque;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 @Service
 @RequiredArgsConstructor
 public class ImageService {
     private static final ZoneId KST_ZONE_ID = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter KST_OFFSET_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+    private static final DateTimeFormatter UTC_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter UTC_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter ISO_EXPIRATION_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);
+
     private static final String UPLOAD_STATUS_TAG_KEY = "ufo-upload-status";
     private static final String UPLOAD_STATUS_ISSUED = "issued";
     private static final String UPLOAD_STATUS_LINKED = "linked";
     private static final String S3_TAGGING_HEADER = "x-amz-tagging";
+    private static final String AWS_ALGORITHM = "AWS4-HMAC-SHA256";
 
-    private final S3Presigner s3Presigner;
     private final S3Client s3Client;
+    private final AwsCredentialsProvider credentialsProvider;
     private final ImageProperties imageProperties;
+    private final ObjectMapper objectMapper;
 
     public ImagePresignedUrlIssueResponse issuePresignedUrls(User user, ImagePresignedUrlIssueRequest request) {
         validateBucketConfigured();
@@ -64,12 +78,13 @@ public class ImageService {
         ImagePurpose purpose = ImagePurpose.from(request.purpose());
         validateIssuePurpose(purpose);
         Duration signatureDuration = Duration.ofMinutes(imageProperties.s3().urlExpirationMinutes());
-        Instant expiresAt = Instant.now().plus(signatureDuration);
+        Instant now = Instant.now();
+        Instant expiresAt = now.plus(signatureDuration);
         List<String> allowedContentTypes = imageProperties.allowedContentTypes();
         Long ownerId = user.getId();
 
         List<UrlInfo> urls = request.files().stream()
-                .map(file -> generateUrlInfo(ownerId, purpose, signatureDuration, file))
+                .map(file -> generateUrlInfo(ownerId, purpose, now, signatureDuration, file))
                 .toList();
 
         return ImagePresignedUrlIssueResponse.from(
@@ -80,28 +95,155 @@ public class ImageService {
         );
     }
 
-    private UrlInfo generateUrlInfo(Long ownerId, ImagePurpose purpose, Duration signatureDuration, FileInfo fileInfo) {
+    private UrlInfo generateUrlInfo(Long ownerId, ImagePurpose purpose, Instant now, Duration signatureDuration, FileInfo fileInfo) {
         String key = generateObjectKey(ownerId, purpose);
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(imageProperties.s3().bucket())
-                .key(key)
-                .contentType(fileInfo.contentType())
-                .tagging(issuedUploadTaggingHeaderValue())
-                .build();
+        String contentType = fileInfo.contentType();
 
-        PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(
-                PutObjectPresignRequest.builder()
-                        .signatureDuration(signatureDuration)
-                        .putObjectRequest(putObjectRequest)
-                        .build()
-        );
+        String base64Policy = createBase64Policy(key, contentType, now, signatureDuration);
+        String signature = calculateSignature(base64Policy, now);
+        Map<String, String> uploadFields = buildUploadFields(key, contentType, now, base64Policy, signature);
 
         return UrlInfo.from(
-                presignedRequest.url().toString(),
+                buildS3EndpointUrl(),
                 key,
                 buildImageUrl(key),
-                buildUploadHeaders(fileInfo.contentType())
+                uploadFields
         );
+    }
+
+    private String createBase64Policy(String key, String contentType, Instant now, Duration signatureDuration) {
+        String bucket = imageProperties.s3().bucket();
+        String region = imageProperties.s3().region();
+        long maxBytes = imageProperties.maxBytes();
+
+        AwsCredentials credentials = credentialsProvider.resolveCredentials();
+        String credentialStr = buildCredentialString(credentials.accessKeyId(), formatUtcDate(now), region);
+        String expirationStr = formatIsoExpiration(now.plus(signatureDuration));
+        String taggingValue = issuedUploadTaggingHeaderValue();
+        String sessionToken = (credentials instanceof AwsSessionCredentials sessionCredentials) ? sessionCredentials.sessionToken() : null;
+
+        Map<String, Object> policyMap = Map.of(
+                "expiration", expirationStr,
+                "conditions", buildPolicyConditions(bucket, key, contentType, taggingValue, credentialStr, formatUtcDateTime(now), sessionToken, maxBytes)
+        );
+
+        return Base64.getEncoder().encodeToString(serializeJson(policyMap).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private List<Object> buildPolicyConditions(String bucket, String key, String contentType, String taggingValue, String credentialStr, String dateTimeStr, String sessionToken, long maxBytes) {
+        return Stream.of(
+                condition("bucket", bucket),
+                condition("key", key),
+                condition("Content-Type", contentType),
+                condition(S3_TAGGING_HEADER, taggingValue),
+                rangeCondition("content-length-range", 1, maxBytes),
+                condition("x-amz-algorithm", AWS_ALGORITHM),
+                condition("x-amz-credential", credentialStr),
+                condition("x-amz-date", dateTimeStr),
+                isNotEmpty(sessionToken) ? condition("x-amz-security-token", sessionToken) : null
+        )
+        .filter(Objects::nonNull)
+        .toList();
+    }
+
+    private Map<String, String> condition(String key, String value) {
+        return Map.of(key, value);
+    }
+
+    private List<Object> rangeCondition(String name, long min, long max) {
+        return List.of(name, min, max);
+    }
+
+    private String calculateSignature(String base64Policy, Instant now) {
+        AwsCredentials credentials = credentialsProvider.resolveCredentials();
+        String dateStr = formatUtcDate(now);
+        String region = imageProperties.s3().region();
+
+        byte[] kDate = hmacSha256(("AWS4" + credentials.secretAccessKey()).getBytes(StandardCharsets.UTF_8), dateStr);
+        byte[] kRegion = hmacSha256(kDate, region);
+        byte[] kService = hmacSha256(kRegion, "s3");
+        byte[] kSigning = hmacSha256(kService, "aws4_request");
+        byte[] signatureBytes = hmacSha256(kSigning, base64Policy);
+
+        return bytesToHex(signatureBytes);
+    }
+
+    private Map<String, String> buildUploadFields(String key, String contentType, Instant now, String base64Policy, String signature) {
+        AwsCredentials credentials = credentialsProvider.resolveCredentials();
+        String region = imageProperties.s3().region();
+        String dateStr = formatUtcDate(now);
+        String dateTimeStr = formatUtcDateTime(now);
+        String credentialStr = buildCredentialString(credentials.accessKeyId(), dateStr, region);
+
+        Map<String, String> uploadFields = new LinkedHashMap<>();
+        uploadFields.put("key", key);
+        uploadFields.put(HttpHeaders.CONTENT_TYPE, contentType);
+        uploadFields.put(S3_TAGGING_HEADER, issuedUploadTaggingHeaderValue());
+        uploadFields.put("x-amz-algorithm", AWS_ALGORITHM);
+        uploadFields.put("x-amz-credential", credentialStr);
+        uploadFields.put("x-amz-date", dateTimeStr);
+
+        if (credentials instanceof AwsSessionCredentials sessionCredentials && isNotEmpty(sessionCredentials.sessionToken())) {
+            uploadFields.put("x-amz-security-token", sessionCredentials.sessionToken());
+        }
+
+        uploadFields.put("policy", base64Policy);
+        uploadFields.put("x-amz-signature", signature);
+        return uploadFields;
+    }
+
+    private String buildCredentialString(String accessKeyId, String dateStr, String region) {
+        return accessKeyId + "/" + dateStr + "/" + region + "/s3/aws4_request";
+    }
+
+    private String serializeJson(Object object) {
+        try {
+            return objectMapper.writeValueAsString(object);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize object to JSON", e);
+        }
+    }
+
+    private boolean isNotEmpty(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private String formatUtcDate(Instant instant) {
+        return UTC_DATE_FORMATTER.format(instant);
+    }
+
+    private String formatUtcDateTime(Instant instant) {
+        return UTC_DATETIME_FORMATTER.format(instant);
+    }
+
+    private String formatIsoExpiration(Instant instant) {
+        return ISO_EXPIRATION_FORMATTER.format(instant);
+    }
+
+    private String buildS3EndpointUrl() {
+        String publicBaseUrl = imageProperties.s3().publicBaseUrl();
+        if (publicBaseUrl != null && !publicBaseUrl.isBlank()) {
+            return publicBaseUrl;
+        }
+        return "https://" + imageProperties.s3().bucket() + ".s3." + imageProperties.s3().region() + ".amazonaws.com";
+    }
+
+    private byte[] hmacSha256(byte[] key, String data) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key, "HmacSHA256"));
+            return mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to calculate HMAC-SHA256", e);
+        }
+    }
+
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     private String generateObjectKey(Long ownerId, ImagePurpose purpose) {
@@ -279,6 +421,9 @@ public class ImageService {
     }
 
     private void deleteObject(String key) {
+        if (isDefaultProfileImageKey(key)) {
+            return;
+        }
         validatePrefix(key, ImagePurpose.PROFILE);
         s3Client.deleteObject(DeleteObjectRequest.builder()
                 .bucket(imageProperties.s3().bucket())
