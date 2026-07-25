@@ -98,7 +98,7 @@ set +a
 | --- | --- |
 | Database | Spring datasource 연결 정보 |
 | Authentication | JWT 설정, OAuth2 provider client 설정 |
-| OAuth redirect | `OAUTH_REDIRECT_URL`, `OAUTH_SIGNUP_REDIRECT_URL`, `ADMIN_PAGE`, `OAUTH_COOKIE_DOMAIN` |
+| OAuth redirect | `OAUTH_REDIRECT_URL`, `OAUTH_SIGNUP_REDIRECT_URL`, `OAUTH_ADMIN_REDIRECT_URL`, `OAUTH_COOKIE_DOMAIN` |
 | CORS | `DOMAIN_URL` |
 | Image/S3 | `CDN_BASE_URL`, `S3_IMAGE_BUCKET`, `S3_REGION`, `S3_PUBLIC_BASE_URL`, `DEFAULT_PROFILE_IMAGE_KEY` |
 | Referral | `REFERRAL_HMAC_SECRET` |
