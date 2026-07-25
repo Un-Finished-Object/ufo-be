@@ -44,6 +44,7 @@ class YarnQueryServiceTest {
         assertThat(response.component()).isEqualTo("wool 80%, nylon 20%");
         assertThat(response.store()).isEqualTo("oldV");
         assertThat(response.length()).isEqualTo(120);
+        assertThat(response.isCalculatedLength()).isFalse();
     }
 
     @Test

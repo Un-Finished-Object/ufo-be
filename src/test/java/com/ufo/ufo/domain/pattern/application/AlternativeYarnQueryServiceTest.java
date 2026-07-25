@@ -77,7 +77,9 @@ class AlternativeYarnQueryServiceTest {
         YarnAlternativesResponse response = alternativeYarnQueryService.getAlternatives(user, 20L);
 
         assertThat(response.firstYarn()).extracting(YarnAlternativesResponse.Item::altId).containsExactly(30L);
+        assertThat(response.firstYarn()).extracting(YarnAlternativesResponse.Item::isCalculatedLength).containsExactly(false);
         assertThat(response.secondYarn()).extracting(YarnAlternativesResponse.Item::altId).containsExactly(31L);
+        assertThat(response.secondYarn()).extracting(YarnAlternativesResponse.Item::isCalculatedLength).containsExactly(false);
         assertThat(response.subYarn()).isEmpty();
         verify(yarnAlternativeRepository).findAllByOriginalYarnId(11L);
         verify(yarnAlternativeRepository).findAllByOriginalYarnId(12L);

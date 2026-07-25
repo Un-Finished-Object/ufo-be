@@ -51,6 +51,9 @@ public class Yarn extends BaseEntity {
     @Column(name = "thickness")
     private String thickness;
 
+    @Column(name = "is_calculated_length")
+    private Boolean isCalculatedLength;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -61,6 +64,7 @@ public class Yarn extends BaseEntity {
             Integer price,
             Integer weightG,
             Integer length,
+            Boolean isCalculatedLength,
             String mainComponent,
             String subComponent,
             String thickness
@@ -70,6 +74,7 @@ public class Yarn extends BaseEntity {
         this.price = (price == null) ? 0 : price;
         this.weightG = weightG;
         this.length = length;
+        this.isCalculatedLength = isCalculatedLength;
         this.mainComponent = mainComponent;
         this.subComponent = subComponent;
         this.thickness = thickness;
