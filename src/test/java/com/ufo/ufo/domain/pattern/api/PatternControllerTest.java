@@ -259,6 +259,7 @@ class PatternControllerTest {
                 "s",
                 "2",
                 180,
+                false,
                 "admin"
         );
     }

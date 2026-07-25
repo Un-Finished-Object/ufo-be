@@ -40,7 +40,8 @@ class YarnControllerTest {
                 17000,
                 "알파카 90%, 나일론 10%",
                 "솜솜뜨개",
-                180
+                180,
+                true
         );
         when(yarnQueryService.getYarnDetail(1L)).thenReturn(serviceResponse);
 
@@ -50,6 +51,7 @@ class YarnControllerTest {
         assertThat(response.getBody().data().yarnId()).isEqualTo(1L);
         assertThat(response.getBody().data().yarnName()).isEqualTo("앨모");
         assertThat(response.getBody().data().component()).isEqualTo("알파카 90%, 나일론 10%");
+        assertThat(response.getBody().data().isCalculatedLength()).isTrue();
         verify(yarnQueryService).getYarnDetail(1L);
     }
 }

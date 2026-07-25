@@ -18,6 +18,7 @@ public final class YarnFixture {
                 .vendor("oldV")
                 .price(1000)
                 .length(120)
+                .isCalculatedLength(false)
                 .thickness("oldT")
                 .build();
     }
@@ -43,16 +44,6 @@ public final class YarnFixture {
             Field plyField = Yarn.class.getDeclaredField("ply");
             plyField.setAccessible(true);
             plyField.set(yarn, ply);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    public static void setDeletedAt(Yarn yarn, LocalDateTime deletedAt) {
-        try {
-            Field deletedAtField = Yarn.class.getDeclaredField("deletedAt");
-            deletedAtField.setAccessible(true);
-            deletedAtField.set(yarn, deletedAt);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }
