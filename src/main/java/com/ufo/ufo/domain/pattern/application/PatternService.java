@@ -83,10 +83,8 @@ public class PatternService {
         return PatternListResponse.from(result.stream().map(pattern -> toListItemResponse(pattern, user)).toList(), pageNumber, nextPage);
     }
 
-    @Transactional
     public PatternDetailResponse getPatternDetail(User user, Long patternId) {
         Pattern pattern = findPatternDetail(patternId);
-        pattern.increaseViewCount();
         boolean isScrapped = isScrapped(user, patternId);
         List<String> images = resolvePatternImages(patternId, pattern.getThumbnailUrl());
         return PatternDetailResponse.from(pattern, images, isScrapped);
