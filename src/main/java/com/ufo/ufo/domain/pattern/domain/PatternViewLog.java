@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDate;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -19,7 +20,15 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@Table(name = "pattern_view_logs")
+@Table(
+        name = "pattern_view_logs",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_pattern_user_date",
+                        columnNames = {"pattern_id", "user_id", "viewed_date"}
+                )
+        }
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PatternViewLog extends BaseEntity {
 
