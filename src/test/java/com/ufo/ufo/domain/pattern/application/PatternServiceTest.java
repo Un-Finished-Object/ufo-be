@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,7 @@ import com.ufo.ufo.domain.interest.dao.UserInterestRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
+import com.ufo.ufo.domain.pattern.dao.PatternViewLogRepository;
 import com.ufo.ufo.domain.pattern.dao.YarnRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
@@ -24,7 +26,9 @@ import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternDetailResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
+import com.ufo.ufo.domain.pattern.dto.response.PatternViewCountResponse;
 import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
+import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.exception.ApiException;
 import com.ufo.ufo.global.security.types.Role;
@@ -33,6 +37,7 @@ import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserInterestFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import com.ufo.ufo.support.fixture.YarnFixture;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,6 +75,9 @@ class PatternServiceTest {
 
     @Mock
     private ImageService imageService;
+
+    @Mock
+    private PatternViewLogRepository patternViewLogRepository;
 
     @InjectMocks
     private PatternService patternService;
@@ -572,5 +580,45 @@ class PatternServiceTest {
         assertThat(response.items().getFirst().id()).isEqualTo(22L);
         verify(patternRepository).findRecommendedByInterestNumbersWithFit(List.of(5), List.of(5));
         verify(patternRepository).findRecommended();
+    }
+
+    @Test
+    @DisplayName("조회수 증가는 첫 조회 시 조회수를 1 증가시키고 로그를 저장해야 한다")
+    void increaseViewCount_FirstView_IncreasesAndSavesLog() {
+        User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(2L);
+        when(patternRepository.findById(2L)).thenReturn(Optional.of(pattern));
+        when(patternViewLogRepository.existsByPattern_IdAndUser_IdAndViewedDate(eq(2L), eq(1L), any(LocalDate.class)))
+                .thenReturn(false);
+
+        PatternViewCountResponse response = patternService.increaseViewCount(user, 2L);
+
+        assertThat(response.viewCount()).isEqualTo(1);
+        verify(patternViewLogRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("조회수 증가는 동일 사용자가 같은 날 재조회 시 조회수를 증가시키지 않아야 한다")
+    void increaseViewCount_DuplicateView_DoesNotIncrease() {
+        User user = UserFixture.createUserWithId(1L);
+        Pattern pattern = PatternFixture.createPatternWithId(2L);
+        when(patternRepository.findById(2L)).thenReturn(Optional.of(pattern));
+        when(patternViewLogRepository.existsByPattern_IdAndUser_IdAndViewedDate(eq(2L), eq(1L), any(LocalDate.class)))
+                .thenReturn(true);
+
+        PatternViewCountResponse response = patternService.increaseViewCount(user, 2L);
+
+        assertThat(response.viewCount()).isEqualTo(0);
+        verify(patternViewLogRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("조회수 증가는 존재하지 않는 도안이면 예외가 발생해야 한다")
+    void increaseViewCount_PatternNotFound_ThrowsException() {
+        User user = UserFixture.createUserWithId(1L);
+        when(patternRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> patternService.increaseViewCount(user, 999L))
+                .isInstanceOf(PatternNotFoundException.class);
     }
 }
