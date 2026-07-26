@@ -98,10 +98,11 @@ public class ImageService {
     private UrlInfo generateUrlInfo(Long ownerId, ImagePurpose purpose, Instant now, Duration signatureDuration, FileInfo fileInfo) {
         String key = generateObjectKey(ownerId, purpose);
         String contentType = fileInfo.contentType();
+        AwsCredentials credentials = credentialsProvider.resolveCredentials();
 
-        String base64Policy = createBase64Policy(key, contentType, now, signatureDuration);
-        String signature = calculateSignature(base64Policy, now);
-        Map<String, String> uploadFields = buildUploadFields(key, contentType, now, base64Policy, signature);
+        String base64Policy = createBase64Policy(credentials, key, contentType, now, signatureDuration);
+        String signature = calculateSignature(credentials, base64Policy, now);
+        Map<String, String> uploadFields = buildUploadFields(credentials, key, contentType, now, base64Policy, signature);
 
         return UrlInfo.from(
                 buildS3EndpointUrl(),
@@ -111,12 +112,11 @@ public class ImageService {
         );
     }
 
-    private String createBase64Policy(String key, String contentType, Instant now, Duration signatureDuration) {
+    private String createBase64Policy(AwsCredentials credentials, String key, String contentType, Instant now, Duration signatureDuration) {
         String bucket = imageProperties.s3().bucket();
         String region = imageProperties.s3().region();
         long maxBytes = imageProperties.maxBytes();
 
-        AwsCredentials credentials = credentialsProvider.resolveCredentials();
         String credentialStr = buildCredentialString(credentials.accessKeyId(), formatUtcDate(now), region);
         String expirationStr = formatIsoExpiration(now.plus(signatureDuration));
         String taggingValue = issuedUploadTaggingHeaderValue();
@@ -154,8 +154,7 @@ public class ImageService {
         return List.of(name, min, max);
     }
 
-    private String calculateSignature(String base64Policy, Instant now) {
-        AwsCredentials credentials = credentialsProvider.resolveCredentials();
+    private String calculateSignature(AwsCredentials credentials, String base64Policy, Instant now) {
         String dateStr = formatUtcDate(now);
         String region = imageProperties.s3().region();
 
@@ -168,8 +167,7 @@ public class ImageService {
         return bytesToHex(signatureBytes);
     }
 
-    private Map<String, String> buildUploadFields(String key, String contentType, Instant now, String base64Policy, String signature) {
-        AwsCredentials credentials = credentialsProvider.resolveCredentials();
+    private Map<String, String> buildUploadFields(AwsCredentials credentials, String key, String contentType, Instant now, String base64Policy, String signature) {
         String region = imageProperties.s3().region();
         String dateStr = formatUtcDate(now);
         String dateTimeStr = formatUtcDateTime(now);
