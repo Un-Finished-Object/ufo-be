@@ -29,6 +29,7 @@ import com.ufo.ufo.domain.pattern.exception.PatternAlternativePermissionDeniedEx
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryNotAllowedException;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.global.exception.UnauthorizedUserException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -97,6 +98,7 @@ public class PatternService {
 
     @Transactional
     public PatternViewCountResponse increaseViewCount(User user, Long patternId) {
+        validateLoginUser(user);
         Pattern pattern = findActivePattern(patternId);
         LocalDate today = LocalDate.now();
 
@@ -153,6 +155,12 @@ public class PatternService {
     private Pattern findPatternDetail(Long patternId) {
         return patternRepository.findDetailById(patternId)
                 .orElseThrow(PatternNotFoundException::new);
+    }
+
+    private void validateLoginUser(User user) {
+        if (user == null || user.getId() == null) {
+            throw new UnauthorizedUserException();
+        }
     }
 
     private void validateAlternativePermission(User user) {
