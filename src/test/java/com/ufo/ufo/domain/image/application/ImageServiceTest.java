@@ -4,20 +4,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ufo.ufo.domain.image.config.ImageProperties;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest.FileInfo;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
+import com.ufo.ufo.domain.image.exception.ImageBucketNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageCdnBaseUrlNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageFileMetadataMismatchException;
-import com.ufo.ufo.domain.image.exception.ImageBucketNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.InvalidImageContentTypeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
 import com.ufo.ufo.domain.image.exception.InvalidImagePurposeException;
@@ -25,8 +24,8 @@ import com.ufo.ufo.domain.image.exception.InvalidImageSizeException;
 import com.ufo.ufo.domain.image.exception.InvalidProfileImageUrlException;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.UserFixture;
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,12 +35,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("이미지 서비스 테스트")
@@ -62,29 +60,25 @@ class ImageServiceTest {
     );
 
     @Mock
-    private S3Presigner s3Presigner;
+    private S3Client s3Client;
 
     @Mock
-    private S3Client s3Client;
+    private AwsCredentialsProvider credentialsProvider;
 
     private ImageService imageService;
     private User user;
 
     @BeforeEach
     void setUp() {
-        imageService = new ImageService(s3Presigner, s3Client, IMAGE_PROPERTIES);
+        lenient().when(credentialsProvider.resolveCredentials())
+                .thenReturn(AwsBasicCredentials.create("test-access-key", "test-secret-key"));
+        imageService = new ImageService(s3Client, credentialsProvider, IMAGE_PROPERTIES, new ObjectMapper());
         user = UserFixture.createUserWithId(1L);
     }
 
     @Test
-    @DisplayName("Presigned URL 발급은 요청 개수만큼 URL 목록과 정책 정보를 반환해야 한다")
-    void issuePresignedUrls_ReturnsUrlsAndPolicy() throws Exception {
-        PresignedPutObjectRequest first = mockPresignedRequest("https://s3.example.com/presigned-1");
-        PresignedPutObjectRequest second = mockPresignedRequest("https://s3.example.com/presigned-2");
-        when(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class)))
-                .thenReturn(first)
-                .thenReturn(second);
-
+    @DisplayName("Presigned URL 발급은 요청 개수만큼 Presigned POST Form 필드 정보와 정책 정보를 반환해야 한다")
+    void issuePresignedUrls_ReturnsUrlsAndPolicy() {
         ImagePresignedUrlIssueResponse response = imageService.issuePresignedUrls(
                 user,
                 new ImagePresignedUrlIssueRequest(
@@ -102,27 +96,22 @@ class ImageServiceTest {
         assertThat(response.maxBytes()).isEqualTo(10_485_760L);
         assertThat(response.expiresAt()).contains("+09:00");
         assertThat(response.urls()).hasSize(2);
-        assertThat(response.urls().getFirst().presignedUrl()).isEqualTo("https://s3.example.com/presigned-1");
-        assertThat(response.urls().getFirst().imageKey()).startsWith("profiles/1/");
-        assertThat(response.urls().getFirst().imageUrl()).startsWith("https://cdn.ufo.com/profiles/1/");
-        assertThat(response.urls().getFirst().uploadHeaders())
-                .containsEntry(HttpHeaders.CONTENT_TYPE, "image/jpeg")
-                .containsEntry("x-amz-tagging", "ufo-upload-status=issued");
-        verify(s3Presigner, times(2)).presignPutObject(any(PutObjectPresignRequest.class));
 
-        ArgumentCaptor<PutObjectPresignRequest> captor = ArgumentCaptor.forClass(PutObjectPresignRequest.class);
-        verify(s3Presigner, times(2)).presignPutObject(captor.capture());
-        assertThat(captor.getAllValues())
-                .allSatisfy(req -> {
-                    assertThat(req.signatureDuration().toMinutes()).isEqualTo(5L);
-                    assertThat(req.putObjectRequest().bucket()).isEqualTo("ufo-bucket");
-                    assertThat(req.putObjectRequest().key()).startsWith("profiles/1/");
-                    assertThat(req.putObjectRequest().tagging()).isEqualTo("ufo-upload-status=issued");
-                });
-        assertThat(captor.getAllValues().get(0).putObjectRequest().contentType()).isEqualTo("image/jpeg");
-        assertThat(captor.getAllValues().get(0).putObjectRequest().contentLength()).isEqualTo(1_024L);
-        assertThat(captor.getAllValues().get(1).putObjectRequest().contentType()).isEqualTo("image/png");
-        assertThat(captor.getAllValues().get(1).putObjectRequest().contentLength()).isEqualTo(2_048L);
+        var firstUrl = response.urls().getFirst();
+        assertThat(firstUrl.presignedUrl()).isEqualTo("https://s3-public.ufo.com");
+        assertThat(firstUrl.imageKey()).startsWith("profiles/1/");
+        assertThat(firstUrl.imageUrl()).startsWith("https://cdn.ufo.com/profiles/1/");
+        assertThat(firstUrl.uploadFields())
+                .containsEntry(HttpHeaders.CONTENT_TYPE, "image/jpeg")
+                .containsEntry("x-amz-tagging", "ufo-upload-status=issued")
+                .containsEntry("x-amz-algorithm", "AWS4-HMAC-SHA256")
+                .containsKey("policy")
+                .containsKey("x-amz-signature")
+                .containsKey("x-amz-credential");
+
+        String decodedPolicy = new String(Base64.getDecoder().decode(firstUrl.uploadFields().get("policy")), StandardCharsets.UTF_8);
+        assertThat(decodedPolicy).contains("\"content-length-range\",1,10485760");
+        assertThat(decodedPolicy).contains("\"bucket\":\"ufo-bucket\"");
     }
 
     @Test
@@ -136,7 +125,7 @@ class ImageServiceTest {
                 "defaults/profile.png",
                 new ImageProperties.S3("ufo-bucket", "ap-northeast-2", 5L, "https://s3-public.ufo.com")
         );
-        ImageService imageService = new ImageService(s3Presigner, s3Client, missingCdnProperties);
+        ImageService imageService = new ImageService(s3Client, credentialsProvider, missingCdnProperties, new ObjectMapper());
 
         assertThatThrownBy(() -> imageService.buildImageUrl("profiles/1/profile.png"))
                 .isInstanceOf(ImageCdnBaseUrlNotConfiguredException.class);
@@ -193,7 +182,6 @@ class ImageServiceTest {
                 new ImagePresignedUrlIssueRequest(1, "PATTERN", 10L, List.of(new FileInfo("image/jpeg", 1_024L)))
         ))
                 .isInstanceOf(InvalidImagePurposeException.class);
-        verifyNoInteractions(s3Presigner);
     }
 
     @Test
@@ -207,7 +195,7 @@ class ImageServiceTest {
                 "defaults/profile.png",
                 new ImageProperties.S3("", "ap-northeast-2", 5L, "https://s3-public.ufo.com")
         );
-        ImageService imageService = new ImageService(s3Presigner, s3Client, emptyBucketProperties);
+        ImageService imageService = new ImageService(s3Client, credentialsProvider, emptyBucketProperties, new ObjectMapper());
 
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
                 user,
@@ -313,11 +301,5 @@ class ImageServiceTest {
 
         verify(s3Client, never()).putObjectTagging(any(PutObjectTaggingRequest.class));
         verify(s3Client).deleteObject(any(DeleteObjectRequest.class));
-    }
-
-    private PresignedPutObjectRequest mockPresignedRequest(String url) throws MalformedURLException {
-        PresignedPutObjectRequest request = mock(PresignedPutObjectRequest.class);
-        when(request.url()).thenReturn(new URL(url));
-        return request;
     }
 }
