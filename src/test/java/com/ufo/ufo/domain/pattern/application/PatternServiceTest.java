@@ -31,6 +31,7 @@ import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.exception.ApiException;
+import com.ufo.ufo.global.exception.UnauthorizedUserException;
 import com.ufo.ufo.global.security.types.Role;
 import com.ufo.ufo.support.fixture.PatternAlternativeYarnFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
@@ -621,4 +622,12 @@ class PatternServiceTest {
         assertThatThrownBy(() -> patternService.increaseViewCount(user, 999L))
                 .isInstanceOf(PatternNotFoundException.class);
     }
+
+    @Test
+    @DisplayName("조회수 증가는 비로그인 사용자이면 예외가 발생해야 한다")
+    void increaseViewCount_AnonymousUser_ThrowsUnauthorizedException() {
+        assertThatThrownBy(() -> patternService.increaseViewCount(null, 1L))
+                .isInstanceOf(UnauthorizedUserException.class);
+    }
 }
+
