@@ -12,6 +12,7 @@ import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseStatusResponse;
+import com.ufo.ufo.domain.pattern.dto.response.PatternViewCountResponse;
 import com.ufo.ufo.domain.pattern.validation.ValidPatternCategory;
 import com.ufo.ufo.domain.pattern.validation.ValidPatternSort;
 import com.ufo.ufo.domain.pattern.validation.ValidPatternSubCategory;
@@ -86,6 +87,14 @@ public class PatternController {
             @PathVariable("patternId") Long patternId
     ) {
         return ResponseEntity.ok(ApiResponse.success(patternService.getPatternDetail(user, patternId)));
+    }
+
+    @PostMapping("/{patternId}/views")
+    public ResponseEntity<ApiResponse<PatternViewCountResponse>> increaseViewCount(
+            @LoginUser User user,
+            @PathVariable("patternId") Long patternId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(patternService.increaseViewCount(user, patternId)));
     }
 
     @PostMapping("/{patternId}/purchase")

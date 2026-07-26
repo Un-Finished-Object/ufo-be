@@ -7,12 +7,14 @@ import com.ufo.ufo.domain.interest.domain.UserInterest;
 import com.ufo.ufo.domain.pattern.dao.PatternAlternativeYarnRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternImageRepository;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
+import com.ufo.ufo.domain.pattern.dao.PatternViewLogRepository;
 import com.ufo.ufo.domain.pattern.dao.YarnRepository;
 import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternAlternativeYarn;
 import com.ufo.ufo.domain.pattern.domain.PatternImage;
 import com.ufo.ufo.domain.pattern.domain.PatternSort;
+import com.ufo.ufo.domain.pattern.domain.PatternViewLog;
 import com.ufo.ufo.domain.pattern.domain.Yarn;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.UpdateAlternativeYarnRequest;
@@ -21,11 +23,13 @@ import com.ufo.ufo.domain.pattern.dto.response.PatternDetailResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListItemResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
+import com.ufo.ufo.domain.pattern.dto.response.PatternViewCountResponse;
 import com.ufo.ufo.domain.pattern.exception.AlternativeYarnNotFoundException;
 import com.ufo.ufo.domain.pattern.exception.PatternAlternativePermissionDeniedException;
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
 import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryNotAllowedException;
 import com.ufo.ufo.domain.user.domain.User;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -49,6 +53,7 @@ public class PatternService {
     private final PatternAlternativeYarnRepository patternAlternativeYarnRepository;
     private final YarnRepository yarnRepository;
     private final UserInterestRepository userInterestRepository;
+    private final PatternViewLogRepository patternViewLogRepository;
     private final ImageService imageService;
 
     public PatternListResponse getPatterns(User user, String category, String subCategory, String sort, Integer page) {
@@ -88,6 +93,23 @@ public class PatternService {
         boolean isScrapped = isScrapped(user, patternId);
         List<String> images = resolvePatternImages(patternId, pattern.getThumbnailUrl());
         return PatternDetailResponse.from(pattern, images, isScrapped);
+    }
+
+    @Transactional
+    public PatternViewCountResponse increaseViewCount(User user, Long patternId) {
+        Pattern pattern = findActivePattern(patternId);
+        LocalDate today = LocalDate.now();
+
+        if (!patternViewLogRepository.existsByPattern_IdAndUser_IdAndViewedDate(patternId, user.getId(), today)) {
+            pattern.increaseViewCount();
+            patternViewLogRepository.save(PatternViewLog.builder()
+                    .pattern(pattern)
+                    .user(user)
+                    .viewedDate(today)
+                    .build());
+        }
+
+        return PatternViewCountResponse.from(pattern.getViewCount());
     }
 
     @Transactional
