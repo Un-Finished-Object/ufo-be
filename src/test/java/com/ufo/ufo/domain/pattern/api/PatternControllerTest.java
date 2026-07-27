@@ -18,6 +18,7 @@ import com.ufo.ufo.domain.pattern.dto.response.PatternMyResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseStatusResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternStatsResponse;
+import com.ufo.ufo.domain.pattern.dto.response.PatternViewCountResponse;
 import com.ufo.ufo.domain.scrap.application.ScrapService;
 import com.ufo.ufo.domain.scrap.dto.response.PatternScrapResponse;
 import com.ufo.ufo.domain.user.domain.User;
@@ -262,5 +263,20 @@ class PatternControllerTest {
                 false,
                 "admin"
         );
+    }
+
+    @Test
+    @DisplayName("조회수 증가 API는 서비스 응답을 data에 담아 반환해야 한다")
+    void increaseViewCount_ReturnsServiceResponse() {
+        User user = UserFixture.createUserWithId(1L);
+        when(patternService.increaseViewCount(user, 10L))
+                .thenReturn(PatternViewCountResponse.from(122));
+
+        ResponseEntity<ApiResponse<PatternViewCountResponse>> response =
+                patternController.increaseViewCount(user, 10L);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().viewCount()).isEqualTo(122);
+        verify(patternService).increaseViewCount(user, 10L);
     }
 }
