@@ -37,22 +37,29 @@ public class ReferralService {
     private final CreditService creditService;
 
     @Transactional
-    public ReferralCodeResponse getReferralCode(User user) {
-        User loginUser = userService.getUserById(user.getId());
-        if (loginUser.getReferralCode() != null && !loginUser.getReferralCode().isBlank()) {
-            return ReferralCodeResponse.from(loginUser.getNickname(), loginUser.getReferralCode());
+    public String ensureReferralCode(User user) {
+        if (user.getReferralCode() != null && !user.getReferralCode().isBlank()) {
+            return user.getReferralCode();
         }
 
         for (int nonce = 0; nonce < MAX_GENERATION_ATTEMPTS; nonce++) {
-            String referralCode = referralCodeGenerator.generate(loginUser.getId(), nonce);
+            String referralCode = referralCodeGenerator.generate(user.getId(), nonce);
             try {
-                String savedReferralCode = referralCodePersistenceService.assignAndFlush(loginUser.getId(), referralCode);
-                return ReferralCodeResponse.from(loginUser.getNickname(), savedReferralCode);
+                String savedReferralCode = referralCodePersistenceService.assignAndFlush(user.getId(), referralCode);
+                user.assignReferralCode(savedReferralCode);
+                return savedReferralCode;
             } catch (DataIntegrityViolationException exception) {
                 // A concurrent request stored the same candidate; retry with the next nonce.
             }
         }
         throw new ReferralCodeGenerationException();
+    }
+
+    @Transactional
+    public ReferralCodeResponse getReferralCode(User user) {
+        User loginUser = userService.getUserById(user.getId());
+        String referralCode = ensureReferralCode(loginUser);
+        return ReferralCodeResponse.from(loginUser.getNickname(), referralCode);
     }
 
     @Transactional
