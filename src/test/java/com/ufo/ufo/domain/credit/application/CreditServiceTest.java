@@ -99,9 +99,9 @@ class CreditServiceTest {
                 .extracting(CreditRulesResponse.Rule::key, CreditRulesResponse.Rule::amount,
                         CreditRulesResponse.Rule::dailyLimitExempt)
                 .contains(
-                        tuple("SIGNUP_BONUS", 50, true),
-                        tuple("ATTENDANCE_DAILY", 10, false),
-                        tuple("REFERRAL_BONUS", 150, true)
+                        tuple("SIGNUP_BONUS", CreditPolicy.SIGNUP_BONUS_BALLS, true),
+                        tuple("ATTENDANCE_DAILY", CreditPolicy.ATTENDANCE_DAILY_BALLS, false),
+                        tuple("REFERRAL_BONUS", CreditPolicy.REFERRAL_BONUS_BALLS, true)
                 );
         assertThat(response.spendRules()).isNotEmpty();
     }

@@ -16,6 +16,7 @@ import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
 import com.ufo.ufo.domain.credit.policy.CreditPolicy;
 import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.image.application.ImageService;
+import com.ufo.ufo.domain.referral.application.ReferralService;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
@@ -60,6 +61,9 @@ class AuthServiceTest {
     private CreditService creditService;
 
     @Mock
+    private ReferralService referralService;
+
+    @Mock
     private HttpServletRequest request;
 
     @Mock
@@ -100,6 +104,7 @@ class AuthServiceTest {
         assertThat(response.profileImageUrl()).isEqualTo("https://cdn.example.com/profiles/10/profile.png");
         assertThat(response.keywords()).containsExactly("빈티지", "캐주얼");
         verify(creditService).addCredits(guest, CreditPolicy.SIGNUP_BONUS_BALLS, CreditTransactionType.SIGNUP_BONUS);
+        verify(referralService).ensureReferralCode(guest);
     }
 
     @Test
@@ -123,6 +128,7 @@ class AuthServiceTest {
         authService.signup(user, request);
 
         verify(creditService, never()).addCredits(user, CreditPolicy.SIGNUP_BONUS_BALLS, CreditTransactionType.SIGNUP_BONUS);
+        verify(referralService).ensureReferralCode(user);
     }
 
     @Test
