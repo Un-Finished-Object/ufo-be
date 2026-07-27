@@ -8,6 +8,7 @@ import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
 import com.ufo.ufo.domain.credit.policy.CreditPolicy;
 import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.image.application.ImageService;
+import com.ufo.ufo.domain.referral.application.ReferralService;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.NicknamePolicy;
@@ -32,6 +33,7 @@ public class AuthService {
     private final InterestService interestService;
     private final ImageService imageService;
     private final CreditService creditService;
+    private final ReferralService referralService;
 
     @Transactional
     public SignupResponse signup(User user, SignupRequest request) {
@@ -45,6 +47,7 @@ public class AuthService {
         if (wasGuest) {
             creditService.addCredits(loginUser, CreditPolicy.SIGNUP_BONUS_BALLS, CreditTransactionType.SIGNUP_BONUS);
         }
+        referralService.ensureReferralCode(loginUser);
 
         return new SignupResponse(
                 updatedUser.getId(),

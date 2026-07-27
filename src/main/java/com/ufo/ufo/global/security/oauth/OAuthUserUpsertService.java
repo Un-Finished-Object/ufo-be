@@ -1,6 +1,7 @@
 package com.ufo.ufo.global.security.oauth;
 
 import com.ufo.ufo.domain.image.config.ImageProperties;
+import com.ufo.ufo.domain.referral.application.ReferralService;
 import com.ufo.ufo.domain.user.application.TemporaryNicknameGenerator;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
@@ -21,20 +22,25 @@ public class OAuthUserUpsertService {
     private final ImageProperties imageProperties;
     private final TemporaryNicknameGenerator temporaryNicknameGenerator;
     private final OAuthUserPersistenceService oAuthUserPersistenceService;
+    private final ReferralService referralService;
 
     public User saveOrUpdate(OAuth2Response response) {
         User existingUser = userRepository.findByEmail(response.getEmail()).orElse(null);
         if (existingUser != null) {
+            referralService.ensureReferralCode(existingUser);
             return userRepository.save(existingUser);
         }
 
         for (int attempt = 0; attempt < MAX_SAVE_ATTEMPTS; attempt++) {
             User newUser = createUser(response);
             try {
-                return oAuthUserPersistenceService.saveAndFlush(newUser);
+                User savedUser = oAuthUserPersistenceService.saveAndFlush(newUser);
+                referralService.ensureReferralCode(savedUser);
+                return savedUser;
             } catch (DataIntegrityViolationException exception) {
                 User concurrentlyCreatedUser = userRepository.findByEmail(response.getEmail()).orElse(null);
                 if (concurrentlyCreatedUser != null) {
+                    referralService.ensureReferralCode(concurrentlyCreatedUser);
                     return concurrentlyCreatedUser;
                 }
             }
