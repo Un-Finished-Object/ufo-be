@@ -59,6 +59,33 @@ class ReferralServiceTest {
     private ReferralService referralService;
 
     @Test
+    @DisplayName("ensureReferralCode는 기존 코드가 없으면 새 코드를 생성 및 할당 후 반환해야 한다")
+    void ensureReferralCode_GeneratesWhenMissing() {
+        User user = UserFixture.createUserWithId(1L);
+        when(referralCodeGenerator.generate(1L, 0)).thenReturn("UFOaB3xZ9");
+        when(referralCodePersistenceService.assignAndFlush(1L, "UFOaB3xZ9"))
+                .thenReturn("UFOaB3xZ9");
+
+        String code = referralService.ensureReferralCode(user);
+
+        assertThat(code).isEqualTo("UFOaB3xZ9");
+        assertThat(user.getReferralCode()).isEqualTo("UFOaB3xZ9");
+    }
+
+    @Test
+    @DisplayName("ensureReferralCode는 기존 코드가 이미 존재하면 새로 생성하지 않고 기존 코드를 반환해야 한다")
+    void ensureReferralCode_ReturnsExistingCode() {
+        User user = UserFixture.createUserWithId(1L);
+        user.assignReferralCode("UFOaB3xZ9");
+
+        String code = referralService.ensureReferralCode(user);
+
+        assertThat(code).isEqualTo("UFOaB3xZ9");
+        verify(referralCodeGenerator, never()).generate(eq(1L), anyInt());
+        verify(referralCodePersistenceService, never()).assignAndFlush(eq(1L), anyString());
+    }
+
+    @Test
     @DisplayName("친구 초대 코드 생성은 기존 코드가 없으면 새 코드를 생성해 반환해야 한다")
     void getReferralCode_GeneratesWhenMissing() {
         User requestUser = UserFixture.createUserWithId(1L);

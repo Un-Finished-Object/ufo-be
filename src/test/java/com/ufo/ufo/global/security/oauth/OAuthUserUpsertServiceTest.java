@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.image.config.ImageProperties;
+import com.ufo.ufo.domain.referral.application.ReferralService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.application.TemporaryNicknameGenerator;
 import com.ufo.ufo.domain.user.domain.User;
@@ -40,11 +41,14 @@ class OAuthUserUpsertServiceTest {
     @Mock
     private OAuthUserPersistenceService oAuthUserPersistenceService;
 
+    @Mock
+    private ReferralService referralService;
+
     @InjectMocks
     private OAuthUserUpsertService oauthUserUpsertService;
 
     @Test
-    @DisplayName("존재하지 않는 사용자면 신규 사용자로 생성 저장해야 한다")
+    @DisplayName("존재하지 않는 사용자면 신규 사용자로 생성 저장하고 친구 초대 코드를 생성해야 한다")
     void saveOrUpdate_WhenUserNotExists_CreatesUser() {
         OAuth2Response response = oauthResponse(
                 "new@example.com", "new-user", "https://example.com/new.png", Provider.GOOGLE
@@ -62,6 +66,7 @@ class OAuthUserUpsertServiceTest {
         assertThat(saved.getProfileImage()).isEqualTo("defaults/profile.png");
         assertThat(saved.getRole()).isEqualTo(Role.ROLE_GUEST);
         assertThat(saved.getProvider()).isEqualTo(Provider.GOOGLE);
+        verify(referralService).ensureReferralCode(saved);
     }
 
     @Test
@@ -123,6 +128,7 @@ class OAuthUserUpsertServiceTest {
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(captor.capture());
         assertThat(captor.getValue()).isSameAs(existing);
+        verify(referralService).ensureReferralCode(existing);
     }
 
     private OAuth2Response oauthResponse(String email, String name, String profileImage, Provider provider) {
