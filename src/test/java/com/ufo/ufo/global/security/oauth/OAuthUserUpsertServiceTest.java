@@ -48,7 +48,7 @@ class OAuthUserUpsertServiceTest {
     private OAuthUserUpsertService oauthUserUpsertService;
 
     @Test
-    @DisplayName("존재하지 않는 사용자면 신규 사용자로 생성 저장하고 친구 초대 코드를 생성해야 한다")
+    @DisplayName("존재하지 않는 사용자면 신규 사용자로 생성 저장하고 친구 초대 코드를 생성하여 영속화해야 한다")
     void saveOrUpdate_WhenUserNotExists_CreatesUser() {
         OAuth2Response response = oauthResponse(
                 "new@example.com", "new-user", "https://example.com/new.png", Provider.GOOGLE
@@ -67,6 +67,7 @@ class OAuthUserUpsertServiceTest {
         assertThat(saved.getRole()).isEqualTo(Role.ROLE_GUEST);
         assertThat(saved.getProvider()).isEqualTo(Provider.GOOGLE);
         verify(referralService).ensureReferralCode(saved);
+        verify(oAuthUserPersistenceService, times(2)).saveAndFlush(any(User.class));
     }
 
     @Test
@@ -84,6 +85,7 @@ class OAuthUserUpsertServiceTest {
         User saved = oauthUserUpsertService.saveOrUpdate(response);
 
         assertThat(saved.getNickname()).isEqualTo("new-user#11");
+        verify(oAuthUserPersistenceService, times(2)).saveAndFlush(any(User.class));
     }
 
     @Test
@@ -105,7 +107,7 @@ class OAuthUserUpsertServiceTest {
 
         assertThat(saved.getNickname()).isEqualTo("new-user#1");
         verify(temporaryNicknameGenerator, times(2)).generate("new-user");
-        verify(oAuthUserPersistenceService, times(2)).saveAndFlush(any(User.class));
+        verify(oAuthUserPersistenceService, times(3)).saveAndFlush(any(User.class));
     }
 
     @Test
