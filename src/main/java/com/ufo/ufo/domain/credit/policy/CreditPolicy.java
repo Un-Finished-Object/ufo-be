@@ -6,7 +6,7 @@ import java.util.List;
 public final class CreditPolicy {
 
     public static final int DAILY_MAX_EARN_BALLS = 20;
-    public static final int SIGNUP_BONUS_BALLS = 50;
+    public static final int SIGNUP_BONUS_BALLS = 150;
     public static final int ATTENDANCE_DAILY_BALLS = 10;
     public static final int REFERRAL_BONUS_BALLS = 150;
     public static final int CHATROOM_ENTRY_COST_BALLS = 10;
