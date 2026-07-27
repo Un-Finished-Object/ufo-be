@@ -44,12 +44,9 @@ public class ReferralService {
 
         for (int nonce = 0; nonce < MAX_GENERATION_ATTEMPTS; nonce++) {
             String referralCode = referralCodeGenerator.generate(user.getId(), nonce);
-            try {
-                String savedReferralCode = referralCodePersistenceService.assignAndFlush(user.getId(), referralCode);
-                user.assignReferralCode(savedReferralCode);
-                return savedReferralCode;
-            } catch (DataIntegrityViolationException exception) {
-                // A concurrent request stored the same candidate; retry with the next nonce.
+            if (!userRepository.existsByReferralCode(referralCode)) {
+                user.assignReferralCode(referralCode);
+                return referralCode;
             }
         }
         throw new ReferralCodeGenerationException();
