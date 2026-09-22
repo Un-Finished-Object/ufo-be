@@ -45,7 +45,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -53,7 +52,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("도안 서비스 테스트")
+@DisplayName("도안 기능별 서비스 회귀 테스트")
 class PatternServiceTest {
 
     @Mock
@@ -80,12 +79,34 @@ class PatternServiceTest {
     @Mock
     private PatternViewLogRepository patternViewLogRepository;
 
-    @InjectMocks
-    private PatternService patternService;
+    private PatternQueryService patternQueryService;
+    private PatternRecommendationService patternRecommendationService;
+    private PatternViewService patternViewService;
+    private PatternAlternativeService patternAlternativeService;
 
     @BeforeEach
     void setUp() {
         lenient().when(imageService.buildImageUrl(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        PatternListItemResponseFactory responseFactory =
+                new PatternListItemResponseFactory(scrapRepository, imageService);
+        patternQueryService = new PatternQueryService(
+                patternRepository,
+                patternImageRepository,
+                scrapRepository,
+                imageService,
+                responseFactory
+        );
+        patternRecommendationService = new PatternRecommendationService(
+                patternRepository,
+                userInterestRepository,
+                responseFactory
+        );
+        patternViewService = new PatternViewService(patternRepository, patternViewLogRepository);
+        patternAlternativeService = new PatternAlternativeService(
+                patternRepository,
+                patternAlternativeYarnRepository,
+                yarnRepository
+        );
     }
 
     @Test
@@ -97,7 +118,7 @@ class PatternServiceTest {
                 .thenReturn(new PageImpl<>(List.of(pattern)));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 1L)).thenReturn(true);
 
-        PatternListResponse response = patternService.getPatterns(user, "apparel", "long_sweater", "news", 1);
+        PatternListResponse response = patternQueryService.getPatterns(user, "apparel", "long_sweater", "news", 1);
 
         assertThat(response.page()).isEqualTo(1);
         assertThat(response.nextPage()).isEqualTo(0);
@@ -118,7 +139,7 @@ class PatternServiceTest {
                 .thenReturn(new PageImpl<>(List.of(pattern)));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 1L)).thenReturn(false);
 
-        PatternListResponse response = patternService.getPatterns(user, "all", null, "news", 1);
+        PatternListResponse response = patternQueryService.getPatterns(user, "all", null, "news", 1);
 
         assertThat(response.items()).hasSize(1);
         verify(patternRepository).findAllByCategory(eq(null), eq(null), any(PageRequest.class));
@@ -133,7 +154,7 @@ class PatternServiceTest {
                 .thenReturn(new PageImpl<>(List.of(pattern)));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 1L)).thenReturn(false);
 
-        PatternListResponse response = patternService.getPatterns(user, "apparel", "all", "news", 1);
+        PatternListResponse response = patternQueryService.getPatterns(user, "apparel", "all", "news", 1);
 
         assertThat(response.items()).hasSize(1);
         verify(patternRepository).findAllByCategory(eq("apparel"), eq(null), any(PageRequest.class));
@@ -148,7 +169,7 @@ class PatternServiceTest {
                 .thenReturn(new PageImpl<>(List.of(pattern)));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 1L)).thenReturn(false);
 
-        PatternListResponse response = patternService.getPatterns(user, "apparel", null, "news", 1);
+        PatternListResponse response = patternQueryService.getPatterns(user, "apparel", null, "news", 1);
 
         assertThat(response.items()).hasSize(1);
         verify(patternRepository).findAllByCategory(eq("apparel"), eq(null), any(PageRequest.class));
@@ -161,7 +182,7 @@ class PatternServiceTest {
         when(patternRepository.findAllByCategory(any(), any(), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(pattern)));
 
-        PatternListResponse response = patternService.getPatterns(null, "all", null, "news", 1);
+        PatternListResponse response = patternQueryService.getPatterns(null, "all", null, "news", 1);
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().my().scrapped()).isFalse();
@@ -177,7 +198,7 @@ class PatternServiceTest {
                 .thenReturn(new PageImpl<>(List.of(pattern)));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 1L)).thenReturn(false);
 
-        PatternListResponse response = patternService.getPatterns(user, "all", null, "scraps", 1);
+        PatternListResponse response = patternQueryService.getPatterns(user, "all", null, "scraps", 1);
 
         assertThat(response.items()).hasSize(1);
         verify(patternRepository).findAllByCategoryOrderByPopularity(any(), any(), any(PageRequest.class));
@@ -192,7 +213,7 @@ class PatternServiceTest {
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 2L)).thenReturn(true);
         when(patternImageRepository.findAllByPattern_IdOrderByImageOrderAscIdAsc(2L)).thenReturn(List.of());
 
-        PatternDetailResponse response = patternService.getPatternDetail(user, 2L);
+        PatternDetailResponse response = patternQueryService.getPatternDetail(user, 2L);
 
         assertThat(response.id()).isEqualTo(2L);
         assertThat(response.my().scrapped()).isTrue();
@@ -207,7 +228,7 @@ class PatternServiceTest {
         when(patternRepository.findDetailById(2L)).thenReturn(Optional.of(pattern));
         when(patternImageRepository.findAllByPattern_IdOrderByImageOrderAscIdAsc(2L)).thenReturn(List.of());
 
-        PatternDetailResponse response = patternService.getPatternDetail(null, 2L);
+        PatternDetailResponse response = patternQueryService.getPatternDetail(null, 2L);
 
         assertThat(response.id()).isEqualTo(2L);
         assertThat(response.my().scrapped()).isFalse();
@@ -224,7 +245,7 @@ class PatternServiceTest {
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 2L)).thenReturn(false);
         when(patternImageRepository.findAllByPattern_IdOrderByImageOrderAscIdAsc(2L)).thenReturn(List.of());
 
-        PatternDetailResponse response = patternService.getPatternDetail(user, 2L);
+        PatternDetailResponse response = patternQueryService.getPatternDetail(user, 2L);
 
         assertThat(response.images()).containsExactly("./patterns/t.png");
     }
@@ -247,7 +268,7 @@ class PatternServiceTest {
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 2L)).thenReturn(false);
         when(patternImageRepository.findAllByPattern_IdOrderByImageOrderAscIdAsc(2L)).thenReturn(List.of());
 
-        PatternDetailResponse response = patternService.getPatternDetail(user, 2L);
+        PatternDetailResponse response = patternQueryService.getPatternDetail(user, 2L);
 
         assertThat(response.meta().originalYarn()).hasSize(2);
         assertThat(response.meta().originalYarn().get(0).originalYarnSetId()).isEqualTo(100L);
@@ -273,7 +294,7 @@ class PatternServiceTest {
         User user = UserFixture.createUserWithId(1L);
         when(patternRepository.findDetailById(2L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> patternService.getPatternDetail(user, 2L))
+        assertThatThrownBy(() -> patternQueryService.getPatternDetail(user, 2L))
                 .isInstanceOf(ApiException.class);
     }
 
@@ -283,7 +304,7 @@ class PatternServiceTest {
         User guest = UserFixture.createUser("guest@example.com", Role.ROLE_GUEST);
         UserFixture.setId(guest, 1L);
 
-        assertThatThrownBy(() -> patternService.createAlternative(
+        assertThatThrownBy(() -> patternAlternativeService.createAlternative(
                 guest,
                 1L,
                 new CreateAlternativeRequest(
@@ -311,7 +332,7 @@ class PatternServiceTest {
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(patternAlternativeYarnRepository.findByIdAndPattern_Id(30L, 10L)).thenReturn(Optional.of(alt));
 
-        var response = patternService.updateAlternative(
+        var response = patternAlternativeService.updateAlternative(
                 user,
                 10L,
                 30L,
@@ -348,7 +369,7 @@ class PatternServiceTest {
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(patternAlternativeYarnRepository.findByIdAndPattern_Id(30L, 10L)).thenReturn(Optional.of(alt));
 
-        assertThatThrownBy(() -> patternService.updateAlternative(
+        assertThatThrownBy(() -> patternAlternativeService.updateAlternative(
                 requester,
                 10L,
                 30L,
@@ -372,7 +393,7 @@ class PatternServiceTest {
         when(patternRepository.search(eq(""), any(PageRequest.class)))
                 .thenReturn(Page.empty());
 
-        PatternListResponse response = patternService.searchPatterns(user, null, 1);
+        PatternListResponse response = patternQueryService.searchPatterns(user, null, 1);
 
         assertThat(response.items()).isEmpty();
         verify(patternRepository).search(eq(""), any(PageRequest.class));
@@ -384,7 +405,7 @@ class PatternServiceTest {
         Pattern pattern = PatternFixture.createPatternWithId(11L);
         when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
 
-        PatternItemsResponse response = patternService.getRecommendedPatterns(null);
+        PatternItemsResponse response = patternRecommendationService.getRecommendedPatterns(null);
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().id()).isEqualTo(11L);
@@ -413,7 +434,7 @@ class PatternServiceTest {
         when(patternRepository.findRecommendedByInterestNumbers(List.of(1))).thenReturn(List.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 11L)).thenReturn(false);
 
-        PatternItemsResponse response = patternService.getRecommendedPatterns(user);
+        PatternItemsResponse response = patternRecommendationService.getRecommendedPatterns(user);
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().id()).isEqualTo(11L);
@@ -430,7 +451,7 @@ class PatternServiceTest {
         when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 12L)).thenReturn(false);
 
-        PatternItemsResponse response = patternService.getRecommendedPatterns(user);
+        PatternItemsResponse response = patternRecommendationService.getRecommendedPatterns(user);
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().id()).isEqualTo(12L);
@@ -449,7 +470,7 @@ class PatternServiceTest {
         when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 13L)).thenReturn(false);
 
-        PatternItemsResponse response = patternService.getRecommendedPatterns(user);
+        PatternItemsResponse response = patternRecommendationService.getRecommendedPatterns(user);
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().id()).isEqualTo(13L);
@@ -463,7 +484,7 @@ class PatternServiceTest {
         User guest = UserFixture.createUser("guest@example.com", Role.ROLE_GUEST);
         UserFixture.setId(guest, 1L);
 
-        assertThatThrownBy(() -> patternService.deleteAlternative(guest, 10L, 1L))
+        assertThatThrownBy(() -> patternAlternativeService.deleteAlternative(guest, 10L, 1L))
                 .isInstanceOf(ApiException.class);
         verifyNoInteractions(patternRepository);
     }
@@ -481,7 +502,7 @@ class PatternServiceTest {
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(patternAlternativeYarnRepository.findByIdAndPattern_Id(30L, 10L)).thenReturn(Optional.of(alt));
 
-        patternService.deleteAlternative(owner, 10L, 30L);
+        patternAlternativeService.deleteAlternative(owner, 10L, 30L);
 
         verify(patternAlternativeYarnRepository).deleteById(30L);
     }
@@ -501,7 +522,7 @@ class PatternServiceTest {
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(patternAlternativeYarnRepository.findByIdAndPattern_Id(30L, 10L)).thenReturn(Optional.of(alt));
 
-        assertThatThrownBy(() -> patternService.deleteAlternative(requester, 10L, 30L))
+        assertThatThrownBy(() -> patternAlternativeService.deleteAlternative(requester, 10L, 30L))
                 .isInstanceOf(ApiException.class);
     }
 
@@ -524,7 +545,7 @@ class PatternServiceTest {
                 .thenReturn(List.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 20L)).thenReturn(false);
 
-        PatternItemsResponse response = patternService.getRecommendedPatterns(user);
+        PatternItemsResponse response = patternRecommendationService.getRecommendedPatterns(user);
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().id()).isEqualTo(20L);
@@ -550,7 +571,7 @@ class PatternServiceTest {
                 .thenReturn(List.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 21L)).thenReturn(false);
 
-        PatternItemsResponse response = patternService.getRecommendedPatterns(user);
+        PatternItemsResponse response = patternRecommendationService.getRecommendedPatterns(user);
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().id()).isEqualTo(21L);
@@ -575,7 +596,7 @@ class PatternServiceTest {
         when(patternRepository.findRecommended()).thenReturn(List.of(fallbackPattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 22L)).thenReturn(false);
 
-        PatternItemsResponse response = patternService.getRecommendedPatterns(user);
+        PatternItemsResponse response = patternRecommendationService.getRecommendedPatterns(user);
 
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().getFirst().id()).isEqualTo(22L);
@@ -592,7 +613,7 @@ class PatternServiceTest {
         when(patternViewLogRepository.existsByPattern_IdAndUser_IdAndViewedDate(eq(2L), eq(1L), any(LocalDate.class)))
                 .thenReturn(false);
 
-        PatternViewCountResponse response = patternService.increaseViewCount(user, 2L);
+        PatternViewCountResponse response = patternViewService.increaseViewCount(user, 2L);
 
         assertThat(response.viewCount()).isEqualTo(1);
         verify(patternViewLogRepository).save(any());
@@ -607,7 +628,7 @@ class PatternServiceTest {
         when(patternViewLogRepository.existsByPattern_IdAndUser_IdAndViewedDate(eq(2L), eq(1L), any(LocalDate.class)))
                 .thenReturn(true);
 
-        PatternViewCountResponse response = patternService.increaseViewCount(user, 2L);
+        PatternViewCountResponse response = patternViewService.increaseViewCount(user, 2L);
 
         assertThat(response.viewCount()).isEqualTo(0);
         verify(patternViewLogRepository, never()).save(any());
@@ -619,14 +640,14 @@ class PatternServiceTest {
         User user = UserFixture.createUserWithId(1L);
         when(patternRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> patternService.increaseViewCount(user, 999L))
+        assertThatThrownBy(() -> patternViewService.increaseViewCount(user, 999L))
                 .isInstanceOf(PatternNotFoundException.class);
     }
 
     @Test
     @DisplayName("조회수 증가는 비로그인 사용자이면 예외가 발생해야 한다")
     void increaseViewCount_AnonymousUser_ThrowsUnauthorizedException() {
-        assertThatThrownBy(() -> patternService.increaseViewCount(null, 1L))
+        assertThatThrownBy(() -> patternViewService.increaseViewCount(null, 1L))
                 .isInstanceOf(UnauthorizedUserException.class);
     }
 }
