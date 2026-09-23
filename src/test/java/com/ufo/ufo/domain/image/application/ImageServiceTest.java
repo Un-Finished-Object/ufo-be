@@ -72,7 +72,7 @@ class ImageServiceTest {
     void setUp() {
         lenient().when(credentialsProvider.resolveCredentials())
                 .thenReturn(AwsBasicCredentials.create("test-access-key", "test-secret-key"));
-        imageService = new ImageService(s3Client, credentialsProvider, IMAGE_PROPERTIES, new ObjectMapper());
+        imageService = createService(IMAGE_PROPERTIES);
         user = UserFixture.createUserWithId(1L);
     }
 
@@ -125,7 +125,7 @@ class ImageServiceTest {
                 "defaults/profile.png",
                 new ImageProperties.S3("ufo-bucket", "ap-northeast-2", 5L, "https://s3-public.ufo.com")
         );
-        ImageService imageService = new ImageService(s3Client, credentialsProvider, missingCdnProperties, new ObjectMapper());
+        ImageService imageService = createService(missingCdnProperties);
 
         assertThatThrownBy(() -> imageService.buildImageUrl("profiles/1/profile.png"))
                 .isInstanceOf(ImageCdnBaseUrlNotConfiguredException.class);
@@ -195,7 +195,7 @@ class ImageServiceTest {
                 "defaults/profile.png",
                 new ImageProperties.S3("", "ap-northeast-2", 5L, "https://s3-public.ufo.com")
         );
-        ImageService imageService = new ImageService(s3Client, credentialsProvider, emptyBucketProperties, new ObjectMapper());
+        ImageService imageService = createService(emptyBucketProperties);
 
         assertThatThrownBy(() -> imageService.issuePresignedUrls(
                 user,
@@ -301,5 +301,15 @@ class ImageServiceTest {
 
         verify(s3Client, never()).putObjectTagging(any(PutObjectTaggingRequest.class));
         verify(s3Client).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    private ImageService createService(ImageProperties properties) {
+        return new ImageService(
+                properties,
+                new ImageUploadValidator(properties),
+                new ImageKeyPolicy(properties),
+                new S3PostPolicySigner(credentialsProvider, properties, new ObjectMapper()),
+                new S3ImageObjectManager(s3Client, properties)
+        );
     }
 }
