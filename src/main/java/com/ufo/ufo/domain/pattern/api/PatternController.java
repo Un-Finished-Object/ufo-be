@@ -1,6 +1,9 @@
 package com.ufo.ufo.domain.pattern.api;
 
-import com.ufo.ufo.domain.pattern.application.PatternService;
+import com.ufo.ufo.domain.pattern.application.PatternAlternativeService;
+import com.ufo.ufo.domain.pattern.application.PatternQueryService;
+import com.ufo.ufo.domain.pattern.application.PatternRecommendationService;
+import com.ufo.ufo.domain.pattern.application.PatternViewService;
 import com.ufo.ufo.domain.pattern.application.PatternPurchaseService;
 import com.ufo.ufo.domain.pattern.dto.request.CreateAlternativeRequest;
 import com.ufo.ufo.domain.pattern.dto.request.PatternPurchaseRequest;
@@ -42,7 +45,10 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 public class PatternController {
 
-    private final PatternService patternService;
+    private final PatternQueryService patternQueryService;
+    private final PatternRecommendationService patternRecommendationService;
+    private final PatternViewService patternViewService;
+    private final PatternAlternativeService patternAlternativeService;
     private final PatternPurchaseService patternPurchaseService;
     private final ScrapService scrapService;
 
@@ -62,12 +68,12 @@ public class PatternController {
             @ValidPage
             Integer page
     ) {
-        return ResponseEntity.ok(ApiResponse.success(patternService.getPatterns(user, category, subCategory, sort, page)));
+        return ResponseEntity.ok(ApiResponse.success(patternQueryService.getPatterns(user, category, subCategory, sort, page)));
     }
 
     @GetMapping("/recommend")
     public ResponseEntity<ApiResponse<PatternItemsResponse>> getRecommendedPatterns(@LoginUser User user) {
-        return ResponseEntity.ok(ApiResponse.success(patternService.getRecommendedPatterns(user)));
+        return ResponseEntity.ok(ApiResponse.success(patternRecommendationService.getRecommendedPatterns(user)));
     }
 
     @GetMapping("/search")
@@ -78,7 +84,7 @@ public class PatternController {
             @ValidPage
             Integer page
     ) {
-        return ResponseEntity.ok(ApiResponse.success(patternService.searchPatterns(user, keyword, page)));
+        return ResponseEntity.ok(ApiResponse.success(patternQueryService.searchPatterns(user, keyword, page)));
     }
 
     @GetMapping("/{patternId}")
@@ -86,7 +92,7 @@ public class PatternController {
             @LoginUser User user,
             @PathVariable("patternId") Long patternId
     ) {
-        return ResponseEntity.ok(ApiResponse.success(patternService.getPatternDetail(user, patternId)));
+        return ResponseEntity.ok(ApiResponse.success(patternQueryService.getPatternDetail(user, patternId)));
     }
 
     @PostMapping("/{patternId}/views")
@@ -94,7 +100,7 @@ public class PatternController {
             @LoginUser User user,
             @PathVariable("patternId") Long patternId
     ) {
-        return ResponseEntity.ok(ApiResponse.success(patternService.increaseViewCount(user, patternId)));
+        return ResponseEntity.ok(ApiResponse.success(patternViewService.increaseViewCount(user, patternId)));
     }
 
     @PostMapping("/{patternId}/purchase")
@@ -136,7 +142,7 @@ public class PatternController {
             @PathVariable("patternId") Long patternId,
             @Valid @RequestBody CreateAlternativeRequest request
     ) {
-        return ResponseEntity.ok(ApiResponse.success(patternService.createAlternative(user, patternId, request)));
+        return ResponseEntity.ok(ApiResponse.success(patternAlternativeService.createAlternative(user, patternId, request)));
     }
 
     @PatchMapping("/{patternId}/alternatives/{altId}")
@@ -146,7 +152,7 @@ public class PatternController {
             @PathVariable("altId") Long altId,
             @Valid @RequestBody UpdateAlternativeYarnRequest request
     ) {
-        return ResponseEntity.ok(ApiResponse.success(patternService.updateAlternative(user, patternId, altId, request)));
+        return ResponseEntity.ok(ApiResponse.success(patternAlternativeService.updateAlternative(user, patternId, altId, request)));
     }
 
     @DeleteMapping("/{patternId}/alternatives/{altId}")
@@ -155,7 +161,7 @@ public class PatternController {
             @PathVariable("patternId") Long patternId,
             @PathVariable("altId") Long altId
     ) {
-        patternService.deleteAlternative(user, patternId, altId);
+        patternAlternativeService.deleteAlternative(user, patternId, altId);
         return ResponseEntity.ok(ApiResponse.success(PatternAlternativeDeleteResponse.from(user.getId(), altId)));
     }
 }

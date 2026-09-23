@@ -12,7 +12,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ufo.ufo.domain.pattern.application.PatternPurchaseService;
-import com.ufo.ufo.domain.pattern.application.PatternService;
+import com.ufo.ufo.domain.pattern.application.PatternAlternativeService;
+import com.ufo.ufo.domain.pattern.application.PatternQueryService;
+import com.ufo.ufo.domain.pattern.application.PatternRecommendationService;
+import com.ufo.ufo.domain.pattern.application.PatternViewService;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
 import com.ufo.ufo.domain.pattern.exception.PatternSubCategoryNotAllowedException;
 import com.ufo.ufo.domain.scrap.application.ScrapService;
@@ -36,7 +39,16 @@ class PatternControllerValidationTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private PatternService patternService;
+    private PatternQueryService patternQueryService;
+
+    @MockitoBean
+    private PatternRecommendationService patternRecommendationService;
+
+    @MockitoBean
+    private PatternViewService patternViewService;
+
+    @MockitoBean
+    private PatternAlternativeService patternAlternativeService;
 
     @MockitoBean
     private PatternPurchaseService patternPurchaseService;
@@ -53,7 +65,7 @@ class PatternControllerValidationTest {
     @Test
     @DisplayName("유효한 파라미터 요청이면 200을 반환하고 서비스를 호출한다")
     void getPatterns_ValidParams_ReturnsOk() throws Exception {
-        when(patternService.getPatterns(any(), anyString(), any(), anyString(), anyInt()))
+        when(patternQueryService.getPatterns(any(), anyString(), any(), anyString(), anyInt()))
                 .thenReturn(new PatternListResponse(List.of(), 1, 0));
 
         mockMvc.perform(get("/v1/patterns")
@@ -64,7 +76,7 @@ class PatternControllerValidationTest {
                 .andExpect(jsonPath("$.data.page").value(1))
                 .andExpect(jsonPath("$.error").isEmpty());
 
-        verify(patternService).getPatterns(any(), anyString(), any(), anyString(), anyInt());
+        verify(patternQueryService).getPatterns(any(), anyString(), any(), anyString(), anyInt());
     }
 
     @Test
@@ -77,7 +89,7 @@ class PatternControllerValidationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value("category는 all, apparel, bags, accessories, others 중 하나여야 합니다."));
 
-        verify(patternService, never()).getPatterns(any(), any(), any(), any(), any());
+        verify(patternQueryService, never()).getPatterns(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -90,7 +102,7 @@ class PatternControllerValidationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value("sort는 news, views, scraps 중 하나여야 합니다."));
 
-        verify(patternService, never()).getPatterns(any(), any(), any(), any(), any());
+        verify(patternQueryService, never()).getPatterns(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -103,7 +115,7 @@ class PatternControllerValidationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value("page는 1 이상이어야 합니다."));
 
-        verify(patternService, never()).getPatterns(any(), any(), any(), any(), any());
+        verify(patternQueryService, never()).getPatterns(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -117,13 +129,13 @@ class PatternControllerValidationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value("subCategory는 all, outer, long_sweater, short_sweater, vest, dress, others 중 하나여야 합니다."));
 
-        verify(patternService, never()).getPatterns(any(), any(), any(), any(), any());
+        verify(patternQueryService, never()).getPatterns(any(), any(), any(), any(), any());
     }
 
     @Test
     @DisplayName("category가 apparel이고 subCategory가 all이면 200을 반환한다")
     void getPatterns_ApparelWithAllSubCategory_ReturnsOk() throws Exception {
-        when(patternService.getPatterns(any(), eq("apparel"), eq("all"), eq("news"), eq(1)))
+        when(patternQueryService.getPatterns(any(), eq("apparel"), eq("all"), eq("news"), eq(1)))
                 .thenReturn(new PatternListResponse(List.of(), 1, 0));
 
         mockMvc.perform(get("/v1/patterns")
@@ -135,13 +147,13 @@ class PatternControllerValidationTest {
                 .andExpect(jsonPath("$.data.page").value(1))
                 .andExpect(jsonPath("$.error").isEmpty());
 
-        verify(patternService).getPatterns(any(), eq("apparel"), eq("all"), eq("news"), eq(1));
+        verify(patternQueryService).getPatterns(any(), eq("apparel"), eq("all"), eq("news"), eq(1));
     }
 
     @Test
     @DisplayName("category가 apparel이고 subCategory가 없으면 200을 반환한다")
     void getPatterns_ApparelWithoutSubCategory_ReturnsOk() throws Exception {
-        when(patternService.getPatterns(any(), eq("apparel"), eq(null), eq("news"), eq(1)))
+        when(patternQueryService.getPatterns(any(), eq("apparel"), eq(null), eq("news"), eq(1)))
                 .thenReturn(new PatternListResponse(List.of(), 1, 0));
 
         mockMvc.perform(get("/v1/patterns")
@@ -152,13 +164,13 @@ class PatternControllerValidationTest {
                 .andExpect(jsonPath("$.data.page").value(1))
                 .andExpect(jsonPath("$.error").isEmpty());
 
-        verify(patternService).getPatterns(any(), eq("apparel"), eq(null), eq("news"), eq(1));
+        verify(patternQueryService).getPatterns(any(), eq("apparel"), eq(null), eq("news"), eq(1));
     }
 
     @Test
     @DisplayName("category가 apparel이 아닌데 subCategory가 있으면 400을 반환한다")
     void getPatterns_SubCategoryProvidedForNonApparel_ReturnsBadRequest() throws Exception {
-        when(patternService.getPatterns(any(), eq("all"), eq("all"), eq("news"), eq(1)))
+        when(patternQueryService.getPatterns(any(), eq("all"), eq("all"), eq("news"), eq(1)))
                 .thenThrow(new PatternSubCategoryNotAllowedException());
 
         mockMvc.perform(get("/v1/patterns")
@@ -169,7 +181,7 @@ class PatternControllerValidationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value("subCategory는 category가 apparel일 때만 사용할 수 있습니다."));
 
-        verify(patternService).getPatterns(any(), eq("all"), eq("all"), eq("news"), eq(1));
+        verify(patternQueryService).getPatterns(any(), eq("all"), eq("all"), eq("news"), eq(1));
     }
 
     @Test
@@ -181,6 +193,6 @@ class PatternControllerValidationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value("page는 1 이상이어야 합니다."));
 
-        verify(patternService, never()).searchPatterns(any(), any(), any());
+        verify(patternQueryService, never()).searchPatterns(any(), any(), any());
     }
 }
