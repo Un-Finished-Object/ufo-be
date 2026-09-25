@@ -31,11 +31,11 @@ import java.lang.reflect.Field;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -62,8 +62,19 @@ class ChatWebSocketServiceTest {
     @Mock
     private ChatReadStatusRepository chatReadStatusRepository;
 
-    @InjectMocks
     private ChatWebSocketService chatWebSocketService;
+
+    @BeforeEach
+    void setUp() {
+        ChatSocketEventPublisher eventPublisher = new ChatSocketEventPublisher(messagingTemplate);
+        ChatSocketAccessService accessService = new ChatSocketAccessService(
+                chatRoomRepository, chatRoomStatusRepository, userRepository, eventPublisher
+        );
+        chatWebSocketService = new ChatWebSocketService(
+                new ChatMessageSendService(accessService, chatMessageRepository, eventPublisher),
+                new ChatReadUpdateService(accessService, chatReadStatusRepository, eventPublisher)
+        );
+    }
 
     @Test
     @DisplayName("메시지 전송 시 해당 채팅방으로 MESSAGE_CREATED 이벤트를 브로드캐스트해야 한다")
