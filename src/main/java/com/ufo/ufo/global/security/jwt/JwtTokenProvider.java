@@ -102,6 +102,19 @@ public class JwtTokenProvider {
         return false;
     }
 
+    public boolean validateAccessToken(String token) {
+        try {
+            String role = parseClaims(token).get("role", String.class);
+            if (role == null) {
+                return false;
+            }
+            Role.valueOf(role);
+            return true;
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
     private Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(key)

@@ -67,7 +67,7 @@ public class StompJwtAuthChannelInterceptor implements ChannelInterceptor {
     private void authenticate(StompHeaderAccessor accessor) {
         String token = resolveToken(accessor);
         try {
-            if (token == null || !jwtTokenProvider.validateToken(token)) {
+            if (token == null || !jwtTokenProvider.validateAccessToken(token)) {
                 throw new MessageDeliveryException("유효한 인증 토큰이 필요합니다.");
             }
             Authentication authentication = jwtTokenProvider.getAuthentication(token);

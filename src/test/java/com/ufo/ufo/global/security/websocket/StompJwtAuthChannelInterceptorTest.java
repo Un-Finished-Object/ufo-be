@@ -51,7 +51,7 @@ class StompJwtAuthChannelInterceptorTest {
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
         Authentication authentication = new UsernamePasswordAuthenticationToken("test@example.com", "", null);
 
-        when(jwtTokenProvider.validateToken("valid-token")).thenReturn(true);
+        when(jwtTokenProvider.validateAccessToken("valid-token")).thenReturn(true);
         when(jwtTokenProvider.getAuthentication("valid-token")).thenReturn(authentication);
 
         Message<?> result = interceptor.preSend(message, null);
@@ -69,7 +69,7 @@ class StompJwtAuthChannelInterceptorTest {
         accessor.setLeaveMutable(true);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
-        when(jwtTokenProvider.validateToken("invalid-token")).thenReturn(false);
+        when(jwtTokenProvider.validateAccessToken("invalid-token")).thenReturn(false);
 
         assertThatThrownBy(() -> interceptor.preSend(message, null))
                 .isInstanceOf(MessageDeliveryException.class);
@@ -96,7 +96,7 @@ class StompJwtAuthChannelInterceptorTest {
         accessor.setNativeHeader("Authorization", "Bearer tampered-token");
         accessor.setLeaveMutable(true);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
-        when(jwtTokenProvider.validateToken("tampered-token"))
+        when(jwtTokenProvider.validateAccessToken("tampered-token"))
                 .thenThrow(new SignatureException("Invalid signature"));
 
         assertThatThrownBy(() -> interceptor.preSend(message, null))

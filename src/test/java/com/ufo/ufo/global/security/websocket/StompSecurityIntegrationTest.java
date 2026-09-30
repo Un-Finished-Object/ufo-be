@@ -117,10 +117,13 @@ class StompSecurityIntegrationTest {
         User deleted = UserFixture.createUser("deleted@example.com", Role.ROLE_USER);
         UserFixture.setId(deleted, 3L);
         ReflectionTestUtils.setField(deleted, "deletedAt", LocalDateTime.now());
+        User guest = UserFixture.createUser("guest@example.com", Role.ROLE_GUEST);
+        UserFixture.setId(guest, 4L);
         ChatRoom room = ChatRoomFixture.createRoomWithId(PatternFixture.createPatternWithId(100L), 10L);
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(member));
         when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(admin));
         when(userRepository.findByEmail("deleted@example.com")).thenReturn(Optional.of(deleted));
+        when(userRepository.findByEmail("guest@example.com")).thenReturn(Optional.of(guest));
         when(chatRoomRepository.existsByIdAndPattern_DeletedAtIsNull(10L)).thenReturn(true);
         when(chatRoomRepository.existsByIdAndPattern_DeletedAtIsNull(20L)).thenReturn(true);
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(1L, 10L))
@@ -155,6 +158,23 @@ class StompSecurityIntegrationTest {
 
         assertThat(connection.nextFrame()).startsWith("ERROR\n");
         connection.closed.get(5, TimeUnit.SECONDS);
+    }
+
+    @Test
+    @DisplayName("서명된 Refresh Token으로 STOMP에 연결할 수 없어야 한다")
+    void rejectsRefreshTokenDuringConnect() throws Exception {
+        StompConnection connection = open(tokenProvider.createRefreshToken("test@example.com"));
+
+        assertThat(connection.nextFrame()).startsWith("ERROR\n");
+        connection.closed.get(5, TimeUnit.SECONDS);
+    }
+
+    @Test
+    @DisplayName("ROLE_GUEST Access Token으로 정상 연결할 수 있어야 한다")
+    void allowsGuestAccessTokenDuringConnect() throws Exception {
+        StompConnection connection = connect("guest@example.com", Role.ROLE_GUEST);
+
+        assertThat(connection.socket.isOutputClosed()).isFalse();
     }
 
     @Test
