@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   test:
-    name: Java 21 tests
+    name: Gradle tests (JDK 21)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
