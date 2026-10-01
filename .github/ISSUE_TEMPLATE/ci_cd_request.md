@@ -2,7 +2,7 @@
 name: 🚀 CI/CD & Infra
 about: 배포 파이프라인 구축 및 인프라 환경 설정을 위한 템플릿입니다.
 title: "[Chore] "
-labels: deploy
+labels: "🚀 Deploy"
 assignees: ''
 ---
 
