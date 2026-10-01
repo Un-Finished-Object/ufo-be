@@ -28,6 +28,8 @@ import com.ufo.ufo.global.security.types.Role;
 import com.ufo.ufo.support.fixture.UserFixture;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -36,7 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.core.Authentication;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Auth 서비스 테스트")
@@ -68,9 +70,6 @@ class AuthServiceTest {
 
     @Mock
     private HttpSession session;
-
-    @Mock
-    private Authentication authentication;
 
     @InjectMocks
     private AuthService authService;
@@ -180,9 +179,7 @@ class AuthServiceTest {
         String email = "user@example.com";
         User user = UserFixture.createUser(email, Role.ROLE_USER);
 
-        when(jwtTokenProvider.validateToken(refreshToken)).thenReturn(true);
-        when(jwtTokenProvider.getAuthentication(refreshToken)).thenReturn(authentication);
-        when(authentication.getName()).thenReturn(email);
+        when(jwtTokenProvider.getRefreshTokenSubject(refreshToken)).thenReturn(Optional.of(email));
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(jwtTokenProvider.createAccessToken(email, user.getRoleKey())).thenReturn("new-access-token");
         when(jwtTokenProvider.getAccessTokenExpireTime()).thenReturn(3_600_000L);
@@ -197,11 +194,26 @@ class AuthServiceTest {
     @Test
     @DisplayName("유효하지 않은 refresh token이면 InvalidTokenException이 발생해야 한다")
     void reissue_WithInvalidRefreshToken_ThrowsInvalidTokenException() {
-        when(jwtTokenProvider.validateToken("bad-token")).thenReturn(false);
+        when(jwtTokenProvider.getRefreshTokenSubject("bad-token")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.reissue("bad-token"))
                 .isInstanceOf(InvalidTokenException.class);
 
+        verify(userRepository, never()).findByEmail(anyString());
+    }
+
+    @Test
+    @DisplayName("Access Token을 재발급 쿠키로 보내면 거부해야 한다")
+    void reissue_WithAccessToken_ThrowsInvalidTokenException() {
+        String secret = Base64.getEncoder().encodeToString(
+                "0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8));
+        JwtTokenProvider realProvider = new JwtTokenProvider(secret);
+        ReflectionTestUtils.setField(realProvider, "accessTokenExpireTime", 60_000L);
+        String accessToken = realProvider.createAccessToken("user@example.com", Role.ROLE_USER.name());
+        AuthService service = new AuthService(realProvider, userRepository, userService, interestService,
+                imageService, creditService, referralService);
+        assertThatThrownBy(() -> service.reissue(accessToken))
+                .isInstanceOf(InvalidTokenException.class);
         verify(userRepository, never()).findByEmail(anyString());
     }
 
@@ -211,9 +223,7 @@ class AuthServiceTest {
         String refreshToken = "refresh-token";
         String email = "missing@example.com";
 
-        when(jwtTokenProvider.validateToken(refreshToken)).thenReturn(true);
-        when(jwtTokenProvider.getAuthentication(refreshToken)).thenReturn(authentication);
-        when(authentication.getName()).thenReturn(email);
+        when(jwtTokenProvider.getRefreshTokenSubject(refreshToken)).thenReturn(Optional.of(email));
         when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.reissue(refreshToken))

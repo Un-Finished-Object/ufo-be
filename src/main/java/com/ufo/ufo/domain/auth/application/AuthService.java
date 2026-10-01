@@ -59,12 +59,8 @@ public class AuthService {
 
     @Transactional
     public TokenResponse reissue(String refreshToken) {
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
-            throw new InvalidTokenException();
-        }
-
-        String email = jwtTokenProvider.getAuthentication(refreshToken)
-                .getName();
+        String email = jwtTokenProvider.getRefreshTokenSubject(refreshToken)
+                .orElseThrow(InvalidTokenException::new);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(UserNotFoundException::new);
