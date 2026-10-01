@@ -182,19 +182,21 @@ cd ufo-be
 
 ### 환경 변수 설정
 
-프로젝트 루트의 `.env.example`을 `.env`로 복사하고 데이터베이스, JWT, OAuth, S3 설정을 개발 환경에 맞게 바꿉니다.
+프로젝트 루트의 `.env.example`을 `.env`로 복사하고, OAuth 공급자 정보 예시를 `application-dev.yml`로 복사합니다. `.env`의 자격 증명은 개발 환경에 맞게 설정합니다.
 
 ```bash
 cp .env.example .env
+cp src/main/resources/application-dev.yml.example src/main/resources/application-dev.yml
 ```
 
 PowerShell에서는 다음 명령을 사용할 수 있습니다.
 
 ```powershell
 Copy-Item .env.example .env
+Copy-Item src/main/resources/application-dev.yml.example src/main/resources/application-dev.yml
 ```
 
-`change-me`, `replace-with-...` 값은 실제 개발용 값으로 교체합니다. JWT Secret에는 Base64로 인코딩한 32바이트 이상의 비밀값이 필요합니다.
+`.env`의 `change-me`, `replace-with-...` 값은 실제 개발용 값으로 교체합니다. JWT Secret에는 Base64로 인코딩한 32바이트 이상의 비밀값이 필요합니다. `application-dev.yml`에는 Kakao·Naver OAuth 공급자 주소와 리다이렉트 경로가 들어 있으며, Client ID와 Secret은 `.env`에서 전달합니다. 사용하는 OAuth 앱에는 `http://localhost:8080/v1/auth/oauth/google/callback`처럼 공급자별 리다이렉트 URI를 등록합니다.
 
 주요 환경 변수는 다음과 같습니다.
 

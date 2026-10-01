@@ -5,7 +5,7 @@
 ## 개발 환경
 
 - JDK 21이 필요합니다. Docker Compose로 실행하면 MySQL 8.4 컨테이너를 사용합니다.
-- [환경 변수 예시](.env.example)를 `.env`로 복사하고 `change-me`, `replace-with-...` 값을 개발 환경에 맞게 바꿉니다. `.env`와 실제 자격 증명은 커밋하지 않습니다.
+- [환경 변수 예시](.env.example)를 `.env`로, [개발용 OAuth 설정 예시](src/main/resources/application-dev.yml.example)를 `src/main/resources/application-dev.yml`로 복사합니다. `.env`의 `change-me`, `replace-with-...` 값을 개발 환경에 맞게 바꾸고 실제 자격 증명은 커밋하지 않습니다.
 - 로컬 실행과 Docker Compose 실행 순서는 [README의 로컬 개발 안내](README.md#로컬-개발)를 따릅니다.
 
 ## 코드와 테스트
