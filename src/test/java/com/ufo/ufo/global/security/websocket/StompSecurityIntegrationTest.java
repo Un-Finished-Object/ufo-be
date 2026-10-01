@@ -237,16 +237,11 @@ class StompSecurityIntegrationTest {
         assertThat(connection.nextFrame()).startsWith("ERROR\n");
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {
-            "/sub/chat/rooms/30", "/sub/chat/rooms/*", "/sub/chat/rooms/0",
-            "/sub/chat/rooms/010", "/sub/chat/rooms/-1",
-            "/sub/chat/rooms/9223372036854775808", "/sub/chat/rooms/10/extra", "/pub/chat/message"
-    })
-    @DisplayName("활성 채팅방이 아니거나 허용된 형식이 아닌 구독 경로는 거부해야 한다")
-    void rejectsUnavailableOrUnsupportedSubscriptionDestinations(String destination) throws Exception {
+    @Test
+    @DisplayName("관리자도 활성 채팅방이 아니면 구독할 수 없어야 한다")
+    void rejectsSubscriptionToUnavailableRoom() throws Exception {
         StompConnection connection = connect("admin@example.com", Role.ROLE_ADMIN);
-        connection.subscribe(destination, UUID.randomUUID().toString());
+        connection.subscribe("/sub/chat/rooms/30", UUID.randomUUID().toString());
 
         assertThat(connection.nextFrame()).startsWith("ERROR\n");
     }

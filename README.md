@@ -106,12 +106,15 @@ Google, Kakao, Naver OAuth2 로그인 뒤 Access Token과 Refresh Token을 발�
 
 * Access Token은 REST API의 `Authorization: Bearer` 헤더로 전달
 * Refresh Token은 HttpOnly Cookie로 관리
+* 새 토큰에는 `token_type`이 기록되며 REST·STOMP는 Access Token만, 재발급 API는 Refresh Token만 받음
 * 서버는 세션을 생성하지 않는 Stateless 방식으로 동작
 * Spring Security Filter에서 Access Token 검증 및 인증 정보 구성
 * `@LoginUser` Argument Resolver로 현재 사용자를 Controller에 주입
 * 일반 사용자와 관리자 API 권한 분리
 
 WebSocket 연결에서도 STOMP `CONNECT` 프레임의 Access Token을 검증합니다. HTTP 요청과 실시간 연결은 같은 인증 기준을 사용합니다.
+
+기존에 발급한 토큰에는 `token_type`이 없습니다. 서버를 먼저 배포하면 역할(`role`)이 있는 기존 토큰은 Access Token으로, 역할이 없는 기존 토큰은 Refresh Token으로 구분해 각 토큰의 만료 시각까지 허용합니다. 새로 로그인하거나 토큰을 재발급하면 용도가 기록된 토큰이 발급됩니다. 클라이언트의 Bearer 헤더와 Refresh Token 쿠키 형식은 그대로 사용하므로 프런트엔드 변경은 필요하지 않습니다.
 
 ---
 
