@@ -2,6 +2,8 @@ package com.ufo.ufo.global.security.websocket;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.chat.application.ChatSubscriptionAccessService;
@@ -114,6 +116,43 @@ class StompJwtAuthChannelInterceptorTest {
 
         assertThatThrownBy(() -> interceptor.preSend(message, null))
                 .isInstanceOf(MessageDeliveryException.class);
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {
+            "/sub/chat/rooms/*", "/sub/chat/rooms/0", "/sub/chat/rooms/010",
+            "/sub/chat/rooms/-1", "/sub/chat/rooms/9223372036854775808",
+            "/sub/chat/rooms/10/extra", "/pub/chat/message"
+    })
+    @DisplayName("허용되지 않은 채팅방 구독 경로는 권한 조회 전에 거부해야 한다")
+    void preSend_WithInvalidSubscriptionDestination_RejectsSubscribe(String destination) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        accessor.setDestination(destination);
+        accessor.setUser(new UsernamePasswordAuthenticationToken("admin@example.com", "",
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+        accessor.setLeaveMutable(true);
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+        assertThatThrownBy(() -> interceptor.preSend(message, null))
+                .isInstanceOf(MessageDeliveryException.class);
+        verifyNoInteractions(chatSubscriptionAccessService);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 채팅방은 구독 권한 검사에서 거부해야 한다")
+    void preSend_WithUnavailableRoom_RejectsSubscribe() {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        accessor.setDestination("/sub/chat/rooms/30");
+        Authentication authentication = new UsernamePasswordAuthenticationToken("admin@example.com", "",
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        accessor.setUser(authentication);
+        accessor.setLeaveMutable(true);
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+        assertThatThrownBy(() -> interceptor.preSend(message, null))
+                .isInstanceOf(MessageDeliveryException.class);
+        verify(chatSubscriptionAccessService).canSubscribe(authentication, 30L);
     }
 
     @Test
