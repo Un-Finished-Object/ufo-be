@@ -205,16 +205,33 @@ class AuthServiceTest {
     @Test
     @DisplayName("Access Token을 재발급 쿠키로 보내면 거부해야 한다")
     void reissue_WithAccessToken_ThrowsInvalidTokenException() {
-        String secret = Base64.getEncoder().encodeToString(
-                "0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8));
-        JwtTokenProvider realProvider = new JwtTokenProvider(secret);
-        ReflectionTestUtils.setField(realProvider, "accessTokenExpireTime", 60_000L);
+        JwtTokenProvider realProvider = realJwtProvider();
         String accessToken = realProvider.createAccessToken("user@example.com", Role.ROLE_USER.name());
         AuthService service = new AuthService(realProvider, userRepository, userService, interestService,
                 imageService, creditService, referralService);
+
         assertThatThrownBy(() -> service.reissue(accessToken))
                 .isInstanceOf(InvalidTokenException.class);
         verify(userRepository, never()).findByEmail(anyString());
+    }
+
+    @Test
+    @DisplayName("실제 Refresh Token으로 새 Access Token을 발급해야 한다")
+    void reissue_WithSignedRefreshToken_ReturnsAccessToken() {
+        JwtTokenProvider realProvider = realJwtProvider();
+        String email = "user@example.com";
+        User user = UserFixture.createUser(email, Role.ROLE_USER);
+        String refreshToken = realProvider.createRefreshToken(email);
+        AuthService service = new AuthService(realProvider, userRepository, userService, interestService,
+                imageService, creditService, referralService);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+
+        TokenResponse response = service.reissue(refreshToken);
+
+        assertThat(realProvider.validateAccessToken(response.accessToken())).isTrue();
+        assertThat(realProvider.getRefreshTokenSubject(response.accessToken())).isEmpty();
+        assertThat(response.tokenType()).isEqualTo("Bearer");
+        assertThat(response.expiresIn()).isEqualTo(60_000L);
     }
 
     @Test
@@ -248,5 +265,14 @@ class AuthServiceTest {
         authService.logout(request);
 
         verify(request).getSession(false);
+    }
+
+    private JwtTokenProvider realJwtProvider() {
+        String secret = Base64.getEncoder().encodeToString(
+                "0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8));
+        JwtTokenProvider realProvider = new JwtTokenProvider(secret);
+        ReflectionTestUtils.setField(realProvider, "accessTokenExpireTime", 60_000L);
+        ReflectionTestUtils.setField(realProvider, "refreshTokenExpireTime", 120_000L);
+        return realProvider;
     }
 }
