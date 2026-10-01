@@ -2,7 +2,7 @@
 name: ♻️ Code Refactoring
 about: 코드 리팩토링을 위한 템플릿입니다.
 title: "[Refactor] "
-labels: refactor
+labels: "♻️ Refactor"
 assignees: ''
 ---
 

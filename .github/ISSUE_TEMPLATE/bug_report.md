@@ -2,7 +2,7 @@
 name: 🐛 Bug Report
 about: 버그를 제보하기 위한 템플릿입니다.
 title: "[Fix] "
-labels: bug
+labels: "🐛 Bug"
 assignees: ''
 ---
 

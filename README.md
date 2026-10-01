@@ -32,6 +32,7 @@ UFO는 도안을 찾고, 대체 실을 고르고, 같은 도안을 만드는 사
   - [환경 변수 설정](#환경-변수-설정)
   - [로컬 서버 실행](#로컬-서버-실행)
   - [Docker Compose 실행](#docker-compose-실행)
+- [개발 참여](#개발-참여)
 - [프로젝트 구조](#프로젝트-구조)
 - [API](#api)
 - [배포](#배포)
@@ -181,17 +182,21 @@ cd ufo-be
 
 ### 환경 변수 설정
 
-프로젝트 루트에 `.env` 파일을 만들고 데이터베이스, JWT, OAuth, S3 설정을 개발 환경에 맞게 입력합니다.
+프로젝트 루트의 `.env.example`을 `.env`로 복사하고, OAuth 공급자 정보 예시를 `application-dev.yml`로 복사합니다. `.env`의 자격 증명은 개발 환경에 맞게 설정합니다.
 
 ```bash
-touch .env
+cp .env.example .env
+cp src/main/resources/application-dev.yml.example src/main/resources/application-dev.yml
 ```
 
 PowerShell에서는 다음 명령을 사용할 수 있습니다.
 
 ```powershell
-New-Item .env -ItemType File
+Copy-Item .env.example .env
+Copy-Item src/main/resources/application-dev.yml.example src/main/resources/application-dev.yml
 ```
+
+`.env`의 `change-me`, `replace-with-...` 값은 실제 개발용 값으로 교체합니다. JWT Secret에는 Base64로 인코딩한 32바이트 이상의 비밀값이 필요합니다. `application-dev.yml`에는 Kakao·Naver OAuth 공급자 주소와 리다이렉트 경로가 들어 있으며, Client ID와 Secret은 `.env`에서 전달합니다. 사용하는 OAuth 앱에는 `http://localhost:8080/v1/auth/oauth/google/callback`처럼 공급자별 리다이렉트 URI를 등록합니다.
 
 주요 환경 변수는 다음과 같습니다.
 
@@ -239,7 +244,15 @@ Dockerfile은 빌드된 JAR를 이미지에 복사하므로 먼저 `bootJar`를 
 docker compose --env-file .env up --build
 ```
 
+Windows PowerShell에서는 `./gradlew` 대신 `.\gradlew.bat bootJar`를 실행합니다.
+
 Docker Compose는 백엔드와 MySQL을 함께 실행하며 기본적으로 호스트의 `127.0.0.1`에만 포트를 바인딩합니다.
+
+---
+
+## 개발 참여
+
+로컬 테스트, 코드 구조, 이슈·PR 작성 순서는 [개발 참여 가이드](CONTRIBUTING.md)를 참고하세요. 코딩 에이전트의 프로젝트 지침은 [AGENTS.md](AGENTS.md)에 있습니다.
 
 ---
 
