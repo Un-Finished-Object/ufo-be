@@ -3,6 +3,7 @@ package com.ufo.ufo.global.security.oauth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,7 +20,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -67,7 +67,7 @@ class OAuthUserUpsertServiceTest {
         assertThat(saved.getRole()).isEqualTo(Role.ROLE_GUEST);
         assertThat(saved.getProvider()).isEqualTo(Provider.GOOGLE);
         verify(referralService).ensureReferralCode(saved);
-        verify(oAuthUserPersistenceService, times(2)).saveAndFlush(any(User.class));
+        verify(oAuthUserPersistenceService).saveAndFlush(any(User.class));
     }
 
     @Test
@@ -85,7 +85,7 @@ class OAuthUserUpsertServiceTest {
         User saved = oauthUserUpsertService.saveOrUpdate(response);
 
         assertThat(saved.getNickname()).isEqualTo("new-user#11");
-        verify(oAuthUserPersistenceService, times(2)).saveAndFlush(any(User.class));
+        verify(oAuthUserPersistenceService).saveAndFlush(any(User.class));
     }
 
     @Test
@@ -107,18 +107,17 @@ class OAuthUserUpsertServiceTest {
 
         assertThat(saved.getNickname()).isEqualTo("new-user#1");
         verify(temporaryNicknameGenerator, times(2)).generate("new-user");
-        verify(oAuthUserPersistenceService, times(3)).saveAndFlush(any(User.class));
+        verify(oAuthUserPersistenceService, times(2)).saveAndFlush(any(User.class));
     }
 
     @Test
-    @DisplayName("이미 존재하는 사용자면 기존 닉네임과 프로필 이미지를 유지한 채 저장해야 한다")
+    @DisplayName("기존 OAuth 사용자는 오래된 사용자 객체를 다시 저장하지 않아야 한다")
     void saveOrUpdate_WhenUserExists_PreservesProfile() {
         User existing = UserFixture.createUser("exists@example.com", Role.ROLE_USER);
         OAuth2Response response = oauthResponse(
                 "exists@example.com", "updated-name", "https://example.com/updated.png", Provider.GOOGLE
         );
         when(userRepository.findByEmail("exists@example.com")).thenReturn(Optional.of(existing));
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         User saved = oauthUserUpsertService.saveOrUpdate(response);
 
@@ -127,9 +126,28 @@ class OAuthUserUpsertServiceTest {
         assertThat(saved.getRole()).isEqualTo(Role.ROLE_USER);
         assertThat(saved.getProvider()).isEqualTo(Provider.GOOGLE);
 
-        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(captor.capture());
-        assertThat(captor.getValue()).isSameAs(existing);
+        assertThat(saved).isSameAs(existing);
+        verify(userRepository, never()).save(any(User.class));
+        verify(oAuthUserPersistenceService, never()).saveAndFlush(any(User.class));
+        verify(referralService).ensureReferralCode(existing);
+    }
+
+    @Test
+    @DisplayName("동시 OAuth 생성으로 발견한 기존 사용자도 다시 저장하지 않는다")
+    void saveOrUpdate_WhenCreatedConcurrently_DoesNotMergeExistingUser() {
+        User existing = UserFixture.createUser("exists@example.com", Role.ROLE_USER);
+        OAuth2Response response = oauthResponse("exists@example.com", "name", "image", Provider.GOOGLE);
+        when(userRepository.findByEmail("exists@example.com"))
+                .thenReturn(Optional.empty(), Optional.of(existing));
+        when(imageProperties.defaultProfileImageKey()).thenReturn("defaults/profile.png");
+        when(temporaryNicknameGenerator.generate("name")).thenReturn("name");
+        when(oAuthUserPersistenceService.saveAndFlush(any(User.class)))
+                .thenThrow(new DataIntegrityViolationException("email collision"));
+
+        assertThat(oauthUserUpsertService.saveOrUpdate(response)).isSameAs(existing);
+
+        verify(oAuthUserPersistenceService).saveAndFlush(any(User.class));
+        verify(userRepository, never()).save(any(User.class));
         verify(referralService).ensureReferralCode(existing);
     }
 

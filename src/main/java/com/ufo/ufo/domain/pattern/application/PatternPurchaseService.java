@@ -20,6 +20,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -34,11 +35,16 @@ public class PatternPurchaseService {
     private final ChatRoomStatusRepository chatRoomStatusRepository;
     private final ChatNicknameGenerator chatNicknameGenerator;
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public PatternPurchaseResponse purchase(User user, Long patternId, PatternPurchaseRequest request) {
         Pattern pattern = findActivePattern(patternId);
         List<UnlockType> unlockTypes = request.toUnlockTypes();
-        unlockTypes.forEach(unlockType -> creditService.purchaseUnlock(user, patternId, unlockType));
+        for (UnlockType unlockType : unlockTypes) {
+            boolean purchased = creditService.purchaseUnlock(user, patternId, unlockType);
+            if (!purchased && unlockType == UnlockType.CHAT) {
+                throw new ChatRoomAlreadyPurchasedException();
+            }
+        }
         if (unlockTypes.contains(UnlockType.CHAT)) {
             ensureChatRoomStatus(user, pattern);
         }

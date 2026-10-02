@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -52,15 +53,15 @@ public class UserService {
         return NicknameExistsResponse.from(userRepository.existsByNickname(normalizedNickname));
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public UpdateMyInfoResponse updateMyInfo(User user, UpdateMyInfoRequest request) {
         User updatedUser = updateNameAndProfileImage(user, request.userName(), request.profileImageKey());
         return UpdateMyInfoResponse.from(updatedUser, imageService.buildImageUrl(updatedUser.getProfileImage()));
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public User updateNameAndProfileImage(User user, String userName, String profileImageKey) {
-        User loginUser = getUserById(user.getId());
+        User loginUser = getUserByIdForUpdate(user.getId());
         String updatedUserName = userName == null
                 ? loginUser.getNickname()
                 : NicknamePolicy.normalizeAndValidate(userName);

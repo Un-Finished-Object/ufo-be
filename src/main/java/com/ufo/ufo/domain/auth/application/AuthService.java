@@ -21,6 +21,7 @@ import jakarta.servlet.http.HttpSession;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -35,7 +36,7 @@ public class AuthService {
     private final CreditService creditService;
     private final ReferralService referralService;
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public SignupResponse signup(User user, SignupRequest request) {
         String normalizedNickname = NicknamePolicy.normalizeAndValidate(request.userName());
         User loginUser = userService.getUserByIdForUpdate(user.getId());

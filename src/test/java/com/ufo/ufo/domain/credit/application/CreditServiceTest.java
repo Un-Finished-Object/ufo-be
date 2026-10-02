@@ -2,23 +2,28 @@ package com.ufo.ufo.domain.credit.application;
 
 import java.lang.reflect.Field;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.groups.Tuple.tuple;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.credit.dao.CreditTransactionRepository;
 import com.ufo.ufo.domain.credit.dao.UnlockRepository;
 import com.ufo.ufo.domain.credit.domain.CreditTransaction;
 import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
+import com.ufo.ufo.domain.credit.domain.Unlock;
+import com.ufo.ufo.domain.credit.domain.UnlockType;
+import com.ufo.ufo.domain.credit.exception.InsufficientCreditException;
 import com.ufo.ufo.domain.credit.dto.response.CreditRulesResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditTransactionsResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditWalletResponse;
 import com.ufo.ufo.domain.credit.policy.CreditPolicy;
 import com.ufo.ufo.domain.user.application.UserService;
-import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,9 +40,6 @@ class CreditServiceTest {
 
     @Mock
     private UserService userService;
-
-    @Mock
-    private UserRepository userRepository;
 
     @Mock
     private CreditTransactionRepository creditTransactionRepository;
@@ -107,11 +109,54 @@ class CreditServiceTest {
     }
 
     @Test
+    @DisplayName("구매는 잠근 사용자에게서 비용을 차감하고 거래와 해금을 저장한다")
+    void purchaseUnlock_LocksUserAndDeductsCost() {
+        User user = UserFixture.createUserWithId(1L);
+        user.addCredits(10);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(user);
+
+        assertThat(creditService.purchaseUnlock(user, 10L, UnlockType.YARN_INFO)).isTrue();
+
+        assertThat(user.getBallBalance()).isZero();
+        verify(unlockRepository).save(org.mockito.ArgumentMatchers.any(Unlock.class));
+        ArgumentCaptor<CreditTransaction> captor = ArgumentCaptor.forClass(CreditTransaction.class);
+        verify(creditTransactionRepository).save(captor.capture());
+        assertThat(captor.getValue().getAmount()).isEqualTo(-10);
+    }
+
+    @Test
+    @DisplayName("이미 해금한 구매는 잔액이 없어도 다시 차감하지 않고 중복 결과를 반환한다")
+    void purchaseUnlock_AlreadyUnlocked_DoesNotCharge() {
+        User user = UserFixture.createUserWithId(1L);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(user);
+        when(unlockRepository.findByUser_IdAndPatternIdAndType(1L, 10L, UnlockType.YARN_INFO))
+                .thenReturn(Optional.of(Unlock.builder().user(user).patternId(10L).type(UnlockType.YARN_INFO).build()));
+
+        assertThat(creditService.purchaseUnlock(user, 10L, UnlockType.YARN_INFO)).isFalse();
+
+        assertThat(user.getBallBalance()).isZero();
+        verifyNoInteractions(creditTransactionRepository);
+    }
+
+    @Test
+    @DisplayName("잔액 부족 구매는 거래를 저장하지 않고 잔액 부족 예외로 거절한다")
+    void purchaseUnlock_InsufficientBalance_DoesNotSaveTransaction() {
+        User user = UserFixture.createUserWithId(1L);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(user);
+
+        assertThatThrownBy(() -> creditService.purchaseUnlock(user, 10L, UnlockType.YARN_INFO))
+                .isInstanceOf(InsufficientCreditException.class);
+
+        verifyNoInteractions(creditTransactionRepository);
+        assertThat(user.getBallBalance()).isZero();
+    }
+
+    @Test
     @DisplayName("크레딧 추가는 사용자 잔액을 올리고 로그를 저장해야 한다")
     void addCredits_AddsBalanceAndSavesLog() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
-        when(userService.getUserById(1L)).thenReturn(loginUser);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(loginUser);
 
         creditService.addCredits(requestUser, 5, CreditTransactionType.REFERRAL_BONUS);
 
@@ -126,11 +171,11 @@ class CreditServiceTest {
     @DisplayName("친구 초대 보상은 잔액을 원자적으로 증가시키고 로그를 저장해야 한다")
     void awardReferralBonus_IncrementsBalanceAndSavesLog() {
         User user = UserFixture.createUserWithId(1L);
-        when(userRepository.incrementBallBalance(1L, 150)).thenReturn(1);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(user);
 
         creditService.awardReferralBonus(user, 150);
 
-        verify(userRepository).incrementBallBalance(1L, 150);
+        assertThat(user.getBallBalance()).isEqualTo(150);
         ArgumentCaptor<CreditTransaction> captor = ArgumentCaptor.forClass(CreditTransaction.class);
         verify(creditTransactionRepository).save(captor.capture());
         assertThat(captor.getValue().getUser()).isEqualTo(user);
@@ -143,12 +188,13 @@ class CreditServiceTest {
     void addCredits_CapsAtDailyLimit() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
-        when(userService.getUserById(1L)).thenReturn(loginUser);
-        when(creditTransactionRepository.sumPositiveAmountByUserAndCreatedAtBetween(
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(loginUser);
+        when(creditTransactionRepository.findDailyEarningsForUpdate(
                 org.mockito.ArgumentMatchers.eq(1L),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()))
-                .thenReturn(19);
+                .thenReturn(List.of(CreditTransaction.builder()
+                        .user(loginUser).amount(19).type(CreditTransactionType.ATTENDANCE_DAILY).build()));
 
         creditService.addCredits(requestUser, 5, CreditTransactionType.ATTENDANCE_DAILY);
 
@@ -164,7 +210,7 @@ class CreditServiceTest {
     void addCredits_WithSignupBonus_IgnoresDailyLimit() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
-        when(userService.getUserById(1L)).thenReturn(loginUser);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(loginUser);
 
         creditService.addCredits(requestUser, CreditPolicy.SIGNUP_BONUS_BALLS, CreditTransactionType.SIGNUP_BONUS);
 

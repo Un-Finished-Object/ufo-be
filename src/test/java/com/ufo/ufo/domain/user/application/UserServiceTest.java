@@ -110,7 +110,7 @@ class UserServiceTest {
         User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
         UserFixture.setId(user, 10L);
         UpdateMyInfoRequest request = new UpdateMyInfoRequest("duplicated", null);
-        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(user));
         when(userRepository.existsByNicknameAndIdNot("duplicated", 10L)).thenReturn(true);
 
         assertThatThrownBy(() -> userService.updateMyInfo(user, request))
@@ -123,7 +123,7 @@ class UserServiceTest {
         User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
         UserFixture.setId(user, 10L);
         UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", "profiles/10/updated.png");
-        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(user));
         when(imageService.buildImageUrl("profiles/10/updated.png")).thenReturn("https://cdn.ufo.com/profiles/10/updated.png");
 
         UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
@@ -147,7 +147,7 @@ class UserServiceTest {
         User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
         UserFixture.setId(user, 10L);
         UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", null);
-        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(user));
         when(imageService.buildImageUrl("profiles/1/profile.png")).thenReturn("https://cdn.ufo.com/profiles/1/profile.png");
 
         UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
@@ -165,7 +165,7 @@ class UserServiceTest {
         User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
         UserFixture.setId(user, 10L);
         UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", "profiles/10/image");
-        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(user));
         when(imageService.buildImageUrl("profiles/10/image")).thenReturn("https://cdn.ufo.com/profiles/10/image");
 
         UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
@@ -182,7 +182,7 @@ class UserServiceTest {
         User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
         UserFixture.setId(user, 10L);
         UpdateMyInfoRequest request = new UpdateMyInfoRequest(null, "profiles/10/updated.png");
-        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(user));
         when(imageService.buildImageUrl("profiles/10/updated.png")).thenReturn("https://cdn.ufo.com/profiles/10/updated.png");
 
         UpdateMyInfoResponse response = userService.updateMyInfo(user, request);
@@ -199,7 +199,7 @@ class UserServiceTest {
         User user = UserFixture.createUser("test@example.com", Role.ROLE_USER);
         UserFixture.setId(user, 10L);
         UpdateMyInfoRequest request = new UpdateMyInfoRequest("updatedName", "profiles/10/updated.png");
-        when(userRepository.findById(10L)).thenReturn(Optional.empty());
+        when(userRepository.findByIdForUpdate(10L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.updateMyInfo(user, request))
                 .isInstanceOf(UserNotFoundException.class);

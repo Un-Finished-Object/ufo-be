@@ -69,6 +69,7 @@ class PatternPurchaseServiceTest {
 
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(userService.getUserById(1L)).thenReturn(user);
+        when(creditService.purchaseUnlock(user, 10L, UnlockType.CHAT)).thenReturn(true);
         when(chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(false);
         when(chatRoomProvisioningService.assignJoinableRoom(any(Pattern.class)))
                 .thenReturn(room);
@@ -113,6 +114,7 @@ class PatternPurchaseServiceTest {
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(userService.getUserById(1L)).thenReturn(user);
+        when(creditService.purchaseUnlock(user, 10L, UnlockType.CHAT)).thenReturn(true);
         when(chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(true);
 
         assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))
