@@ -43,3 +43,39 @@ jobs:
             build/reports/tests/test/
           if-no-files-found: ignore
           retention-days: 7
+
+  integration-test:
+    name: Integration tests (${{ matrix.database }}, JDK 21)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [mysql, postgres]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Run integration tests
+        run: |
+          chmod +x ./gradlew
+          ./gradlew integrationTest -PtestDatabase=${{ matrix.database }} --no-daemon
+
+      - name: Upload integration test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-report-${{ matrix.database }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/test-results/integrationTest/${{ matrix.database }}/
+            build/reports/tests/integrationTest/${{ matrix.database }}/
+          if-no-files-found: ignore
+          retention-days: 7
