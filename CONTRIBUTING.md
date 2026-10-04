@@ -12,7 +12,49 @@
 
 업무 코드는 `src/main/java/com/ufo/ufo/domain/` 아래 도메인별로 두고, 공통 보안·예외·설정 코드는 `global/`에 둡니다. 도메인에서는 `api`, `application`, `dao`, `domain`, `dto` 계층을 사용합니다.
 
-전체 테스트는 macOS·Linux에서 `./gradlew test`, Windows에서 `.\gradlew.bat test`로 실행합니다. `main` 대상 PR에서는 GitHub Actions의 `Gradle tests (JDK 21)` 검사가 같은 테스트를 실행하며, 실패 시 테스트 보고서를 아티팩트로 남깁니다. 코딩 에이전트가 컴파일이나 테스트 명령을 실행할 때는 [AGENTS.md의 승인 규칙](AGENTS.md#build-and-test-approval)을 먼저 따릅니다.
+기본 테스트는 macOS·Linux에서 `./gradlew test`, Windows에서 `.\gradlew.bat test`로 실행합니다. Docker가 필요한 통합 테스트는 별도 `integrationTest` 작업으로 실행합니다. 코딩 에이전트가 컴파일이나 테스트 명령을 실행할 때는 [AGENTS.md의 승인 규칙](AGENTS.md#build-and-test-approval)을 먼저 따릅니다.
+
+### 통합 테스트 실행
+
+통합 테스트는 Spring Boot와 Testcontainers로 선택한 DB를 자동으로 띄웁니다. Windows에서는 Docker Desktop을 실행한 뒤 아래 명령을 사용합니다.
+
+```powershell
+.\gradlew.bat test
+.\gradlew.bat integrationTest -PtestDatabase=mysql
+.\gradlew.bat integrationTest -PtestDatabase=postgres
+```
+
+`testDatabase`를 생략하면 운영 DB와 같은 MySQL 8.4를 사용합니다. PostgreSQL 테스트에는 17 버전을 사용합니다. 기본 테스트와 선택한 DB의 통합 테스트를 함께 실행하려면 `.\gradlew.bat test integrationTest -PtestDatabase=mysql`을 사용합니다.
+
+macOS·Linux에서는 `.\gradlew.bat` 대신 `./gradlew`를 사용합니다. 테스트를 강제로 다시 실행하려면 `--rerun-tasks`를 붙입니다.
+
+개별 테스트도 같은 작업에서 실행합니다.
+
+```powershell
+.\gradlew.bat integrationTest -PtestDatabase=postgres --tests '*JdbcIntegrationTest'
+```
+
+테스트용 DB 컨테이너는 자동으로 생성·종료되므로 DB를 직접 만들거나 접속 환경 변수를 설정할 필요가 없습니다. 운영·개발 DB에는 연결하지 않습니다. Docker를 사용할 수 없으면 통합 테스트를 건너뛰지 않고 실패로 처리합니다.
+
+`check`·`build`를 실행해도 통합 테스트는 자동으로 실행되지 않습니다. 결과는 `build/test-results/integrationTest/<DB>/`와 `build/reports/tests/integrationTest/<DB>/`에 DB별로 저장됩니다.
+
+### 통합 테스트 추가
+
+통합 테스트에는 DB 이름이 아닌 `@Tag("integration")`을 붙입니다. 기본 `test`에서는 이 태그가 붙은 테스트를 제외합니다. `integrationTest`는 이 태그가 붙은 테스트를 모두 실행하므로 새 테스트를 클래스 목록에 따로 등록할 필요는 없습니다.
+
+DB 테스트를 추가할 때는 `support/database`의 `DatabaseTestApplication`을 `@ContextConfiguration`으로 지정하고 `TestDatabaseConfig`를 `@Import`로 가져옵니다. JDBC 테스트에는 `@JdbcTest`, Repository 테스트에는 `@DataJpaTest`를 사용합니다. 두 테스트 모두 `spring.config.name=application-db-test`와 `@AutoConfigureTestDatabase(replace = NONE)`을 지정합니다.
+
+생성·수정 시각을 기록하는 테스트에는 `JpaAuditingTestConfig`도 가져옵니다. `@DirtiesContext(classMode = AFTER_CLASS)`를 지정해 테스트 클래스 실행이 끝나면 컨텍스트와 DB 컨테이너를 정리합니다.
+
+서비스 통합 테스트에서는 JPA 관련 설정만 불러온 뒤 테스트에 필요한 서비스를 직접 추가합니다. 외부 시스템 연동에는 실제 호출 대신 테스트용 객체를 사용합니다.
+
+`@JdbcTest`와 `@DataJpaTest`는 기본적으로 테스트 전체를 트랜잭션으로 감싸고 마지막에 롤백합니다. 동시성 테스트처럼 다른 작업 스레드가 미리 저장한 데이터를 읽어야 할 때는 `@Transactional(propagation = NOT_SUPPORTED)`로 테스트 전체를 감싸는 트랜잭션을 끄고 작업별 트랜잭션을 직접 구성합니다. 일반 Repository 테스트에서는 테스트 목적에 따라 기본 롤백을 그대로 사용할 수 있습니다.
+
+### PR 테스트
+
+`main` 대상 PR에서는 `Gradle tests (JDK 21)` 검사가 기본 테스트를 실행하고, DB별 검사가 MySQL·PostgreSQL에서 같은 통합 테스트를 실행합니다. 실패 보고서는 검사별 아티팩트로 남깁니다. 두 DB에서 이 테스트가 통과하더라도 전체 서비스를 PostgreSQL로 운영할 수 있다는 뜻은 아닙니다.
+
+공통 설정과 동시성 검증 기준은 [DB 테스트 설계](docs/design/database-testing.md)를 참고합니다.
 
 ## 코드 스타일과 개발 컨벤션
 
