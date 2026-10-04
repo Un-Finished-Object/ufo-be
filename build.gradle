@@ -83,6 +83,7 @@ tasks.register('integrationTest', Test) {
 	}
 	systemProperty 'ufo.test.database', database
 	inputs.property 'testDatabase', database
+	inputs.files(fileTree('scripts/database') { include '*.sql' })
 	reports.junitXml.outputLocation = layout.buildDirectory.dir("test-results/integrationTest/${database}")
 	reports.html.outputLocation = layout.buildDirectory.dir("reports/tests/integrationTest/${database}")
 	shouldRunAfter tasks.named('test')
