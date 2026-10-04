@@ -1,10 +1,8 @@
 package com.ufo.ufo.domain.chat.application;
 
 import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
-import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
 import com.ufo.ufo.domain.chat.domain.ChatMessage;
-import com.ufo.ufo.domain.chat.domain.ChatReadStatus;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.dto.response.AdminCheckChatMessageResponse;
 import com.ufo.ufo.domain.chat.dto.response.AdminDeleteChatMessageResponse;
@@ -28,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -39,7 +38,7 @@ public class AdminChatService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
-    private final ChatReadStatusRepository chatReadStatusRepository;
+    private final ChatReadStatusService readStatusService;
     private final UserService userService;
     private final ImageService imageService;
 
@@ -96,31 +95,16 @@ public class AdminChatService {
         return AdminDeleteChatMessageResponse.of(chatRoomId, messageId, chatMessage.getDeletedAt());
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public AdminCheckChatMessageResponse checkMessage(User user, Long chatRoomId, Long messageId) {
         User adminUser = userService.getUserById(user.getId());
         validateAdminRole(adminUser);
         ChatRoom room = chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(chatRoomId)
                 .orElseThrow(ChatRoomNotFoundException::new);
 
-        chatMessageRepository.findByIdAndRoom_Id(messageId, chatRoomId)
-                .orElseThrow(InvalidChatMessageIdException::new);
-
         LocalDateTime now = LocalDateTime.now();
-        chatReadStatusRepository.findByRoom_IdAndUser_Id(chatRoomId, adminUser.getId())
-                .ifPresentOrElse(
-                        readStatus -> {
-                            Long currentLastRead = readStatus.getLastReadMessageId();
-                            Long newLastRead = currentLastRead == null ? messageId : Math.max(currentLastRead, messageId);
-                            readStatus.update(newLastRead, now);
-                        },
-                        () -> chatReadStatusRepository.save(ChatReadStatus.builder()
-                                .room(room)
-                                .user(adminUser)
-                                .lastReadMessageId(messageId)
-                                .readAt(now)
-                                .build())
-                );
+        readStatusService.markRead(adminUser, room, messageId)
+                .orElseThrow(InvalidChatMessageIdException::new);
 
         return AdminCheckChatMessageResponse.of(chatRoomId, messageId, now);
     }
