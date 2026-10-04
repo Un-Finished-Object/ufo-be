@@ -13,9 +13,7 @@ import com.ufo.ufo.domain.credit.dto.response.CreditTransactionsResponse;
 import com.ufo.ufo.domain.credit.dto.response.CreditWalletResponse;
 import com.ufo.ufo.domain.credit.policy.CreditPolicy;
 import com.ufo.ufo.domain.user.application.UserService;
-import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
-import com.ufo.ufo.global.exception.UserNotFoundException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,6 +24,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -36,7 +35,6 @@ public class CreditService {
     private static final int TRANSACTION_PAGE_SIZE = 20;
 
     private final UserService userService;
-    private final UserRepository userRepository;
     private final CreditTransactionRepository creditTransactionRepository;
     private final UnlockRepository unlockRepository;
 
@@ -66,11 +64,12 @@ public class CreditService {
         );
     }
 
-    @Transactional
-    public void purchaseUnlock(User user, Long patternId, UnlockType unlockType) {
-        User loginUser = userService.getUserById(user.getId());
-        if (isUnlocked(loginUser.getId(), patternId, unlockType)) {
-            return;
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public boolean purchaseUnlock(User user, Long patternId, UnlockType unlockType) {
+        User loginUser = userService.getUserByIdForUpdate(user.getId());
+        if (unlockRepository.findByUser_IdAndPatternIdAndType(loginUser.getId(), patternId, unlockType)
+                .isPresent()) {
+            return false;
         }
         int cost = resolveUnlockCost(unlockType);
         validateEnoughBalance(loginUser, cost);
@@ -80,15 +79,16 @@ public class CreditService {
                 .patternId(patternId)
                 .type(unlockType)
                 .build());
+        return true;
     }
 
     public boolean isUnlocked(Long userId, Long patternId, UnlockType unlockType) {
         return unlockRepository.existsByUser_IdAndPatternIdAndType(userId, patternId, unlockType);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void addCredits(User user, int amount, CreditTransactionType type) {
-        User loginUser = userService.getUserById(user.getId());
+        User loginUser = userService.getUserByIdForUpdate(user.getId());
         int appliedAmount = resolveAppliedAmount(loginUser, amount, type);
         if (appliedAmount == 0) {
             return;
@@ -97,12 +97,9 @@ public class CreditService {
         saveTransaction(loginUser, appliedAmount, type);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void awardReferralBonus(User user, int amount) {
-        if (userRepository.incrementBallBalance(user.getId(), amount) == 0) {
-            throw new UserNotFoundException();
-        }
-        saveTransaction(user, amount, CreditTransactionType.REFERRAL_BONUS);
+        addCredits(user, amount, CreditTransactionType.REFERRAL_BONUS);
     }
 
     private int resolveAppliedAmount(User user, int amount, CreditTransactionType type) {
@@ -134,7 +131,9 @@ public class CreditService {
         LocalDate today = LocalDate.now();
         LocalDateTime from = today.atStartOfDay();
         LocalDateTime to = today.plusDays(1).atStartOfDay();
-        return creditTransactionRepository.sumPositiveAmountByUserAndCreatedAtBetween(userId, from, to);
+        return creditTransactionRepository.findDailyEarningsForUpdate(userId, from, to).stream()
+                .mapToInt(CreditTransaction::getAmount)
+                .sum();
     }
 
     private int capByRemainingLimit(int amount, int remaining) {

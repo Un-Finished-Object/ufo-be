@@ -28,7 +28,7 @@ public class OAuthUserUpsertService {
         User existingUser = userRepository.findByEmail(response.getEmail()).orElse(null);
         if (existingUser != null) {
             referralService.ensureReferralCode(existingUser);
-            return userRepository.save(existingUser);
+            return existingUser;
         }
 
         for (int attempt = 0; attempt < MAX_SAVE_ATTEMPTS; attempt++) {
@@ -36,12 +36,12 @@ public class OAuthUserUpsertService {
             try {
                 User savedUser = oAuthUserPersistenceService.saveAndFlush(newUser);
                 referralService.ensureReferralCode(savedUser);
-                return oAuthUserPersistenceService.saveAndFlush(savedUser);
+                return savedUser;
             } catch (DataIntegrityViolationException exception) {
                 User concurrentlyCreatedUser = userRepository.findByEmail(response.getEmail()).orElse(null);
                 if (concurrentlyCreatedUser != null) {
                     referralService.ensureReferralCode(concurrentlyCreatedUser);
-                    return oAuthUserPersistenceService.saveAndFlush(concurrentlyCreatedUser);
+                    return concurrentlyCreatedUser;
                 }
             }
         }

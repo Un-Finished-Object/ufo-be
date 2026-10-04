@@ -55,12 +55,37 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-websocket-test'
 	testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
+	testImplementation 'org.testcontainers:testcontainers-mysql'
+	testImplementation 'org.testcontainers:testcontainers-postgresql'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testRuntimeOnly 'org.postgresql:postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
 	outputs.dir snippetsDir
-	useJUnitPlatform()
+	useJUnitPlatform {
+		excludeTags 'integration'
+	}
+}
+
+tasks.register('integrationTest', Test) {
+	description = 'Runs integration tests.'
+	group = 'verification'
+	def database = providers.gradleProperty('testDatabase').orElse('mysql').get()
+	if (!(database in ['mysql', 'postgres'])) {
+		throw new GradleException("Unsupported testDatabase '${database}'. Use mysql or postgres.")
+	}
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform {
+		includeTags 'integration'
+	}
+	systemProperty 'ufo.test.database', database
+	inputs.property 'testDatabase', database
+	reports.junitXml.outputLocation = layout.buildDirectory.dir("test-results/integrationTest/${database}")
+	reports.html.outputLocation = layout.buildDirectory.dir("reports/tests/integrationTest/${database}")
+	shouldRunAfter tasks.named('test')
 }
 
 tasks.named('asciidoctor') {

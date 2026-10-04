@@ -3,6 +3,7 @@ package com.ufo.ufo.domain.pattern.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -69,16 +71,18 @@ class PatternPurchaseServiceTest {
 
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(userService.getUserById(1L)).thenReturn(user);
+        when(creditService.purchaseUnlock(user, 10L, UnlockType.CHAT)).thenReturn(true);
         when(chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(false);
         when(chatRoomProvisioningService.assignJoinableRoom(any(Pattern.class)))
                 .thenReturn(room);
         when(chatRoomProvisioningService.lockRoom(room)).thenReturn(room);
-        when(chatRoomStatusRepository.countByRoomIdForUpdate(20L)).thenReturn(1L);
+        when(chatRoomStatusRepository.countByRoom_Id(20L)).thenReturn(1L);
         when(chatNicknameGenerator.generate(1L)).thenReturn("버건디 린넨");
         when(chatRoomStatusRepository.saveAndFlush(any(ChatRoomStatus.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PatternPurchaseResponse response = patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat"));
+        PatternPurchaseResponse response = patternPurchaseService.purchase(
+                user, 10L, new PatternPurchaseRequest("chat"));
 
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.type()).isEqualTo("chat");
@@ -87,6 +91,10 @@ class PatternPurchaseServiceTest {
         verify(chatRoomProvisioningService, times(1)).assignJoinableRoom(any(Pattern.class));
         verify(chatRoomStatusRepository, times(1)).saveAndFlush(any(ChatRoomStatus.class));
         verify(chatNicknameGenerator).generate(1L);
+        InOrder roomAllocation = inOrder(chatRoomProvisioningService, chatRoomStatusRepository);
+        roomAllocation.verify(chatRoomProvisioningService).lockRoom(room);
+        roomAllocation.verify(chatRoomStatusRepository).countByRoom_Id(20L);
+        roomAllocation.verify(chatRoomStatusRepository).saveAndFlush(any(ChatRoomStatus.class));
     }
 
     @Test
@@ -96,7 +104,8 @@ class PatternPurchaseServiceTest {
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
 
-        PatternPurchaseResponse response = patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("yarn"));
+        PatternPurchaseResponse response = patternPurchaseService.purchase(
+                user, 10L, new PatternPurchaseRequest("yarn"));
 
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.type()).isEqualTo("yarn");
@@ -113,6 +122,7 @@ class PatternPurchaseServiceTest {
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
         when(userService.getUserById(1L)).thenReturn(user);
+        when(creditService.purchaseUnlock(user, 10L, UnlockType.CHAT)).thenReturn(true);
         when(chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(true);
 
         assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))

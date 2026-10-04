@@ -52,7 +52,7 @@ class AttendanceServiceTest {
         User loginUser = UserFixture.createUserWithId(1L);
         LocalDate today = LocalDate.now();
         when(userService.getUserByIdForUpdate(1L)).thenReturn(loginUser);
-        when(attendanceCheckRepository.findByUser_IdAndAttendanceDate(1L, today)).thenReturn(Optional.empty());
+        when(attendanceCheckRepository.findByUserAndDateForUpdate(1L, today)).thenReturn(Optional.empty());
         doAnswer(invocation -> {
             User target = invocation.getArgument(0);
             Integer amount = invocation.getArgument(1);
@@ -79,7 +79,7 @@ class AttendanceServiceTest {
         LocalDate today = LocalDate.now();
         AttendanceCheck existing = AttendanceCheck.builder().user(loginUser).attendanceDate(today).build();
         when(userService.getUserByIdForUpdate(1L)).thenReturn(loginUser);
-        when(attendanceCheckRepository.findByUser_IdAndAttendanceDate(1L, today)).thenReturn(Optional.of(existing));
+        when(attendanceCheckRepository.findByUserAndDateForUpdate(1L, today)).thenReturn(Optional.of(existing));
 
         AttendanceCheckResponse response = attendanceService.check(requestUser);
 

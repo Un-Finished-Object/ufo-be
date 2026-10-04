@@ -17,11 +17,7 @@ public interface ChatRoomStatusRepository extends JpaRepository<ChatRoomStatus, 
 
     List<ChatRoomStatus> findAllByRoom_IdAndUser_IdIn(Long roomId, Collection<Long> userIds);
 
-    @Query(
-            value = "SELECT COUNT(*) FROM chat_room_statuses WHERE chat_room_id = :roomId FOR UPDATE",
-            nativeQuery = true
-    )
-    long countByRoomIdForUpdate(@Param("roomId") Long roomId);
+    long countByRoom_Id(Long roomId);
 
     @EntityGraph(attributePaths = {"room"})
     Optional<ChatRoomStatus> findFirstByUser_IdAndRoom_Pattern_IdOrderByCreatedAtDescIdDesc(Long userId, Long patternId);

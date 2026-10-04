@@ -62,6 +62,7 @@ class ReferralServiceTest {
     @DisplayName("ensureReferralCode는 기존 코드가 없으면 새 코드를 생성 및 할당 후 반환해야 한다")
     void ensureReferralCode_GeneratesWhenMissing() {
         User user = UserFixture.createUserWithId(1L);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(user);
         when(referralCodeGenerator.generate(1L, 0)).thenReturn("UFOaB3xZ9");
         when(userRepository.existsByReferralCode("UFOaB3xZ9")).thenReturn(false);
 
@@ -76,6 +77,7 @@ class ReferralServiceTest {
     void ensureReferralCode_ReturnsExistingCode() {
         User user = UserFixture.createUserWithId(1L);
         user.assignReferralCode("UFOaB3xZ9");
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(user);
 
         String code = referralService.ensureReferralCode(user);
 
@@ -88,7 +90,7 @@ class ReferralServiceTest {
     void getReferralCode_GeneratesWhenMissing() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
-        when(userService.getUserById(1L)).thenReturn(loginUser);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(loginUser);
         when(referralCodeGenerator.generate(1L, 0)).thenReturn("UFOaB3xZ9");
         when(userRepository.existsByReferralCode("UFOaB3xZ9")).thenReturn(false);
 
@@ -103,7 +105,7 @@ class ReferralServiceTest {
     void getReferralCode_WhenCodeExists_RetriesWithNextNonce() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
-        when(userService.getUserById(1L)).thenReturn(loginUser);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(loginUser);
         when(referralCodeGenerator.generate(1L, 0)).thenReturn("UFOAAAAAA");
         when(referralCodeGenerator.generate(1L, 1)).thenReturn("UFOBBBBBB");
         when(userRepository.existsByReferralCode("UFOAAAAAA")).thenReturn(true);
@@ -121,7 +123,7 @@ class ReferralServiceTest {
     void getReferralCode_WhenHmacGenerationFails_ThrowsException() {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
-        when(userService.getUserById(1L)).thenReturn(loginUser);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(loginUser);
         when(referralCodeGenerator.generate(1L, 0)).thenThrow(new ReferralCodeGenerationException());
 
         assertThatThrownBy(() -> referralService.getReferralCode(requestUser))
@@ -134,7 +136,7 @@ class ReferralServiceTest {
         User requestUser = UserFixture.createUserWithId(1L);
         User loginUser = UserFixture.createUserWithId(1L);
         loginUser.assignReferralCode("UFOaB3xZ9");
-        when(userService.getUserById(1L)).thenReturn(loginUser);
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(loginUser);
 
         ReferralCodeResponse response = referralService.getReferralCode(requestUser);
 
@@ -153,6 +155,8 @@ class ReferralServiceTest {
         when(userService.getUserById(1L)).thenReturn(referee);
         when(referralRegistrationRepository.existsByReferee_Id(1L)).thenReturn(false);
         when(userRepository.findByReferralCode("UFOaB3xZ9")).thenReturn(Optional.of(referrer));
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(referee);
+        when(userService.getUserByIdForUpdate(2L)).thenReturn(referrer);
 
         ReferralCodeRegistrationResponse response = referralService.registerReferralCode(
                 requestUser,
@@ -203,6 +207,8 @@ class ReferralServiceTest {
         when(userService.getUserById(1L)).thenReturn(referee);
         when(referralRegistrationRepository.existsByReferee_Id(1L)).thenReturn(false);
         when(userRepository.findByReferralCode("UFOaB3xZ9")).thenReturn(Optional.of(referrer));
+        when(userService.getUserByIdForUpdate(1L)).thenReturn(referee);
+        when(userService.getUserByIdForUpdate(2L)).thenReturn(referrer);
         when(referralRegistrationRepository.saveAndFlush(org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new DataIntegrityViolationException("duplicate referee"));
 

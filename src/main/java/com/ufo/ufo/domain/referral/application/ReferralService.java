@@ -1,7 +1,6 @@
 package com.ufo.ufo.domain.referral.application;
 
 import com.ufo.ufo.domain.credit.application.CreditService;
-import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
 import com.ufo.ufo.domain.referral.dao.ReferralRegistrationRepository;
 import com.ufo.ufo.domain.referral.domain.ReferralRegistration;
 import com.ufo.ufo.domain.referral.dto.request.RegisterReferralCodeRequest;
@@ -19,6 +18,7 @@ import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -32,19 +32,21 @@ public class ReferralService {
     private final UserService userService;
     private final UserRepository userRepository;
     private final ReferralCodeGenerator referralCodeGenerator;
-    private final ReferralCodePersistenceService referralCodePersistenceService;
     private final ReferralRegistrationRepository referralRegistrationRepository;
     private final CreditService creditService;
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public String ensureReferralCode(User user) {
-        if (user.getReferralCode() != null && !user.getReferralCode().isBlank()) {
-            return user.getReferralCode();
+        User loginUser = userService.getUserByIdForUpdate(user.getId());
+        if (loginUser.getReferralCode() != null && !loginUser.getReferralCode().isBlank()) {
+            user.assignReferralCode(loginUser.getReferralCode());
+            return loginUser.getReferralCode();
         }
 
         for (int nonce = 0; nonce < MAX_GENERATION_ATTEMPTS; nonce++) {
-            String referralCode = referralCodeGenerator.generate(user.getId(), nonce);
+            String referralCode = referralCodeGenerator.generate(loginUser.getId(), nonce);
             if (!userRepository.existsByReferralCode(referralCode)) {
+                loginUser.assignReferralCode(referralCode);
                 user.assignReferralCode(referralCode);
                 return referralCode;
             }
@@ -52,14 +54,14 @@ public class ReferralService {
         throw new ReferralCodeGenerationException();
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public ReferralCodeResponse getReferralCode(User user) {
-        User loginUser = userService.getUserById(user.getId());
+        User loginUser = userService.getUserByIdForUpdate(user.getId());
         String referralCode = ensureReferralCode(loginUser);
         return ReferralCodeResponse.from(loginUser.getNickname(), referralCode);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public ReferralCodeRegistrationResponse registerReferralCode(User user, RegisterReferralCodeRequest request) {
         User referee = userService.getUserById(user.getId());
         validateRegistrationPeriod(referee);
@@ -71,6 +73,19 @@ public class ReferralService {
                 .orElseThrow(ReferralCodeNotFoundException::new);
         if (referrer.getId().equals(referee.getId())) {
             throw new SelfReferralCodeException();
+        }
+
+        // All multi-user rewards acquire locks in the same order, including reciprocal referrals.
+        if (referee.getId() < referrer.getId()) {
+            referee = userService.getUserByIdForUpdate(referee.getId());
+            referrer = userService.getUserByIdForUpdate(referrer.getId());
+        } else {
+            referrer = userService.getUserByIdForUpdate(referrer.getId());
+            referee = userService.getUserByIdForUpdate(referee.getId());
+        }
+        validateRegistrationPeriod(referee);
+        if (referralRegistrationRepository.findByReferee_Id(referee.getId()).isPresent()) {
+            throw new ReferralCodeAlreadyRegisteredException();
         }
 
         try {

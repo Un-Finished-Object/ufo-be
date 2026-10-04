@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -29,7 +30,7 @@ public class AttendanceService {
     private final UserService userService;
     private final CreditService creditService;
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public AttendanceCheckResponse check(User user) {
         User loginUser = userService.getUserByIdForUpdate(user.getId());
         LocalDate today = LocalDate.now();
@@ -53,7 +54,7 @@ public class AttendanceService {
     }
 
     private boolean isAlreadyCheckedToday(User user, LocalDate date) {
-        return attendanceCheckRepository.findByUser_IdAndAttendanceDate(user.getId(), date).isPresent();
+        return attendanceCheckRepository.findByUserAndDateForUpdate(user.getId(), date).isPresent();
     }
 
     private AttendanceCheckResponse createAlreadyCheckedResponse(User user, LocalDate date) {
