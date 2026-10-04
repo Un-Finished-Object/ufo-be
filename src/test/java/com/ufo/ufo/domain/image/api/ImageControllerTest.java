@@ -53,7 +53,8 @@ class ImageControllerTest {
                         "https://example.com/image",
                         Map.of(
                                 HttpHeaders.CONTENT_TYPE, "image/jpeg",
-                                "x-amz-tagging", "ufo-upload-status=issued"
+                                "tagging", "<Tagging><TagSet><Tag>"
+                                        + "<Key>ufo-upload-status</Key><Value>issued</Value></Tag></TagSet></Tagging>"
                         )
                 ))
         );

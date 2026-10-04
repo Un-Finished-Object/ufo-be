@@ -154,6 +154,8 @@ WebSocket 연결에서도 STOMP `CONNECT` 프레임의 Access Token을 검증합
 
 클라이언트는 백엔드가 발급한 Presigned POST 정보로 프로필 이미지를 S3에 직접 업로드합니다.
 
+응답의 `uploadFields`를 이름과 값 그대로 `FormData`에 넣고, `file`을 마지막에 추가해 `presignedUrl`로 POST합니다. 태그는 `tagging` 필드의 XML에 포함되므로 별도로 URL 인코딩하지 않습니다.
+
 * 지원 형식: JPEG, PNG, WebP
 * 파일당 최대 크기: 10 MiB
 * 요청당 최대 파일 수: 5개

@@ -103,7 +103,9 @@ class ImageServiceTest {
         assertThat(firstUrl.imageUrl()).startsWith("https://cdn.ufo.com/profiles/1/");
         assertThat(firstUrl.uploadFields())
                 .containsEntry(HttpHeaders.CONTENT_TYPE, "image/jpeg")
-                .containsEntry("x-amz-tagging", "ufo-upload-status=issued")
+                .containsEntry("tagging", "<Tagging><TagSet><Tag>"
+                        + "<Key>ufo-upload-status</Key><Value>issued</Value></Tag></TagSet></Tagging>")
+                .doesNotContainKey("x-amz-tagging")
                 .containsEntry("x-amz-algorithm", "AWS4-HMAC-SHA256")
                 .containsKey("policy")
                 .containsKey("x-amz-signature")
