@@ -7,6 +7,7 @@ import com.ufo.ufo.support.database.DatabaseTestApplication;
 import com.ufo.ufo.support.database.TestDatabaseConfig;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,13 +80,13 @@ class ChatReadStatusRepairIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "SELECT last_read_message_id FROM chat_read_statuses WHERE chat_read_status_id=1", Long.class))
                 .isEqualTo(20L);
-        assertThat(jdbc.queryForObject("SELECT read_at FROM chat_read_statuses WHERE chat_read_status_id=1",
-                java.sql.Timestamp.class).toLocalDateTime()).isEqualTo("2026-10-04T12:00:00");
+        assertThat(jdbc.<LocalDateTime>queryForObject("SELECT read_at FROM chat_read_statuses WHERE chat_read_status_id=1",
+                (rs, rowNum) -> rs.getObject("read_at", LocalDateTime.class))).isEqualTo("2026-10-04T12:00:00");
         assertThat(jdbc.queryForObject(
                 "SELECT last_read_message_id FROM chat_read_statuses WHERE chat_read_status_id=7", Long.class))
                 .isNull();
-        assertThat(jdbc.queryForObject("SELECT read_at FROM chat_read_statuses WHERE chat_read_status_id=7",
-                java.sql.Timestamp.class)).isNull();
+        assertThat(jdbc.<LocalDateTime>queryForObject("SELECT read_at FROM chat_read_statuses WHERE chat_read_status_id=7",
+                (rs, rowNum) -> rs.getObject("read_at", LocalDateTime.class))).isNull();
         assertThat(jdbc.queryForObject(
                 "SELECT last_read_message_id FROM chat_read_statuses WHERE chat_read_status_id=8", Long.class))
                 .isEqualTo(30L);
