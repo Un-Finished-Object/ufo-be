@@ -65,7 +65,7 @@ DB 테스트를 추가할 때는 `support/database`의 `DatabaseTestApplication`
 - 컨트롤러는 요청 매핑을 맡고 요청 본문은 `@Valid`로 검증하며, 응답은 `ApiResponse`로 감쌉니다. 엔티티를 그대로 응답하지 않고 `dto.request`와 `dto.response`를 구분합니다. 단순 DTO는 기존 코드처럼 `record`를 사용하고, 응답 변환이 필요하면 `from`·`of` 팩터리 메서드를 둡니다.
 - 서비스는 `@RequiredArgsConstructor`와 `final` 필드로 의존성을 주입합니다. 조회 중심 서비스에는 `@Transactional(readOnly = true)`를 사용하고, 데이터를 바꾸는 메서드에는 `@Transactional` 경계를 둡니다. DB 조회·저장은 해당 도메인의 `dao`에 둡니다.
 - JPA 엔티티는 `User`, `Pattern`처럼 보호된 기본 생성자를 두고, 상태 변경은 공개 setter보다 의미 있는 도메인 메서드로 표현합니다. 업무 오류는 기존 `ApiException` 계열과 공통 예외 응답 방식을 따릅니다.
-- 테스트는 `*Test` 이름과 운영 코드의 패키지 경로를 따릅니다. `@DisplayName`에는 검증할 동작을 한국어로 적고, 반복되는 테스트 데이터는 `support/fixture`를 사용합니다.
+- 테스트는 `*Test` 이름과 운영 코드의 패키지 경로를 따릅니다. 테스트 클래스와 각 테스트 메서드에는 `@DisplayName`을 붙입니다. 이름은 기존 테스트의 표현을 참고해 테스트 대상과 검증할 동작을 한국어로 적습니다. 반복되는 테스트 데이터는 `support/fixture`를 사용합니다.
 
 ## 이슈 작성
 
