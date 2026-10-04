@@ -36,7 +36,7 @@ public class S3PostPolicySigner {
 
     private static final String UPLOAD_STATUS_TAG_KEY = "ufo-upload-status";
     private static final String UPLOAD_STATUS_ISSUED = "issued";
-    private static final String S3_TAGGING_HEADER = "x-amz-tagging";
+    private static final String S3_TAGGING_FIELD = "tagging";
     private static final String AWS_ALGORITHM = "AWS4-HMAC-SHA256";
 
     private final AwsCredentialsProvider credentialsProvider;
@@ -95,7 +95,7 @@ public class S3PostPolicySigner {
                 condition("bucket", bucket),
                 condition("key", key),
                 condition(HttpHeaders.CONTENT_TYPE, contentType),
-                condition(S3_TAGGING_HEADER, issuedUploadTaggingHeaderValue()),
+                condition(S3_TAGGING_FIELD, issuedUploadTaggingXml()),
                 List.of("content-length-range", 1, maxBytes),
                 condition("x-amz-algorithm", AWS_ALGORITHM),
                 condition("x-amz-credential", credentialStr),
@@ -133,7 +133,7 @@ public class S3PostPolicySigner {
         Map<String, String> uploadFields = new LinkedHashMap<>();
         uploadFields.put("key", key);
         uploadFields.put(HttpHeaders.CONTENT_TYPE, contentType);
-        uploadFields.put(S3_TAGGING_HEADER, issuedUploadTaggingHeaderValue());
+        uploadFields.put(S3_TAGGING_FIELD, issuedUploadTaggingXml());
         uploadFields.put("x-amz-algorithm", AWS_ALGORITHM);
         uploadFields.put("x-amz-credential", credentialStr);
         uploadFields.put("x-amz-date", formatUtcDateTime(now));
@@ -199,7 +199,8 @@ public class S3PostPolicySigner {
         return result.toString();
     }
 
-    private String issuedUploadTaggingHeaderValue() {
-        return UPLOAD_STATUS_TAG_KEY + "=" + UPLOAD_STATUS_ISSUED;
+    private String issuedUploadTaggingXml() {
+        return "<Tagging><TagSet><Tag><Key>" + UPLOAD_STATUS_TAG_KEY
+                + "</Key><Value>" + UPLOAD_STATUS_ISSUED + "</Value></Tag></TagSet></Tagging>";
     }
 }
