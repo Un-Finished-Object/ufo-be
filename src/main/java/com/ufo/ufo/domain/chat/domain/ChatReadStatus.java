@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -18,7 +19,9 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@Table(name = "chat_read_statuses")
+@Table(name = "chat_read_statuses", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_chat_read_status_user_room", columnNames = {"user_id", "chat_room_id"})
+})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatReadStatus {
 
@@ -50,6 +53,9 @@ public class ChatReadStatus {
     }
 
     public void update(Long lastReadMessageId, LocalDateTime readAt) {
+        if (this.lastReadMessageId != null && lastReadMessageId <= this.lastReadMessageId) {
+            return;
+        }
         this.lastReadMessageId = lastReadMessageId;
         this.readAt = readAt;
     }

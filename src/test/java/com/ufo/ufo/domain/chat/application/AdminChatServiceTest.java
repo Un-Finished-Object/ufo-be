@@ -17,6 +17,7 @@ import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.global.security.types.Role;
 import com.ufo.ufo.support.fixture.ChatRoomFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
@@ -27,8 +28,8 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -54,13 +55,23 @@ class AdminChatServiceTest {
     private ChatReadStatusRepository chatReadStatusRepository;
 
     @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private UserService userService;
 
     @Mock
     private ImageService imageService;
 
-    @InjectMocks
     private AdminChatService adminChatService;
+
+    @BeforeEach
+    void setUp() {
+        ChatReadStatusService readStatusService = new ChatReadStatusService(
+                userRepository, chatMessageRepository, chatReadStatusRepository);
+        adminChatService = new AdminChatService(
+                chatRoomRepository, chatMessageRepository, readStatusService, userService, imageService);
+    }
 
     @Test
     @DisplayName("미확인 채팅방 목록 조회 시 정상적으로 DTO 목록을 반환해야 한다")
@@ -159,6 +170,9 @@ class AdminChatServiceTest {
         when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
         when(chatMessageRepository.findByIdAndRoom_Id(messageId, roomId)).thenReturn(Optional.of(message));
         when(chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, 999L)).thenReturn(Optional.empty());
+        when(userRepository.findByIdForUpdate(999L)).thenReturn(Optional.of(adminUser));
+        when(chatReadStatusRepository.save(any(ChatReadStatus.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         AdminCheckChatMessageResponse response = adminChatService.checkMessage(adminUser, roomId, messageId);
 

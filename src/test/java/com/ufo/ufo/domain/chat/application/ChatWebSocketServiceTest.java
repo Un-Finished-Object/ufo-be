@@ -19,6 +19,7 @@ import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatMessage;
+import com.ufo.ufo.domain.chat.domain.ChatReadStatus;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
@@ -72,7 +73,9 @@ class ChatWebSocketServiceTest {
         );
         chatWebSocketService = new ChatWebSocketService(
                 new ChatMessageSendService(accessService, chatMessageRepository, eventPublisher),
-                new ChatReadUpdateService(accessService, chatReadStatusRepository, eventPublisher)
+                new ChatReadUpdateService(accessService,
+                        new ChatReadStatusService(userRepository, chatMessageRepository, chatReadStatusRepository),
+                        eventPublisher)
         );
     }
 
@@ -308,6 +311,11 @@ class ChatWebSocketServiceTest {
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
         when(chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, 21L)).thenReturn(Optional.empty());
+        when(chatMessageRepository.findByIdAndRoom_Id(53L, roomId))
+                .thenReturn(Optional.of(ChatMessage.builder().room(room).user(user).text("메시지").build()));
+        when(userRepository.findByIdForUpdate(21L)).thenReturn(Optional.of(user));
+        when(chatReadStatusRepository.save(any(ChatReadStatus.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         chatWebSocketService.publishReadUpdate(principal, new ChatReadUpdateRequest(roomId, 53L));
 

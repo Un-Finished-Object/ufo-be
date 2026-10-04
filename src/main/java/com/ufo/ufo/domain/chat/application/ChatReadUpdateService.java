@@ -1,16 +1,15 @@
 package com.ufo.ufo.domain.chat.application;
 
-import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatReadStatus;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.dto.websocket.request.ChatReadUpdateRequest;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
 import com.ufo.ufo.domain.user.domain.User;
 import java.security.Principal;
-import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -18,10 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class ChatReadUpdateService {
 
     private final ChatSocketAccessService accessService;
-    private final ChatReadStatusRepository chatReadStatusRepository;
+    private final ChatReadStatusService readStatusService;
     private final ChatSocketEventPublisher eventPublisher;
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void update(Principal principal, ChatReadUpdateRequest request) {
         Long roomId = request.roomId();
         if (roomId == null) {
@@ -49,19 +48,14 @@ public class ChatReadUpdateService {
             return;
         }
 
-        LocalDateTime readAt = LocalDateTime.now();
-        chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, user.getId())
-                .ifPresentOrElse(
-                        readStatus -> readStatus.update(lastReadMessageId, readAt),
-                        () -> chatReadStatusRepository.save(ChatReadStatus.builder()
-                                .room(maybeRoom.get())
-                                .user(user)
-                                .lastReadMessageId(lastReadMessageId)
-                                .readAt(readAt)
-                                .build())
-                );
-
-        ChatReadUpdatedPayload payload = new ChatReadUpdatedPayload(user.getId(), lastReadMessageId, readAt);
+        Optional<ChatReadStatus> savedStatus = readStatusService.markRead(user, maybeRoom.get(), lastReadMessageId);
+        if (savedStatus.isEmpty()) {
+            eventPublisher.sendError(roomId, "INVALID_LAST_READ_MESSAGE_ID", "해당 채팅방의 메시지가 아닙니다.", null);
+            return;
+        }
+        ChatReadStatus status = savedStatus.get();
+        ChatReadUpdatedPayload payload = new ChatReadUpdatedPayload(
+                user.getId(), status.getLastReadMessageId(), status.getReadAt());
         eventPublisher.sendReadUpdated(roomId, payload);
     }
 }
