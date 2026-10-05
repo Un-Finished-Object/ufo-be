@@ -8,6 +8,7 @@ import com.ufo.ufo.support.logging.LogCapture;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.ServletException;
 import java.io.IOException;
+import org.apache.catalina.connector.ClientAbortException;
 import org.apache.tomcat.util.http.InvalidParameterException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -76,6 +77,41 @@ class RequestIdFilterTest {
         assertThat(MDC.get("requestId")).isEqualTo("outer-123");
         assertThat(MDC.get("other")).isEqualTo("preserved");
         assertThat(response.getHeader("X-Request-ID")).isEqualTo("inner-123");
+        assertThat(response.isCommitted()).isEqualTo(committed);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    @DisplayName("클라이언트 연결 종료는 ERROR 로그 없이 예외 타입을 유지하고 요청 식별자를 정리해야 한다")
+    void preservesClientAbortWithoutErrorLog(boolean wrapped, boolean committed) {
+        MDC.put("requestId", "outer-123");
+        var request = new MockHttpServletRequest("GET", "/v1/patterns");
+        request.addHeader("X-Request-ID", "abort-123");
+        var response = new MockHttpServletResponse();
+        var failure = new ClientAbortException("exception-secret", new IOException("cause-secret"));
+        failure.addSuppressed(new IllegalArgumentException("suppressed-secret"));
+
+        try (var logs = new LogCapture(RequestIdFilter.class)) {
+            assertThatThrownBy(() -> filter.doFilter(request, response, (incoming, outgoing) -> {
+                if (committed) {
+                    response.flushBuffer();
+                }
+                if (wrapped) {
+                    throw new ServletException("wrapper-secret", failure);
+                }
+                throw failure;
+            })).isInstanceOf(ClientAbortException.class).satisfies(exception -> {
+                assertThat(exception.getMessage()).doesNotContain("exception-secret", "wrapper-secret");
+                assertThat(exception.getSuppressed()).isEmpty();
+                assertThat(exception.getCause()).isInstanceOf(IOException.class).isNotSameAs(failure.getCause());
+                assertThat(exception.getCause().getMessage()).doesNotContain("cause-secret");
+                assertThat(exception.getCause().getCause()).isNull();
+                assertThat(exception.getCause().getSuppressed()).isEmpty();
+            });
+            assertThat(logs.events().stream().filter(event -> event.getLevel() == Level.ERROR)).isEmpty();
+        }
+        assertThat(MDC.get("requestId")).isEqualTo("outer-123");
+        assertThat(response.getHeader("X-Request-ID")).isEqualTo("abort-123");
         assertThat(response.isCommitted()).isEqualTo(committed);
     }
 
