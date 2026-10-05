@@ -21,16 +21,34 @@ public class ChatWebSocketController {
 
     @MessageMapping("/chat/message")
     public void sendMessage(@Payload ChatMessageSendRequest request, Principal principal) {
-        chatWebSocketService.publishMessage(principal, request);
+        invokeService(() -> chatWebSocketService.publishMessage(principal, request));
     }
 
     @MessageMapping("/chat/read")
     public void updateRead(@Payload ChatReadUpdateRequest request, Principal principal) {
-        chatWebSocketService.publishReadUpdate(principal, request);
+        invokeService(() -> chatWebSocketService.publishReadUpdate(principal, request));
     }
 
     @MessageExceptionHandler(Exception.class)
     public void handleException(Exception exception) {
+        if (exception instanceof LoggedChatException) {
+            return;
+        }
         log.error("채팅 요청 처리 실패\n{}", ErrorLogSupport.stackTrace(exception));
+    }
+
+    private void invokeService(Runnable action) {
+        try {
+            action.run();
+        } catch (RuntimeException exception) {
+            throw new LoggedChatException(exception);
+        }
+    }
+
+    private static class LoggedChatException extends RuntimeException {
+
+        private LoggedChatException(RuntimeException cause) {
+            super("채팅 처리 오류", cause);
+        }
     }
 }
