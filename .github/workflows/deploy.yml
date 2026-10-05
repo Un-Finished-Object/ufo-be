@@ -105,5 +105,34 @@ jobs:
           docker compose -f "$COMPOSE_FILE" down
           docker compose -f "$COMPOSE_FILE" up -d
 
+          # 상태 확인용 포트는 호스트의 로컬 주소에만 연결한다.
+          HEALTH_ADDRESS="$(docker compose -f "$COMPOSE_FILE" port backend-server 8081)" || HEALTH_ADDRESS=""
+          case "$HEALTH_ADDRESS" in
+            127.0.0.1:*) ;;
+            *)
+              echo "상태 확인용 8081 포트를 호스트의 127.0.0.1에 연결해야 합니다."
+              docker compose -f "$COMPOSE_FILE" stop backend-server
+              exit 1
+              ;;
+          esac
+
+          # DB 연결을 포함한 준비 상태가 정상일 때만 배포를 완료한다.
+          READY=false
+          for attempt in $(seq 1 40); do
+            HEALTH_STATUS="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --connect-timeout 2 --max-time 3 \
+              "http://$HEALTH_ADDRESS/actuator/health/readiness" || true)"
+            if [ "$HEALTH_STATUS" = "200" ]; then
+              READY=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$READY" != "true" ]; then
+            echo "서버 준비 상태를 확인하지 못했습니다. 배포를 실패로 처리합니다."
+            docker compose -f "$COMPOSE_FILE" ps
+            exit 1
+          fi
+
           # 안 쓰는 찌꺼기 이미지 삭제 (용량 확보)
           docker image prune -f

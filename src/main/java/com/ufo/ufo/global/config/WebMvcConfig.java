@@ -29,6 +29,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .allowedOrigins(corsProperties.allowedOriginArray())
                 .allowedMethods(allowedMethodNames())
                 .allowedHeaders("*")
+                .exposedHeaders("X-Request-ID")
                 .allowCredentials(true);
     }
 
