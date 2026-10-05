@@ -75,7 +75,9 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
         properties = {
                 "spring.jwt.secret=" + StompSecurityIntegrationTest.JWT_SECRET,
                 "spring.jwt.access-token-expire=60000",
-                "spring.jwt.refresh-token-expire=120000"
+                "spring.jwt.refresh-token-expire=120000",
+                "management.server.port=0",
+                "management.endpoint.health.group.readiness.include=readinessState"
         }
 )
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
