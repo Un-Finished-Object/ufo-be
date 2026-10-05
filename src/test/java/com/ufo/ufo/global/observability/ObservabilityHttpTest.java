@@ -161,13 +161,19 @@ class ObservabilityHttpTest {
 
     @ParameterizedTest
     @CsvSource({"400,false", "413,false", "400,true", "413,true"})
-    @DisplayName("잘못된 요청 매개변수 오류는 응답에 원문을 노출하지 않고 기존 상태 코드를 유지해야 한다")
+    @DisplayName("잘못된 요청 매개변수 오류는 ERROR 로그 없이 상태 코드와 요청 식별자를 유지해야 한다")
     void preservesInvalidParameterHttpStatus(int status, boolean wrapped) throws Exception {
         String failureType = (wrapped ? "wrapped-" : "bad-") + status;
-        var response = get(port, "/v1/patterns?filterFailure=" + failureType, "bad-request-123", null);
-        assertThat(response.statusCode()).isEqualTo(status);
-        assertThat(response.headers().firstValue("X-Request-ID")).contains("bad-request-123");
-        assertThat(response.body()).doesNotContain("exception-secret", "cause-secret", "suppressed-secret");
+        try (var applicationLogs = new LogCapture(RequestIdFilter.class);
+                var containerLogs = new LogCapture("org.apache.catalina.core.ContainerBase")) {
+            var response = get(port, "/v1/patterns?filterFailure=" + failureType, "bad-request-123", null);
+            assertThat(response.statusCode()).isEqualTo(status);
+            assertThat(response.headers().firstValue("X-Request-ID")).contains("bad-request-123");
+            assertThat(response.body()).doesNotContain("exception-secret", "cause-secret", "suppressed-secret");
+            var errors = Stream.of(applicationLogs, containerLogs).flatMap(logs -> logs.events().stream())
+                    .filter(event -> event.getLevel() == Level.ERROR).toList();
+            assertThat(errors).isEmpty();
+        }
     }
 
     @Test

@@ -44,13 +44,16 @@ public class RequestIdFilter extends OncePerRequestFilter {
         try {
             chain.doFilter(request, response);
         } catch (IOException | ServletException | RuntimeException exception) {
-            ErrorLogSupport.httpFailure(log, request, exception);
             // 컨테이너 로그에 원문이 다시 남지 않도록 원래 예외는 전달하지 않는다.
             Throwable parameterFailure = exception instanceof InvalidParameterException
                     ? exception : exception.getCause();
             if (parameterFailure instanceof InvalidParameterException invalidParameter) {
+                if (invalidParameter.getErrorCode() < 400 || invalidParameter.getErrorCode() >= 500) {
+                    ErrorLogSupport.httpFailure(log, request, exception);
+                }
                 throw new InvalidParameterException("HTTP 요청 매개변수 오류", invalidParameter.getErrorCode());
             }
+            ErrorLogSupport.httpFailure(log, request, exception);
             if (exception instanceof IOException) {
                 throw new IOException("HTTP 요청 처리 실패");
             }

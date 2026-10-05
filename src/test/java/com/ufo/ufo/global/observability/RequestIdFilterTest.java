@@ -3,6 +3,8 @@ package com.ufo.ufo.global.observability;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import ch.qos.logback.classic.Level;
+import com.ufo.ufo.support.logging.LogCapture;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.ServletException;
 import java.io.IOException;
@@ -78,24 +80,36 @@ class RequestIdFilterTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"400,false", "413,false", "400,true", "413,true"})
-    @DisplayName("잘못된 요청 매개변수 오류는 원문 없이 기존 상태 코드를 유지해야 한다")
+    @CsvSource({"400,false", "413,false", "400,true", "413,true", "500,false", "500,true"})
+    @DisplayName("요청 매개변수 오류는 상태 코드를 유지하고 서버 오류일 때만 ERROR 로그를 남겨야 한다")
     void preservesInvalidParameterStatus(int status, boolean wrapped) {
         var failure = new InvalidParameterException(new RuntimeException("parameter-secret cause-secret"), status);
         failure.addSuppressed(new IllegalArgumentException("suppressed-secret"));
         var request = new MockHttpServletRequest("POST", "/v1/patterns");
         var response = new MockHttpServletResponse();
-        assertThatThrownBy(() -> filter.doFilter(request, response, (incoming, outgoing) -> {
-            if (wrapped) {
-                throw new ServletException("wrapper-secret", failure);
+        try (var logs = new LogCapture(RequestIdFilter.class)) {
+            assertThatThrownBy(() -> filter.doFilter(request, response, (incoming, outgoing) -> {
+                if (wrapped) {
+                    throw new ServletException("wrapper-secret", failure);
+                }
+                throw failure;
+            })).isInstanceOf(InvalidParameterException.class).hasNoCause().satisfies(exception -> {
+                assertThat(((InvalidParameterException) exception).getErrorCode()).isEqualTo(status);
+                assertThat(exception.getMessage())
+                        .doesNotContain("parameter-secret", "wrapper-secret", "cause-secret", "suppressed-secret");
+                assertThat(exception.getSuppressed()).isEmpty();
+            });
+            var errors = logs.events().stream().filter(event -> event.getLevel() == Level.ERROR).toList();
+            if (status < 500) {
+                assertThat(errors).isEmpty();
+            } else {
+                assertThat(errors).hasSize(1).allSatisfy(event -> {
+                    assertThat(event.getThrowableProxy()).isNull();
+                    assertThat(event.getFormattedMessage())
+                            .doesNotContain("parameter-secret", "wrapper-secret", "cause-secret", "suppressed-secret");
+                });
             }
-            throw failure;
-        })).isInstanceOf(InvalidParameterException.class).hasNoCause().satisfies(exception -> {
-            assertThat(((InvalidParameterException) exception).getErrorCode()).isEqualTo(status);
-            assertThat(exception.getMessage())
-                    .doesNotContain("parameter-secret", "wrapper-secret", "cause-secret", "suppressed-secret");
-            assertThat(exception.getSuppressed()).isEmpty();
-        });
+        }
     }
 
     @Test
