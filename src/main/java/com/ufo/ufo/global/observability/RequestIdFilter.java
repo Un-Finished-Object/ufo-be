@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.connector.ClientAbortException;
 import org.apache.tomcat.util.http.InvalidParameterException;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
@@ -45,6 +46,11 @@ public class RequestIdFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
         } catch (IOException | ServletException | RuntimeException exception) {
             // 컨테이너 로그에 원문이 다시 남지 않도록 원래 예외는 전달하지 않는다.
+            Throwable clientFailure = exception instanceof ClientAbortException
+                    ? exception : exception.getCause();
+            if (clientFailure instanceof ClientAbortException) {
+                throw new ClientAbortException(new IOException("클라이언트 연결 종료"));
+            }
             Throwable parameterFailure = exception instanceof InvalidParameterException
                     ? exception : exception.getCause();
             if (parameterFailure instanceof InvalidParameterException invalidParameter) {
