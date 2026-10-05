@@ -39,12 +39,13 @@ class DeploymentReadinessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"0.0.0.0:8081", ""})
-    @DisplayName("관리 포트가 외부에 공개되거나 호스트에 연결되지 않으면 배포를 실패로 처리해야 한다")
+    @ValueSource(strings = {"0.0.0.0:8081", "", "port-error"})
+    @DisplayName("관리 포트가 로컬 주소에 연결되지 않았거나 확인에 실패하면 백엔드를 중지해야 한다")
     void rejectsUnsafeManagementBinding(String binding) throws Exception {
         var result = runDeployment(binding, "200", 0);
         assertThat(result.exitCode()).as(result.output()).isNotZero();
         assertThat(result.attempts()).isZero();
+        assertThat(result.commands()).contains("stop backend-server").doesNotContain("image prune");
     }
 
     private Result runDeployment(String binding, String status, int readyAfter) throws Exception {
@@ -58,7 +59,12 @@ class DeploymentReadinessTest {
                 docker() {
                   printf '%s\n' "$*" >> "$UFO_TEST_DIR/commands"
                   case "$*" in
-                    *'port backend-server 8081'*) printf '%s\n' "$UFO_TEST_BINDING" ;;
+                    *'port backend-server 8081'*)
+                      if [ "$UFO_TEST_BINDING" = "port-error" ]; then
+                        return 1
+                      fi
+                      printf '%s\n' "$UFO_TEST_BINDING"
+                      ;;
                   esac
                   return 0
                 }
