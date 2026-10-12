@@ -37,7 +37,8 @@ out/
 .vscode/
 
 # Local environment and secret configuration files
-application-*.yml
+.env.*
+!.env.example
 
 # Local-only data, workspace, and agent-specific instruction files
 .env
