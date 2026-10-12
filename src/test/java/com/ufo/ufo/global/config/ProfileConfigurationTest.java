@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ufo.ufo.domain.image.config.ImageProperties;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
+import com.ufo.ufo.global.security.oauth.OAuthCookieManager;
+import com.ufo.ufo.global.security.oauth.OAuthRedirectProperties;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.DisplayName;
@@ -58,6 +60,10 @@ class ProfileConfigurationTest {
             JwtTokenProvider tokens = context.getBean(JwtTokenProvider.class);
             String accessToken = tokens.createAccessToken("user@example.test", "ROLE_USER");
             assertThat(tokens.validateAccessToken(accessToken)).isTrue();
+
+            var refreshCookie = context.getBean(OAuthCookieManager.class)
+                    .createRefreshTokenCookie("profile-test-refresh-token", 60, true);
+            assertThat(refreshCookie.getDomain()).isEqualTo("example.test");
         }
     }
 
@@ -79,6 +85,7 @@ class ProfileConfigurationTest {
     @CsvSource({
             "JWT_SECRET,missing", "JWT_SECRET,blank",
             "NAVER_CLIENT_SECRET,missing", "NAVER_CLIENT_SECRET,blank",
+            "OAUTH_COOKIE_DOMAIN,missing", "OAUTH_COOKIE_DOMAIN,blank",
             "S3_IMAGE_BUCKET,missing", "DB_URL,missing"
     })
     @DisplayName("필수 값이 없거나 비어 있으면 Bean 생성 전에 누락된 변수 이름으로 시작을 중단한다")
@@ -134,7 +141,8 @@ class ProfileConfigurationTest {
                 {"CDN_BASE_URL", "https://cdn.example.test"},
                 {"OAUTH_REDIRECT_URL", "https://example.test/auth/callback"},
                 {"OAUTH_SIGNUP_REDIRECT_URL", "https://example.test/auth/signup"},
-                {"OAUTH_ADMIN_REDIRECT_URL", "https://example.test/admin"}
+                {"OAUTH_ADMIN_REDIRECT_URL", "https://example.test/admin"},
+                {"OAUTH_COOKIE_DOMAIN", "example.test"}
         };
         for (String[] value : values) {
             if (!value[0].equals(excluded)) {
@@ -153,8 +161,10 @@ class ProfileConfigurationTest {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @EnableConfigurationProperties({DataSourceProperties.class, ImageProperties.class})
-    @Import(JwtTokenProvider.class)
+    @EnableConfigurationProperties({
+            DataSourceProperties.class, ImageProperties.class, OAuthRedirectProperties.class
+    })
+    @Import({JwtTokenProvider.class, OAuthCookieManager.class})
     static class ProfileApplication {
     }
 

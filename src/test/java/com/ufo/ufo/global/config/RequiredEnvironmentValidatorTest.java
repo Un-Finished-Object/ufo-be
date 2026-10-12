@@ -58,7 +58,8 @@ class RequiredEnvironmentValidatorTest {
         for (String name : new String[] {
                 "DB_URL", "DB_USERNAME", "DB_PASSWORD",
                 "JWT_SECRET", "REFERRAL_HMAC_SECRET", "S3_IMAGE_BUCKET", "S3_PUBLIC_BASE_URL",
-                "CDN_BASE_URL", "OAUTH_REDIRECT_URL", "OAUTH_SIGNUP_REDIRECT_URL", "OAUTH_ADMIN_REDIRECT_URL"
+                "CDN_BASE_URL", "OAUTH_REDIRECT_URL", "OAUTH_SIGNUP_REDIRECT_URL", "OAUTH_ADMIN_REDIRECT_URL",
+                "OAUTH_COOKIE_DOMAIN"
         }) {
             environment.setProperty(name, "configured");
         }

@@ -25,7 +25,8 @@ public class RequiredEnvironmentValidator implements ApplicationContextInitializ
             "CDN_BASE_URL",
             "OAUTH_REDIRECT_URL",
             "OAUTH_SIGNUP_REDIRECT_URL",
-            "OAUTH_ADMIN_REDIRECT_URL"
+            "OAUTH_ADMIN_REDIRECT_URL",
+            "OAUTH_COOKIE_DOMAIN"
     );
 
     @Override
