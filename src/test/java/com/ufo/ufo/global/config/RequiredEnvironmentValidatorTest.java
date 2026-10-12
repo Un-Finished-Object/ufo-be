@@ -16,7 +16,7 @@ class RequiredEnvironmentValidatorTest {
         MockEnvironment environment = completeEnvironment();
         environment.setProperty("JWT_SECRET", "");
 
-        assertThatThrownBy(() -> new RequiredEnvironmentValidator(environment).validate())
+        assertThatThrownBy(() -> new RequiredEnvironmentValidator().validate(environment))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("JWT_SECRET");
     }
@@ -27,7 +27,7 @@ class RequiredEnvironmentValidatorTest {
         MockEnvironment environment = completeEnvironment();
         environment.setProperty("NAVER_CLIENT_SECRET", " ");
 
-        assertThatThrownBy(() -> new RequiredEnvironmentValidator(environment).validate())
+        assertThatThrownBy(() -> new RequiredEnvironmentValidator().validate(environment))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("NAVER_CLIENT_SECRET");
     }
@@ -38,7 +38,7 @@ class RequiredEnvironmentValidatorTest {
         MockEnvironment environment = completeEnvironment();
         environment.setProperty("S3_IMAGE_BUCKET", "");
 
-        assertThatThrownBy(() -> new RequiredEnvironmentValidator(environment).validate())
+        assertThatThrownBy(() -> new RequiredEnvironmentValidator().validate(environment))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("S3_IMAGE_BUCKET");
     }
@@ -50,7 +50,7 @@ class RequiredEnvironmentValidatorTest {
         environment.setActiveProfiles("test");
         environment.setProperty("DB_PASSWORD", "");
 
-        assertThatCode(() -> new RequiredEnvironmentValidator(environment).validate()).doesNotThrowAnyException();
+        assertThatCode(() -> new RequiredEnvironmentValidator().validate(environment)).doesNotThrowAnyException();
     }
 
     private MockEnvironment completeEnvironment() {

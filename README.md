@@ -211,7 +211,9 @@ Copy-Item .env.example .env
 
 실제 비밀번호, JWT Secret과 OAuth Client Secret은 저장소에 커밋하지 않습니다.
 
-프로필별 DB 정책은 다음과 같습니다. 일반 Gradle 테스트는 `application-db-test.yaml`과 Testcontainers를 사용합니다.
+`dev`, `prod`, `test` 프로필에서는 Bean을 생성하기 전에 필수 환경 변수를 확인합니다. 값이 없거나 비어 있으면 누락된 변수 이름을 알려 주고 시작을 중단합니다.
+
+프로필별 DB 정책은 다음과 같습니다. `test` 프로필의 시작 검증에는 테스트용 H2 의존성을 사용합니다. MySQL·PostgreSQL 통합 테스트는 별도의 `application-db-test.yaml`과 Testcontainers를 사용합니다.
 
 | 프로필 | 스키마 설정 | SQL 초기화 | SQL 출력 |
 | --- | --- | --- | --- |
