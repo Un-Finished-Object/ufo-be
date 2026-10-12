@@ -35,7 +35,7 @@ class DeploymentReadinessTest {
         var result = runDeployment("127.0.0.1:8081", "503", 2);
         assertThat(result.exitCode()).as(result.output()).isZero();
         assertThat(result.attempts()).isEqualTo(2);
-        assertThat(result.commands()).contains("image prune");
+        assertThat(result.commands()).contains("image prune", "-f ./docker-compose.yml");
     }
 
     @ParameterizedTest
@@ -49,9 +49,8 @@ class DeploymentReadinessTest {
     }
 
     private Result runDeployment(String binding, String status, int readyAfter) throws Exception {
-        Files.createDirectories(directory.resolve("config"));
-        Files.writeString(directory.resolve("config/application-prod.yml"), "spring: {}\n");
-        Files.writeString(directory.resolve("compose.yml"), "services: {}\n");
+        Files.writeString(directory.resolve("docker-compose.yml"), "services: {}\n");
+        Files.writeString(directory.resolve(".env"), "IMAGE_TAG=test\n");
         Files.writeString(directory.resolve("attempts"), "0");
         Files.writeString(directory.resolve("commands"), "");
         String doubles = """

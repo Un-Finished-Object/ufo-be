@@ -82,36 +82,26 @@ jobs:
           # EC2 내부의 작업 폴더로 이동
           cd /home/ubuntu/ufo-backend
 
-          # 서버 외부 설정 파일 존재 확인
-          test -f ./config/application-prod.yml
-
-          # compose 파일 경로 확인
-          if [ -f ./docker-compose.yml ]; then
-            COMPOSE_FILE=./docker-compose.yml
-          elif [ -f ./compose.yml ]; then
-            COMPOSE_FILE=./compose.yml
-          else
-            echo "docker compose configuration file not found in /home/ubuntu/ufo-backend"
-            ls -al
-            exit 1
-          fi
+          # 운영 Compose와 비밀값은 서버에서 관리한다.
+          COMPOSE_FILE=./docker-compose.yml
+          ENV_FILE=./.env
+          test -f "$ENV_FILE"
 
           # 도커 컴포즈 환경변수 주입
           export DOCKER_USERNAME='${{ secrets.DOCKER_USERNAME }}'
           export IMAGE_TAG='${{ github.sha }}'
 
-          # 기존 실행 중인 컨테이너 종료 및 삭제, 새 이미지로 실행
-          docker compose -f "$COMPOSE_FILE" pull backend-server
-          docker compose -f "$COMPOSE_FILE" down
-          docker compose -f "$COMPOSE_FILE" up -d
+          # 백엔드만 새 이미지로 재생성한다.
+          docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull backend-server
+          docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --no-deps --force-recreate backend-server
 
           # 상태 확인용 포트는 호스트의 로컬 주소에만 연결한다.
-          HEALTH_ADDRESS="$(docker compose -f "$COMPOSE_FILE" port backend-server 8081)" || HEALTH_ADDRESS=""
+          HEALTH_ADDRESS="$(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" port backend-server 8081)" || HEALTH_ADDRESS=""
           case "$HEALTH_ADDRESS" in
             127.0.0.1:*) ;;
             *)
               echo "상태 확인용 8081 포트를 호스트의 127.0.0.1에 연결해야 합니다."
-              docker compose -f "$COMPOSE_FILE" stop backend-server
+              docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" stop backend-server
               exit 1
               ;;
           esac
@@ -130,7 +120,7 @@ jobs:
           done
           if [ "$READY" != "true" ]; then
             echo "서버 준비 상태를 확인하지 못했습니다. 배포를 실패로 처리합니다."
-            docker compose -f "$COMPOSE_FILE" ps
+            docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
             exit 1
           fi
 
