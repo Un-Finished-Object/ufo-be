@@ -4,7 +4,9 @@ UFO is a Java 21 Spring backend for pattern discovery, yarn recommendations, cre
 
 ## Project Structure & Module Organization
 - Main code lives in `src/main/java/com/ufo/ufo`; shared code is under `global/` and business code is grouped under `domain/`.
-- Runtime configuration is in `src/main/resources/application.yaml`; secrets must be provided through environment variables or an untracked local profile file.
+- Shared runtime configuration is in `src/main/resources/application.yaml`; profile settings are in the tracked `application-dev.yml`, `application-prod.yml`, and `application-test.yml` files in the same directory.
+- Provide passwords, JWT secrets, and OAuth client settings through the environment variables listed in `.env.example`. Keep `.env` and local env files untracked; never put real secrets in the tracked profile files.
+- Database integration tests use `src/test/resources/application-db-test.yaml` with Testcontainers. The `test` profile uses H2 on the test runtime classpath.
 - Tests mirror production packages in `src/test/java/com/ufo/ufo` with fixture builders in `support/fixture`.
 
 ## Build and Test Approval
