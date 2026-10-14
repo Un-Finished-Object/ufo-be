@@ -35,7 +35,7 @@ class DeploymentReadinessTest {
         var result = runDeployment("127.0.0.1:8081", "503", 2);
         assertThat(result.exitCode()).as(result.output()).isZero();
         assertThat(result.attempts()).isEqualTo(2);
-        assertThat(result.commands()).contains("image prune");
+        assertThat(result.commands()).contains("image prune", "-f ./docker-compose.yml");
     }
 
     @ParameterizedTest
@@ -49,16 +49,22 @@ class DeploymentReadinessTest {
     }
 
     private Result runDeployment(String binding, String status, int readyAfter) throws Exception {
-        Files.createDirectories(directory.resolve("config"));
-        Files.writeString(directory.resolve("config/application-prod.yml"), "spring: {}\n");
-        Files.writeString(directory.resolve("compose.yml"), "services: {}\n");
+        Files.writeString(directory.resolve("docker-compose.yml"), "services: {}\n");
+        Files.writeString(directory.resolve(".env"), "IMAGE_TAG=test\n");
         Files.writeString(directory.resolve("attempts"), "0");
+        Files.writeString(directory.resolve("database-running"), "false");
         Files.writeString(directory.resolve("commands"), "");
         String doubles = """
                 cd() { builtin cd "$UFO_TEST_DIR"; }
                 docker() {
                   printf '%s\n' "$*" >> "$UFO_TEST_DIR/commands"
                   case "$*" in
+                    *'up -d'*)
+                      case " $* " in
+                        *' --no-deps '*) ;;
+                        *) printf 'true' > "$UFO_TEST_DIR/database-running" ;;
+                      esac
+                      ;;
                     *'port backend-server 8081'*)
                       if [ "$UFO_TEST_BINDING" = "port-error" ]; then
                         return 1
@@ -73,7 +79,9 @@ class DeploymentReadinessTest {
                   count=$(< "$UFO_TEST_DIR/attempts")
                   count=$((count + 1))
                   printf '%s' "$count" > "$UFO_TEST_DIR/attempts"
-                  if [ "$UFO_TEST_READY_AFTER" -gt 0 ] && [ "$count" -ge "$UFO_TEST_READY_AFTER" ]; then
+                  if [ "$(< "$UFO_TEST_DIR/database-running")" != "true" ]; then
+                    printf '503'
+                  elif [ "$UFO_TEST_READY_AFTER" -gt 0 ] && [ "$count" -ge "$UFO_TEST_READY_AFTER" ]; then
                     printf '200'
                   else
                     printf '%s' "$UFO_TEST_STATUS"

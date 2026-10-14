@@ -5,12 +5,12 @@
 ## 개발 환경
 
 - JDK 21이 필요합니다. Docker Compose로 실행하면 MySQL 8.4 컨테이너를 사용합니다.
-- [환경 변수 예시](.env.example)를 `.env`로, [개발용 OAuth 설정 예시](src/main/resources/application-dev.yml.example)를 `src/main/resources/application-dev.yml`로 복사합니다. `.env`의 `change-me`, `replace-with-...` 값을 개발 환경에 맞게 바꾸고 실제 자격 증명은 커밋하지 않습니다.
-- 로컬 실행과 Docker Compose 실행 순서는 [README의 로컬 개발 안내](README.md#로컬-개발)를 따릅니다.
+- [환경 변수 예시](.env.example)를 `.env`로 복사합니다. `.env`의 `change-me`, `replace-with-...` 값을 개발 환경에 맞게 바꾸고 실제 비밀번호와 Secret은 커밋하지 않습니다.
+- 로컬 실행은 [README의 로컬 개발 안내](README.md#로컬-개발)를 따릅니다.
 
 ## 코드와 테스트
 
-업무 코드는 `src/main/java/com/ufo/ufo/domain/` 아래 도메인별로 두고, 공통 보안·예외·설정 코드는 `global/`에 둡니다. 도메인에서는 `api`, `application`, `dao`, `domain`, `dto` 계층을 사용합니다.
+비즈니스 로직은 `src/main/java/com/ufo/ufo/domain/` 아래 도메인별로 두고, 공통 보안·예외·설정 코드는 `global/`에 둡니다. 도메인에서는 `api`, `application`, `dao`, `domain`, `dto` 계층을 사용합니다.
 
 기본 테스트는 macOS·Linux에서 `./gradlew test`, Windows에서 `.\gradlew.bat test`로 실행합니다. Docker가 필요한 통합 테스트는 별도 `integrationTest` 작업으로 실행합니다. 코딩 에이전트가 컴파일이나 테스트 명령을 실행할 때는 [AGENTS.md의 승인 규칙](AGENTS.md#build-and-test-approval)을 먼저 따릅니다.
 
@@ -52,7 +52,7 @@ DB 테스트를 추가할 때는 `support/database`의 `DatabaseTestApplication`
 
 ### PR 테스트
 
-`main` 대상 PR에서는 `Gradle tests (JDK 21)` 검사가 기본 테스트를 실행하고, DB별 검사가 MySQL·PostgreSQL에서 같은 통합 테스트를 실행합니다. 실패 보고서는 검사별 아티팩트로 남깁니다. 두 DB에서 이 테스트가 통과하더라도 전체 서비스를 PostgreSQL로 운영할 수 있다는 뜻은 아닙니다.
+`main` 대상 PR에서는 `Gradle tests (JDK 21)` 검사가 기본 테스트를 실행하고, MySQL·PostgreSQL에서 같은 통합 테스트를 실행합니다. 실패 보고서는 테스트별 아티팩트로 남깁니다. 두 DB에서 이 테스트가 통과하더라도 전체 서비스를 PostgreSQL로 운영할 수 있다는 뜻은 아닙니다.
 
 공통 설정과 동시성 검증 기준은 [DB 테스트 설계](docs/design/database-testing.md)를 참고합니다.
 
@@ -69,7 +69,11 @@ DB 테스트를 추가할 때는 `support/database`의 `DatabaseTestApplication`
 
 ## 이슈 작성
 
-작업 전 코드와 열린·닫힌 이슈를 확인해 중복을 피합니다. 기능·리팩토링 작업은 해당 [이슈 템플릿](.github/ISSUE_TEMPLATE)을 사용합니다. 본문에는 짧은 배경 문단, 구체적인 작업 항목 3개에서 5개, 기대 효과 1개에서 2개를 담고, API 요청·응답 형식이나 DB 저장처럼 팀에서 쓰는 말로 설명합니다. 리팩토링 이슈에는 유지할 기존 동작을 적고, 직접 이어지는 작업만 `후속 이슈: #번호`로 연결합니다.
+작업 전 코드와 열린·닫힌 이슈를 확인해 중복을 피합니다. 기능·리팩토링 작업은 해당 [이슈 템플릿](.github/ISSUE_TEMPLATE)을 사용합니다.
+
+본문에는 짧은 배경 문단, 구체적인 작업 항목 3개에서 5개, 기대 효과 1개에서 2개를 담고, API 요청·응답 형식이나 DB 저장처럼 팀에서 쓰는 말로 설명합니다.
+
+리팩토링 이슈에는 유지할 기존 동작을 적고, 직접 이어지는 작업만 `후속 이슈: #번호`로 연결합니다.
 
 우선순위 라벨 `🚨 P0`·`🔥 P1`·`⭐ P2` 중 하나와 작업 종류 라벨 하나를 붙입니다. 이슈를 등록한 뒤 제목·본문·라벨을 확인합니다.
 

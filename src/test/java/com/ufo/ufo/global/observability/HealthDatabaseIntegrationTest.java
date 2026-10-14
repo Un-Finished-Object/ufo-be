@@ -1,15 +1,14 @@
 package com.ufo.ufo.global.observability;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.doThrow;
 
 import com.ufo.ufo.support.database.TestDatabaseConfig;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.sql.Connection;
 import java.sql.SQLException;
-import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -20,6 +19,7 @@ import org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoCo
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
+import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails;
 import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,10 +27,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 @SpringBootTest(classes = HealthDatabaseIntegrationTest.TestApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -42,8 +42,8 @@ class HealthDatabaseIntegrationTest {
 
     @Autowired
     private Environment environment;
-    @MockitoSpyBean
-    private DataSource dataSource;
+    @Autowired
+    private TestDataSource dataSource;
 
     private final HttpClient client = HttpClient.newHttpClient();
 
@@ -67,11 +67,15 @@ class HealthDatabaseIntegrationTest {
     @Test
     @DisplayName("DB 연결 실패는 준비 상태를 실패로 바꾸되 실행 상태에는 영향을 주지 않아야 한다")
     void databaseFailureOnlyAffectsReadiness() throws Exception {
-        doThrow(new SQLException("테스트 DB 연결 실패")).when(dataSource).getConnection();
-        var response = get("/actuator/health/readiness");
-        assertThat(response.statusCode()).isEqualTo(503);
-        assertThat(response.body()).isEqualTo("{\"status\":\"DOWN\"}");
-        assertHealthy("liveness");
+        dataSource.setUnavailable(true);
+        try {
+            var response = get("/actuator/health/readiness");
+            assertThat(response.statusCode()).isEqualTo(503);
+            assertThat(response.body()).isEqualTo("{\"status\":\"DOWN\"}");
+            assertHealthy("liveness");
+        } finally {
+            dataSource.setUnavailable(false);
+        }
     }
 
     @Test
@@ -101,6 +105,11 @@ class HealthDatabaseIntegrationTest {
     static class TestApplication {
 
         @Bean
+        TestDataSource dataSource(JdbcConnectionDetails connectionDetails) {
+            return new TestDataSource(connectionDetails);
+        }
+
+        @Bean
         HealthIndicator s3HealthIndicator() {
             return () -> Health.down().withDetail("bucket", "비공개 버킷").build();
         }
@@ -108,6 +117,40 @@ class HealthDatabaseIntegrationTest {
         @Bean
         SecurityFilterChain applicationFilterChain(HttpSecurity http) throws Exception {
             return http.authorizeHttpRequests(requests -> requests.anyRequest().denyAll()).build();
+        }
+    }
+
+    static class TestDataSource extends DriverManagerDataSource {
+
+        private volatile boolean unavailable;
+
+        TestDataSource(JdbcConnectionDetails connectionDetails) {
+            setDriverClassName(connectionDetails.getDriverClassName());
+            setUrl(connectionDetails.getJdbcUrl());
+            setUsername(connectionDetails.getUsername());
+            setPassword(connectionDetails.getPassword());
+        }
+
+        void setUnavailable(boolean unavailable) {
+            this.unavailable = unavailable;
+        }
+
+        @Override
+        public Connection getConnection() throws SQLException {
+            checkAvailable();
+            return super.getConnection();
+        }
+
+        @Override
+        public Connection getConnection(String username, String password) throws SQLException {
+            checkAvailable();
+            return super.getConnection(username, password);
+        }
+
+        private void checkAvailable() throws SQLException {
+            if (unavailable) {
+                throw new SQLException("테스트 DB 연결 실패");
+            }
         }
     }
 }

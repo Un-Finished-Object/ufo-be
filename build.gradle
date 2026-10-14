@@ -60,6 +60,7 @@ dependencies {
 	testImplementation 'org.testcontainers:testcontainers-postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	testRuntimeOnly 'org.postgresql:postgresql'
+	testRuntimeOnly 'com.h2database:h2'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

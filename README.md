@@ -35,7 +35,6 @@ UFO는 도안을 찾고, 대체 실을 고르고, 같은 도안을 만드는 사
 - [개발 참여](#개발-참여)
 - [프로젝트 구조](#프로젝트-구조)
 - [API](#api)
-- [배포](#배포)
 - [오류 로그와 서버 상태](#오류-로그와-서버-상태)
 
 ---
@@ -96,7 +95,7 @@ UFO는 도안을 찾고, 대체 실을 고르고, 같은 도안을 만드는 사
 | Validation | `Jakarta Validation` |
 | Test | `JUnit 5` `Mockito` `MockMvc` |
 | Build | `Gradle` `Asciidoctor` |
-| Infra | `Docker` `Docker Compose` `GitHub Actions` `AWS EC2` |
+| Infra | `Docker` `Docker Compose` `GitHub Actions` |
 
 ---
 
@@ -185,28 +184,26 @@ cd ufo-be
 
 ### 환경 변수 설정
 
-프로젝트 루트의 `.env.example`을 `.env`로 복사하고, OAuth 공급자 정보 예시를 `application-dev.yml`로 복사합니다. `.env`의 자격 증명은 개발 환경에 맞게 설정합니다.
+프로젝트 루트의 `.env.example`을 `.env`로 복사하고 DB 비밀번호와 OAuth Client ID·Secret 등을 개발 환경에 맞게 설정합니다. `application-dev.yml`, `application-prod.yml`, `application-test.yml`은 저장소에 포함되어 있습니다.
 
 ```bash
 cp .env.example .env
-cp src/main/resources/application-dev.yml.example src/main/resources/application-dev.yml
 ```
 
 PowerShell에서는 다음 명령을 사용할 수 있습니다.
 
 ```powershell
 Copy-Item .env.example .env
-Copy-Item src/main/resources/application-dev.yml.example src/main/resources/application-dev.yml
 ```
 
-`.env`의 `change-me`, `replace-with-...` 값은 실제 개발용 값으로 교체합니다. JWT Secret에는 Base64로 인코딩한 32바이트 이상의 비밀값이 필요합니다. `application-dev.yml`에는 Kakao·Naver OAuth 공급자 주소와 리다이렉트 경로가 들어 있으며, Client ID와 Secret은 `.env`에서 전달합니다. 사용하는 OAuth 앱에는 `http://localhost:8080/v1/auth/oauth/google/callback`처럼 공급자별 리다이렉트 URI를 등록합니다.
+`.env`의 `change-me`, `replace-with-...` 값은 실제 개발용 값으로 교체합니다. JWT Secret에는 Base64로 인코딩한 32바이트 이상의 비밀값이 필요합니다. 세 프로필 설정은 DB 접속 정보, JWT Secret, OAuth Client ID와 Secret을 환경 변수에서 읽습니다. 사용하는 OAuth 앱에는 `http://localhost:8080/v1/auth/oauth/google/callback`처럼 공급자별 리다이렉트 URI를 등록합니다.
 
 주요 환경 변수는 다음과 같습니다.
 
 | 구분 | 환경 변수 |
 | --- | --- |
-| Database | `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` |
-| JWT | `SPRING_JWT_SECRET`, `SPRING_JWT_ACCESS_TOKEN_EXPIRE`, `SPRING_JWT_REFRESH_TOKEN_EXPIRE` |
+| Database | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` |
+| JWT | `JWT_SECRET`, `JWT_ACCESS_TOKEN_EXPIRE`, `JWT_REFRESH_TOKEN_EXPIRE` |
 | OAuth2 | Google·Kakao·Naver Client ID와 Client Secret |
 | Redirect/CORS | `OAUTH_REDIRECT_URL`, `OAUTH_SIGNUP_REDIRECT_URL`, `OAUTH_ADMIN_REDIRECT_URL`, `OAUTH_COOKIE_DOMAIN`, `DOMAIN_URL` |
 | Image/S3 | `S3_IMAGE_BUCKET`, `S3_REGION`, `S3_PUBLIC_BASE_URL`, `CDN_BASE_URL`, `DEFAULT_PROFILE_IMAGE_KEY` |
@@ -214,23 +211,41 @@ Copy-Item src/main/resources/application-dev.yml.example src/main/resources/appl
 
 실제 비밀번호, JWT Secret과 OAuth Client Secret은 저장소에 커밋하지 않습니다.
 
+`dev`, `prod`, `test` 프로필에서는 Bean을 생성하기 전에 필수 환경 변수를 확인합니다. 값이 없거나 비어 있으면 누락된 변수 이름을 알려 주고 시작을 중단합니다.
+
+프로필별 DB 정책은 다음과 같습니다. `test` 프로필의 시작 검증에는 테스트용 H2 의존성을 사용합니다. MySQL·PostgreSQL 통합 테스트는 별도의 `application-db-test.yaml`과 Testcontainers를 사용합니다.
+
+| 프로필 | 스키마 설정 | SQL 초기화 | SQL 출력 |
+| --- | --- | --- | --- |
+| `dev` | `update` | `always` | 켬 |
+| `test` | `create-drop` | `never` | 끔 |
+| `prod` | `none` | `never` | 끔 |
+
+기존에 Git에서 무시되던 `application-*.yml`에 비밀번호나 Secret을 적었다면, Git 변경 사항을 가져오기 전에 그 값을 무시되는 `.env` 또는 `.env.<profile>.local` 파일로 옮기세요. 프로필 설정 파일은 이제 커밋 대상입니다.
+
 ### 로컬 서버 실행
 
-`.env`의 값을 현재 셸의 환경 변수로 불러온 뒤 애플리케이션을 실행합니다.
+`.env`의 값을 현재 셸의 환경 변수로 불러온 뒤 애플리케이션을 실행합니다. 기존 로컬 설정에서 옮긴 `.env.dev.local`이 있다면 그 파일을 나중에 읽어 개발용 값을 적용합니다.
 
 ```bash
-set -a
-source .env
-set +a
+for file in .env .env.dev.local; do
+  [ -f "$file" ] || continue
+  while IFS='=' read -r name value; do
+    case "$name" in ''|\#*) continue ;; esac
+    export "$name=${value%$'\r'}"
+  done < "$file"
+done
 ./gradlew bootRun
 ```
 
 PowerShell에서는 다음 명령을 사용합니다.
 
 ```powershell
-Get-Content .env | Where-Object { $_ -match '^[^#].+=' } | ForEach-Object {
-    $name, $value = $_ -split '=', 2
-    [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+@('.env', '.env.dev.local') | Where-Object { Test-Path -LiteralPath $_ } | ForEach-Object {
+    Get-Content -LiteralPath $_ | Where-Object { $_ -match '^[^#].+=' } | ForEach-Object {
+        $name, $value = $_ -split '=', 2
+        [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+    }
 }
 
 .\gradlew.bat bootRun
@@ -246,6 +261,8 @@ Dockerfile은 빌드된 JAR를 이미지에 복사하므로 먼저 `bootJar`를 
 ./gradlew bootJar
 docker compose --env-file .env up --build
 ```
+
+`.env.dev.local`에 개발용 설정값을 보관했다면 `docker compose --env-file .env --env-file .env.dev.local up --build`를 사용합니다.
 
 Windows PowerShell에서는 `./gradlew` 대신 `.\gradlew.bat bootJar`를 실행합니다.
 
@@ -279,7 +296,8 @@ src/
 │   │   │   └── user/               # 사용자·프로필·프로젝트
 │   │   └── global/                  # 보안·설정·예외·공통 응답·검증
 │   └── resources/
-│       └── application.yaml         # 공통 애플리케이션 설정
+│       ├── application.yaml         # 공통 애플리케이션 설정
+│       └── application-{dev,prod,test}.yml  # 환경별 설정
 └── test/java/com/ufo/ufo/
     ├── domain/                      # 도메인별 Controller·Service 테스트
     ├── global/                      # OAuth·JWT·WebSocket 보안 테스트
@@ -332,27 +350,6 @@ REST API는 `/v1` 경로 아래에 제공됩니다.
 
 ---
 
-## 배포
-
-`main` 브랜치에 코드가 push되면 GitHub Actions가 다음 과정을 실행합니다.
-
-1. JDK 21 환경에서 테스트 실행
-2. Spring Boot JAR 생성
-3. Docker 이미지를 커밋 SHA와 `latest` 태그로 빌드
-4. Docker Hub에 이미지 push
-5. EC2에서 대상 이미지를 pull하고 Docker Compose로 재기동
-6. 서버와 DB의 준비 상태를 확인한 뒤 배포 완료
-
-운영용 `application-prod.yml`과 Docker Compose 설정은 EC2 배포 디렉터리에서 별도로 관리합니다.
-
-배포에는 다음 GitHub Secrets가 필요합니다.
-
-* `DOCKER_USERNAME`
-* `DOCKER_PASSWORD`
-* `EC2_HOST`
-* `EC2_USERNAME`
-* `EC2_SSH_KEY`
-
 ## 오류 로그와 서버 상태
 
 HTTP 응답의 `X-Request-ID`로 같은 요청의 서버 로그를 찾을 수 있습니다. 요청에 이 헤더를 넣으면 영문·숫자·`_`·`-`로 구성된 64자 이하의 값을 그대로 사용합니다. 헤더가 없거나 값이 유효하지 않으면 새 식별자를 생성합니다.
@@ -369,5 +366,3 @@ curl --fail http://127.0.0.1:8081/actuator/health/readiness
 ```
 
 Docker Compose에서는 컨테이너의 관리 포트를 `0.0.0.0:8081`로 열고 호스트의 `127.0.0.1:${MANAGEMENT_HOST_PORT:-8081}`에만 연결합니다. API 포트에서는 상태 확인 경로를 사용할 수 없습니다. 관리 포트를 외부에 공개하거나 리버스 프록시로 전달하지 않습니다.
-
-EC2의 Compose 설정도 `backend-server`에 `MANAGEMENT_SERVER_PORT=8081`, `MANAGEMENT_SERVER_ADDRESS=0.0.0.0`과 `127.0.0.1:8081:8081` 포트 연결을 추가해야 합니다. 호스트 포트는 바꿀 수 있지만 로컬 주소 제한은 유지합니다. 배포 작업은 이 연결을 확인하고 준비 상태를 최대 40회 조회합니다. 실패하면 배포를 실패로 처리하며, 이전 이미지로 자동 복구하지는 않습니다.
