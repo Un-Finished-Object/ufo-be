@@ -91,9 +91,9 @@ jobs:
           export DOCKER_USERNAME='${{ secrets.DOCKER_USERNAME }}'
           export IMAGE_TAG='${{ github.sha }}'
 
-          # 백엔드만 새 이미지로 재생성한다.
+          # 백엔드 서버 실행
           docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull backend-server
-          docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --no-deps --force-recreate backend-server
+          docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d backend-server
 
           # 상태 확인용 포트는 호스트의 로컬 주소에만 연결한다.
           HEALTH_ADDRESS="$(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" port backend-server 8081)" || HEALTH_ADDRESS=""

@@ -52,12 +52,19 @@ class DeploymentReadinessTest {
         Files.writeString(directory.resolve("docker-compose.yml"), "services: {}\n");
         Files.writeString(directory.resolve(".env"), "IMAGE_TAG=test\n");
         Files.writeString(directory.resolve("attempts"), "0");
+        Files.writeString(directory.resolve("database-running"), "false");
         Files.writeString(directory.resolve("commands"), "");
         String doubles = """
                 cd() { builtin cd "$UFO_TEST_DIR"; }
                 docker() {
                   printf '%s\n' "$*" >> "$UFO_TEST_DIR/commands"
                   case "$*" in
+                    *'up -d'*)
+                      case " $* " in
+                        *' --no-deps '*) ;;
+                        *) printf 'true' > "$UFO_TEST_DIR/database-running" ;;
+                      esac
+                      ;;
                     *'port backend-server 8081'*)
                       if [ "$UFO_TEST_BINDING" = "port-error" ]; then
                         return 1
@@ -72,7 +79,9 @@ class DeploymentReadinessTest {
                   count=$(< "$UFO_TEST_DIR/attempts")
                   count=$((count + 1))
                   printf '%s' "$count" > "$UFO_TEST_DIR/attempts"
-                  if [ "$UFO_TEST_READY_AFTER" -gt 0 ] && [ "$count" -ge "$UFO_TEST_READY_AFTER" ]; then
+                  if [ "$(< "$UFO_TEST_DIR/database-running")" != "true" ]; then
+                    printf '503'
+                  elif [ "$UFO_TEST_READY_AFTER" -gt 0 ] && [ "$count" -ge "$UFO_TEST_READY_AFTER" ]; then
                     printf '200'
                   else
                     printf '%s' "$UFO_TEST_STATUS"
