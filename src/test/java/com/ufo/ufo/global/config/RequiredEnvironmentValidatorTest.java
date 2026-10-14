@@ -10,13 +10,15 @@ import org.springframework.mock.env.MockEnvironment;
 @DisplayName("필수 환경 변수 검증")
 class RequiredEnvironmentValidatorTest {
 
+    private static final RequiredEnvironmentValidator VALIDATOR = new RequiredEnvironmentValidator();
+
     @Test
     @DisplayName("JWT Secret이 없으면 변수 이름을 알려 주고 시작을 중단한다")
     void missingJwtSecretFails() {
         MockEnvironment environment = completeEnvironment();
         environment.setProperty("JWT_SECRET", "");
 
-        assertThatThrownBy(() -> new RequiredEnvironmentValidator().validate(environment))
+        assertThatThrownBy(() -> VALIDATOR.validate(environment))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("JWT_SECRET");
     }
@@ -27,7 +29,7 @@ class RequiredEnvironmentValidatorTest {
         MockEnvironment environment = completeEnvironment();
         environment.setProperty("NAVER_CLIENT_SECRET", " ");
 
-        assertThatThrownBy(() -> new RequiredEnvironmentValidator().validate(environment))
+        assertThatThrownBy(() -> VALIDATOR.validate(environment))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("NAVER_CLIENT_SECRET");
     }
@@ -38,7 +40,7 @@ class RequiredEnvironmentValidatorTest {
         MockEnvironment environment = completeEnvironment();
         environment.setProperty("S3_IMAGE_BUCKET", "");
 
-        assertThatThrownBy(() -> new RequiredEnvironmentValidator().validate(environment))
+        assertThatThrownBy(() -> VALIDATOR.validate(environment))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("S3_IMAGE_BUCKET");
     }
@@ -50,7 +52,7 @@ class RequiredEnvironmentValidatorTest {
         environment.setActiveProfiles("test");
         environment.setProperty("DB_PASSWORD", "");
 
-        assertThatCode(() -> new RequiredEnvironmentValidator().validate(environment)).doesNotThrowAnyException();
+        assertThatCode(() -> VALIDATOR.validate(environment)).doesNotThrowAnyException();
     }
 
     private MockEnvironment completeEnvironment() {
@@ -64,9 +66,8 @@ class RequiredEnvironmentValidatorTest {
             environment.setProperty(name, "configured");
         }
         for (String provider : new String[] {"GOOGLE", "KAKAO", "NAVER"}) {
-            String prefix = provider;
-            environment.setProperty(prefix + "_CLIENT_ID", "configured");
-            environment.setProperty(prefix + "_CLIENT_SECRET", "configured");
+            environment.setProperty(provider + "_CLIENT_ID", "configured");
+            environment.setProperty(provider + "_CLIENT_SECRET", "configured");
         }
         return environment;
     }
