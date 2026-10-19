@@ -32,6 +32,7 @@ import java.lang.reflect.Field;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("채팅 WebSocket 서비스 테스트")
@@ -64,10 +73,21 @@ class ChatWebSocketServiceTest {
     private ChatReadStatusRepository chatReadStatusRepository;
 
     private ChatWebSocketService chatWebSocketService;
+    private AnnotationConfigApplicationContext context;
+    private TransactionTemplate transaction;
 
     @BeforeEach
     void setUp() {
-        ChatSocketEventPublisher eventPublisher = new ChatSocketEventPublisher(messagingTemplate);
+        context = new AnnotationConfigApplicationContext();
+        context.registerBean(SimpMessagingTemplate.class, () -> messagingTemplate);
+        context.registerBean(EmbeddedDatabase.class, () -> new EmbeddedDatabaseBuilder()
+                .generateUniqueName(true).setType(EmbeddedDatabaseType.H2).build(),
+                definition -> definition.setDestroyMethodName("shutdown"));
+        context.register(ChatSocketEventPublisher.class, TransactionConfig.class);
+        context.refresh();
+        transaction = new TransactionTemplate(
+                new DataSourceTransactionManager(context.getBean(EmbeddedDatabase.class)));
+        ChatSocketEventPublisher eventPublisher = context.getBean(ChatSocketEventPublisher.class);
         ChatSocketAccessService accessService = new ChatSocketAccessService(
                 chatRoomRepository, chatRoomStatusRepository, userRepository, eventPublisher
         );
@@ -77,6 +97,16 @@ class ChatWebSocketServiceTest {
                         new ChatReadStatusService(userRepository, chatMessageRepository, chatReadStatusRepository),
                         eventPublisher)
         );
+    }
+
+    @AfterEach
+    void closeContext() {
+        context.close();
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableTransactionManagement
+    static class TransactionConfig {
     }
 
     @Test
@@ -108,8 +138,8 @@ class ChatWebSocketServiceTest {
         when(userRepository.findByEmail(userEmail)).thenReturn(Optional.of(user));
         when(chatRoomStatusRepository.findByUser_IdAndRoom_Id(21L, roomId)).thenReturn(Optional.of(roomStatus));
         when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(savedMessage);
-        chatWebSocketService.publishMessage(principal,
-                new ChatMessageSendRequest(roomId, " 안녕하세요 ", "temp-123456", null, null));
+        transaction.executeWithoutResult(status -> chatWebSocketService.publishMessage(principal,
+                new ChatMessageSendRequest(roomId, " 안녕하세요 ", "temp-123456", null, null)));
 
         ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
         verify(messagingTemplate).convertAndSend(eq("/sub/chat/rooms/10"), payloadCaptor.capture());
@@ -176,8 +206,8 @@ class ChatWebSocketServiceTest {
         when(chatMessageRepository.findByIdAndRoom_Id(38L, roomId)).thenReturn(Optional.of(replyMessage));
         when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(savedMessage);
 
-        chatWebSocketService.publishMessage(principal,
-                new ChatMessageSendRequest(roomId, " 답장입니다 ", "temp-reply-1", true, 38L));
+        transaction.executeWithoutResult(status -> chatWebSocketService.publishMessage(principal,
+                new ChatMessageSendRequest(roomId, " 답장입니다 ", "temp-reply-1", true, 38L)));
 
         ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
         verify(messagingTemplate).convertAndSend(eq("/sub/chat/rooms/10"), payloadCaptor.capture());
@@ -317,7 +347,8 @@ class ChatWebSocketServiceTest {
         when(chatReadStatusRepository.save(any(ChatReadStatus.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        chatWebSocketService.publishReadUpdate(principal, new ChatReadUpdateRequest(roomId, 53L));
+        transaction.executeWithoutResult(status ->
+                chatWebSocketService.publishReadUpdate(principal, new ChatReadUpdateRequest(roomId, 53L)));
 
         ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
         verify(messagingTemplate).convertAndSend(eq("/sub/chat/rooms/10"), payloadCaptor.capture());
