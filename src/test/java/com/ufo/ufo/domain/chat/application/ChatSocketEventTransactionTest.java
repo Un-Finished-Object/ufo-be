@@ -3,6 +3,8 @@ package com.ufo.ufo.domain.chat.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
 
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatErrorPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatEventType;
@@ -10,6 +12,7 @@ import com.ufo.ufo.domain.chat.dto.websocket.response.ChatMessageCreatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatSocketEvent;
 import com.ufo.ufo.support.logging.LogCapture;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -26,6 +29,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
@@ -34,6 +38,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.support.ExecutorSubscribableChannel;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -53,6 +58,9 @@ class ChatSocketEventTransactionTest {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private DataSource dataSource;
 
     @Autowired
     private CapturedMessages messages;
@@ -124,6 +132,32 @@ class ChatSocketEventTransactionTest {
 
         assertThat(messages.events).isEmpty();
         assertThat(storedRows()).isZero();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ChatEventType.class, names = {"MESSAGE_CREATED", "READ_UPDATED"})
+    @DisplayName("JDBC commit 호출이 실패하면 성공 이벤트를 전송하지 않는다")
+    void jdbcCommitFailureDoesNotSendSuccess(ChatEventType eventType) throws SQLException {
+        try (Connection connection = dataSource.getConnection()) {
+            Connection failingConnection = spy(connection);
+            doAnswer(invocation -> {
+                // DB가 커밋을 거절한 상황을 재현하고 연결 정리 시 자동 커밋되지 않도록 한다.
+                failingConnection.rollback();
+                throw new SQLException("injected-jdbc-commit-failure");
+            }).doCallRealMethod().when(failingConnection).commit();
+            var failingDataSource = new SingleConnectionDataSource(failingConnection, true);
+            var failingJdbc = new JdbcTemplate(failingDataSource);
+            var failingTransaction = new TransactionTemplate(new DataSourceTransactionManager(failingDataSource));
+
+            assertThatThrownBy(() -> failingTransaction.executeWithoutResult(status -> {
+                failingJdbc.update("insert into chat_event_test (id) values (53)");
+                publishSuccess(eventType);
+            })).isInstanceOf(TransactionSystemException.class)
+                    .hasRootCauseMessage("injected-jdbc-commit-failure");
+
+            assertThat(messages.events).isEmpty();
+            assertThat(storedRows()).isZero();
+        }
     }
 
     @ParameterizedTest
