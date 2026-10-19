@@ -14,6 +14,7 @@ import com.ufo.ufo.domain.chat.domain.ChatReadStatus;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.chat.dto.websocket.request.ChatReadUpdateRequest;
+import com.ufo.ufo.domain.chat.dto.websocket.request.ChatMessageSendRequest;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatErrorPayload;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatEventType;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
@@ -45,6 +46,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
@@ -87,6 +90,8 @@ class ChatReadConcurrencyIntegrationTest {
     private ChatReadStatusRepository readStatusRepository;
     @Autowired
     private ChatReadUpdateService readUpdateService;
+    @Autowired
+    private ChatMessageSendService messageSendService;
     @Autowired
     private AdminChatService adminChatService;
     @Autowired
@@ -270,6 +275,61 @@ class ChatReadConcurrencyIntegrationTest {
                 .isEmpty();
     }
 
+    @ParameterizedTest
+    @EnumSource(value = ChatEventType.class, names = {"MESSAGE_CREATED", "READ_UPDATED"})
+    @DisplayName("메시지 저장과 읽음 갱신의 성공 이벤트는 실제 DB 커밋 후 전송한다")
+    void successEventsWaitForDatabaseCommit(ChatEventType eventType) {
+        Fixture fixture = fixture(Role.ROLE_USER);
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+
+        transaction.executeWithoutResult(status -> {
+            publishSuccess(fixture, eventType);
+
+            assertThat(capturedEvents.events).isEmpty();
+        });
+
+        assertThat(capturedEvents.events).hasSize(1);
+        assertThat(capturedEvents.events.element().eventType()).isEqualTo(eventType);
+        if (eventType == ChatEventType.MESSAGE_CREATED) {
+            assertThat(messageRepository.findByRoom_IdOrderByIdDesc(fixture.room.getId(),
+                    org.springframework.data.domain.PageRequest.of(0, 10)))
+                    .hasSize(3).first().extracting(ChatMessage::getText).isEqualTo("커밋 확인 메시지");
+        } else {
+            assertThat(status(fixture).getLastReadMessageId()).isEqualTo(fixture.latest.getId());
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ChatEventType.class, names = {"MESSAGE_CREATED", "READ_UPDATED"})
+    @DisplayName("메시지 저장과 읽음 갱신을 롤백하면 DB 변경과 성공 이벤트가 남지 않는다")
+    void rollbackDiscardsDatabaseChangesAndSuccessEvents(ChatEventType eventType) {
+        Fixture fixture = fixture(Role.ROLE_USER);
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        var failure = new IllegalStateException("채팅 처리 후 실패");
+
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
+            publishSuccess(fixture, eventType);
+            throw failure;
+        })).isSameAs(failure);
+
+        assertThat(capturedEvents.events).isEmpty();
+        assertThat(messageRepository.findByRoom_IdOrderByIdDesc(fixture.room.getId(),
+                org.springframework.data.domain.PageRequest.of(0, 10))).hasSize(2);
+        assertThat(readStatusRepository.findByRoom_IdAndUser_Id(fixture.room.getId(), fixture.user.getId()))
+                .isEmpty();
+    }
+
+    private void publishSuccess(Fixture fixture, ChatEventType eventType) {
+        if (eventType == ChatEventType.MESSAGE_CREATED) {
+            messageSendService.send(() -> fixture.user.getEmail(), new ChatMessageSendRequest(
+                    fixture.room.getId(), "커밋 확인 메시지", "commit-message", false, null));
+        } else {
+            read(fixture, fixture.latest.getId());
+        }
+    }
+
     private Fixture fixture(Role role) {
         String identifier = UUID.randomUUID().toString().replace("-", "");
         User user = userRepository.saveAndFlush(User.builder()
@@ -367,7 +427,8 @@ class ChatReadConcurrencyIntegrationTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     @Import({UserService.class, ChatReadUpdateService.class, ChatReadStatusService.class, AdminChatService.class,
-            ChatMessageService.class, ChatSocketAccessService.class, ChatSocketEventPublisher.class})
+            ChatMessageService.class, ChatMessageSendService.class, ChatSocketAccessService.class,
+            ChatSocketEventPublisher.class})
     static class TestConfig {
 
         @Bean
