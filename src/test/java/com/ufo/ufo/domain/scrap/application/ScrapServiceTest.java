@@ -3,6 +3,7 @@ package com.ufo.ufo.domain.scrap.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -17,6 +18,7 @@ import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
 import com.ufo.ufo.domain.scrap.domain.Scrap;
 import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse;
 import com.ufo.ufo.domain.scrap.dto.response.PatternScrapResponse;
+import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.global.exception.ApiException;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
@@ -47,12 +49,17 @@ class ScrapServiceTest {
     @Mock
     private ImageService imageService;
 
+    @Mock
+    private UserService userService;
+
     @InjectMocks
     private ScrapService scrapService;
 
     @BeforeEach
     void setUp() {
         lenient().when(imageService.buildImageUrl(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(userService.getUserByIdForUpdate(anyLong()))
+                .thenAnswer(invocation -> UserFixture.createUserWithId(invocation.getArgument(0)));
     }
 
     @Test
@@ -61,7 +68,7 @@ class ScrapServiceTest {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         setScrapsCount(pattern, 3);
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(patternRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 10L)).thenReturn(false);
 
         PatternScrapResponse response = scrapService.addPatternScrap(user, 10L);
@@ -78,7 +85,7 @@ class ScrapServiceTest {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         setScrapsCount(pattern, 3);
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(patternRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(pattern));
         when(scrapRepository.existsByUser_IdAndPattern_Id(1L, 10L)).thenReturn(true);
 
         PatternScrapResponse response = scrapService.addPatternScrap(user, 10L);
@@ -96,7 +103,7 @@ class ScrapServiceTest {
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         setScrapsCount(pattern, 2);
         Scrap scrap = Scrap.builder().user(user).pattern(pattern).build();
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(patternRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(pattern));
         when(scrapRepository.findByUser_IdAndPattern_Id(1L, 10L)).thenReturn(Optional.of(scrap));
 
         PatternScrapResponse response = scrapService.removePatternScrap(user, 10L);
@@ -113,7 +120,7 @@ class ScrapServiceTest {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         setScrapsCount(pattern, 2);
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(patternRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(pattern));
         when(scrapRepository.findByUser_IdAndPattern_Id(1L, 10L)).thenReturn(Optional.empty());
 
         PatternScrapResponse response = scrapService.removePatternScrap(user, 10L);
@@ -152,7 +159,7 @@ class ScrapServiceTest {
     @DisplayName("도안이 없으면 찜 추가/취소에서 예외가 발생해야 한다")
     void addOrRemovePatternScrap_PatternNotFound_Throws() {
         var user = UserFixture.createUserWithId(1L);
-        when(patternRepository.findById(10L)).thenReturn(Optional.empty());
+        when(patternRepository.findByIdForUpdate(10L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> scrapService.addPatternScrap(user, 10L))
                 .isInstanceOf(ApiException.class);
@@ -167,7 +174,7 @@ class ScrapServiceTest {
         var user = UserFixture.createUserWithId(1L);
         Pattern deletedPattern = PatternFixture.createPatternWithId(10L);
         PatternFixture.setDeletedAt(deletedPattern, LocalDateTime.now());
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(deletedPattern));
+        when(patternRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(deletedPattern));
 
         assertThatThrownBy(() -> scrapService.addPatternScrap(user, 10L))
                 .isInstanceOf(ApiException.class);

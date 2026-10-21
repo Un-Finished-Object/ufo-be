@@ -3,7 +3,9 @@ package com.ufo.ufo.domain.pattern.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -14,12 +16,14 @@ import com.ufo.ufo.domain.pattern.dao.PatternViewLogRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.domain.PatternViewLog;
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
+import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.global.exception.UnauthorizedUserException;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,15 +41,24 @@ class PatternViewServiceTest {
     @Mock
     private PatternViewLogRepository patternViewLogRepository;
 
+    @Mock
+    private UserService userService;
+
     @InjectMocks
     private PatternViewService patternViewService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(userService.getUserByIdForUpdate(anyLong()))
+                .thenAnswer(invocation -> UserFixture.createUserWithId(invocation.getArgument(0)));
+    }
 
     @Test
     @DisplayName("첫 조회는 조회수를 증가시키고 조회 기록을 저장한다")
     void increaseViewCount_FirstView_IncreasesAndSavesLog() {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(patternRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(pattern));
 
         var response = patternViewService.increaseViewCount(user, 10L);
 
@@ -59,7 +72,7 @@ class PatternViewServiceTest {
     void increaseViewCount_DuplicateView_DoesNotIncrease() {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(patternRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(pattern));
         when(patternViewLogRepository.existsByPattern_IdAndUser_IdAndViewedDate(eq(10L), eq(1L), any(LocalDate.class)))
                 .thenReturn(true);
 
@@ -74,7 +87,7 @@ class PatternViewServiceTest {
     @DisplayName("없는 도안의 조회수 증가는 실패한다")
     void increaseViewCount_NotFound_ThrowsException() {
         var user = UserFixture.createUserWithId(1L);
-        when(patternRepository.findById(99L)).thenReturn(Optional.empty());
+        when(patternRepository.findByIdForUpdate(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> patternViewService.increaseViewCount(user, 99L))
                 .isInstanceOf(PatternNotFoundException.class);
@@ -87,7 +100,7 @@ class PatternViewServiceTest {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         PatternFixture.setDeletedAt(pattern, LocalDateTime.now());
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(patternRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(pattern));
 
         assertThatThrownBy(() -> patternViewService.increaseViewCount(user, 10L))
                 .isInstanceOf(PatternNotFoundException.class);
