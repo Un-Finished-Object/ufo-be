@@ -9,12 +9,14 @@ import com.ufo.ufo.domain.scrap.domain.Scrap;
 import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse;
 import com.ufo.ufo.domain.scrap.dto.response.MyScrapsResponse.Item;
 import com.ufo.ufo.domain.scrap.dto.response.PatternScrapResponse;
+import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -27,25 +29,29 @@ public class ScrapService {
     private final PatternRepository patternRepository;
     private final ScrapRepository scrapRepository;
     private final ImageService imageService;
+    private final UserService userService;
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public PatternScrapResponse addPatternScrap(User user, Long patternId) {
+        // FK 저장과 구매 처리의 락 순서가 엇갈리지 않도록 사용자를 먼저 잠근다.
+        User loginUser = userService.getUserByIdForUpdate(user.getId());
         Pattern pattern = findActivePattern(patternId);
-        if (scrapRepository.existsByUser_IdAndPattern_Id(user.getId(), patternId)) {
+        if (scrapRepository.existsByUser_IdAndPattern_Id(loginUser.getId(), patternId)) {
             return PatternScrapResponse.from(true, pattern.getScrapsCount());
         }
         scrapRepository.save(Scrap.builder()
-                .user(user)
+                .user(loginUser)
                 .pattern(pattern)
                 .build());
         pattern.increaseScrapsCount();
         return PatternScrapResponse.from(true, pattern.getScrapsCount());
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public PatternScrapResponse removePatternScrap(User user, Long patternId) {
+        User loginUser = userService.getUserByIdForUpdate(user.getId());
         Pattern pattern = findActivePattern(patternId);
-        scrapRepository.findByUser_IdAndPattern_Id(user.getId(), patternId)
+        scrapRepository.findByUser_IdAndPattern_Id(loginUser.getId(), patternId)
                 .ifPresent(scrap -> {
                     scrapRepository.delete(scrap);
                     pattern.decreaseScrapsCount();
@@ -69,7 +75,7 @@ public class ScrapService {
     }
 
     private Pattern findActivePattern(Long patternId) {
-        Pattern pattern = patternRepository.findById(patternId)
+        Pattern pattern = patternRepository.findByIdForUpdate(patternId)
                 .orElseThrow(PatternNotFoundException::new);
         if (pattern.getDeletedAt() != null) {
             throw new PatternNotFoundException();

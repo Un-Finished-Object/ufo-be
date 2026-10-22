@@ -2,6 +2,10 @@
 
 UFO is a Java 21 Spring backend for pattern discovery, yarn recommendations, credit purchases, and chat. This file holds instructions that coding agents need while working here. Follow [CONTRIBUTING.md](CONTRIBUTING.md) for issue, branch, commit, and PR formats, and [README.md](README.md) for local setup. Add tool-specific instruction files only when a tool needs them, and link back here instead of copying these rules.
 
+## Writing Guidelines
+
+- Do not use the middle dot character in any agent-authored prose, including responses, documentation, code comments, issues, and PR descriptions. Use commas, conjunctions, or separate sentences instead.
+
 ## Project Structure & Module Organization
 - Main code lives in `src/main/java/com/ufo/ufo`; shared code is under `global/` and business code is grouped under `domain/`.
 - Shared runtime configuration is in `src/main/resources/application.yaml`; profile settings are in the tracked `application-dev.yml`, `application-prod.yml`, and `application-test.yml` files in the same directory.
@@ -25,7 +29,7 @@ UFO is a Java 21 Spring backend for pattern discovery, yarn recommendations, cre
 ## Issue and PR workflow
 - Use the GitHub MCP to read open and closed issues before writing a new one. Compare the request with the current source and related docs, then create the issue through the GitHub MCP or update an existing open issue. Write a local draft only when the user explicitly asks for one. Use related docs as context without naming internal files or explaining how the issue was derived unless asked.
 - When an issue number is known and the request includes implementation, fetch the latest issue details through the GitHub MCP, check the working tree, and switch to an existing issue branch or create one before editing code.
-- When asked to write a PR description, review the recent branch commits and write it to `PR.md`. Follow the PR template and the title and label rules in `CONTRIBUTING.md`.
+- When asked to write a PR description, review the recent branch commits and write it to `PR.md`. Follow the PR template and the [PR writing guidelines in CONTRIBUTING.md](CONTRIBUTING.md#pr-작성), including its title and label rules.
 - After creating or updating a GitHub issue, fetch it again through the GitHub MCP to verify its title, body, and labels. When creating a PR, copy all labels from the issue named by `closes: #<issue-number>` and verify the PR title, body, and labels.
 
 ## Security & Configuration Tips

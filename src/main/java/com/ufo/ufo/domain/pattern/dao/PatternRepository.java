@@ -11,7 +11,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface PatternRepository extends JpaRepository<Pattern, Long> {
+public interface PatternRepository extends JpaRepository<Pattern, Long>, PatternLockRepository {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Pattern> findByIdAndDeletedAtIsNull(Long patternId);
