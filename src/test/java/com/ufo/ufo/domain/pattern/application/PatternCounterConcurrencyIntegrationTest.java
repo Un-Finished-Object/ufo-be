@@ -15,28 +15,31 @@ import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.security.types.Role;
+import com.ufo.ufo.support.database.DatabaseLockObserver;
 import com.ufo.ufo.support.database.DatabaseTestApplication;
 import com.ufo.ufo.support.database.JpaAuditingTestConfig;
 import com.ufo.ufo.support.database.TestDatabaseConfig;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
@@ -50,6 +53,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.testcontainers.mysql.MySQLContainer;
 
 @Tag("integration")
 @Timeout(45)
@@ -77,15 +81,17 @@ class PatternCounterConcurrencyIntegrationTest {
     private ScrapService scrapService;
     @Autowired
     private PlatformTransactionManager transactionManager;
+    @Autowired
+    private DatabaseLockObserver lockObserver;
 
     @Test
     @DisplayName("다른 사용자가 동시에 조회하면 두 조회 기록과 증가분을 모두 저장한다")
     void concurrentViewsPreserveBothIncrements() throws Exception {
         Fixture fixture = fixture();
 
-        assertThat(concurrently(
+        concurrently(false,
                 () -> viewService.increaseViewCount(fixture.first, fixture.id()),
-                () -> viewService.increaseViewCount(fixture.second, fixture.id()))).isEmpty();
+                () -> viewService.increaseViewCount(fixture.second, fixture.id()));
 
         assertState(fixture, 2, 0);
     }
@@ -95,9 +101,9 @@ class PatternCounterConcurrencyIntegrationTest {
     void concurrentDuplicateViewsCountOnce() throws Exception {
         Fixture fixture = fixture();
 
-        assertThat(concurrently(
+        concurrently(false,
                 () -> viewService.increaseViewCount(fixture.first, fixture.id()),
-                () -> viewService.increaseViewCount(fixture.first, fixture.id()))).isEmpty();
+                () -> viewService.increaseViewCount(fixture.first, fixture.id()));
 
         assertState(fixture, 1, 0);
     }
@@ -124,9 +130,9 @@ class PatternCounterConcurrencyIntegrationTest {
     void concurrentScrapsPreserveBothIncrements() throws Exception {
         Fixture fixture = fixture();
 
-        assertThat(concurrently(
+        concurrently(false,
                 () -> scrapService.addPatternScrap(fixture.first, fixture.id()),
-                () -> scrapService.addPatternScrap(fixture.second, fixture.id()))).isEmpty();
+                () -> scrapService.addPatternScrap(fixture.second, fixture.id()));
 
         assertState(fixture, 0, 2);
     }
@@ -136,9 +142,9 @@ class PatternCounterConcurrencyIntegrationTest {
     void concurrentDuplicateScrapsCountOnce() throws Exception {
         Fixture fixture = fixture();
 
-        assertThat(concurrently(
+        concurrently(false,
                 () -> scrapService.addPatternScrap(fixture.first, fixture.id()),
-                () -> scrapService.addPatternScrap(fixture.first, fixture.id()))).isEmpty();
+                () -> scrapService.addPatternScrap(fixture.first, fixture.id()));
 
         assertState(fixture, 0, 1);
     }
@@ -150,9 +156,9 @@ class PatternCounterConcurrencyIntegrationTest {
         scrapService.addPatternScrap(fixture.first, fixture.id());
         scrapService.addPatternScrap(fixture.second, fixture.id());
 
-        assertThat(concurrently(
+        concurrently(false,
                 () -> scrapService.removePatternScrap(fixture.first, fixture.id()),
-                () -> scrapService.removePatternScrap(fixture.second, fixture.id()))).isEmpty();
+                () -> scrapService.removePatternScrap(fixture.second, fixture.id()));
 
         assertState(fixture, 0, 0);
     }
@@ -164,65 +170,68 @@ class PatternCounterConcurrencyIntegrationTest {
         scrapService.addPatternScrap(fixture.first, fixture.id());
         scrapService.addPatternScrap(fixture.second, fixture.id());
 
-        assertThat(concurrently(
+        concurrently(false,
                 () -> scrapService.removePatternScrap(fixture.first, fixture.id()),
-                () -> scrapService.removePatternScrap(fixture.first, fixture.id()))).isEmpty();
+                () -> scrapService.removePatternScrap(fixture.first, fixture.id()));
 
         assertState(fixture, 0, 1);
         assertThat(scrapRepository.existsByUser_IdAndPattern_Id(fixture.second.getId(), fixture.id())).isTrue();
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @DisplayName("조회와 찜 추가가 동시에 실행되어도 서로의 카운터를 덮어쓰지 않는다")
-    void concurrentViewAndScrapPreserveBothCounters() throws Exception {
+    void concurrentViewAndScrapPreserveBothCounters(boolean reverseOrder) throws Exception {
         Fixture fixture = fixture();
 
-        assertThat(concurrently(
+        concurrently(reverseOrder,
                 () -> viewService.increaseViewCount(fixture.first, fixture.id()),
-                () -> scrapService.addPatternScrap(fixture.second, fixture.id()))).isEmpty();
+                () -> scrapService.addPatternScrap(fixture.second, fixture.id()));
 
         assertState(fixture, 1, 1);
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @DisplayName("조회와 찜 취소가 동시에 실행되어도 서로의 카운터를 덮어쓰지 않는다")
-    void concurrentViewAndRemovalPreserveBothCounters() throws Exception {
+    void concurrentViewAndRemovalPreserveBothCounters(boolean reverseOrder) throws Exception {
         Fixture fixture = fixture();
         scrapService.addPatternScrap(fixture.first, fixture.id());
 
-        assertThat(concurrently(
+        concurrently(reverseOrder,
                 () -> viewService.increaseViewCount(fixture.second, fixture.id()),
-                () -> scrapService.removePatternScrap(fixture.first, fixture.id()))).isEmpty();
+                () -> scrapService.removePatternScrap(fixture.first, fixture.id()));
 
         assertState(fixture, 1, 0);
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @DisplayName("한 사용자의 찜 취소와 다른 사용자의 찜 추가를 모두 반영한다")
-    void concurrentAdditionAndRemovalPreserveRecords() throws Exception {
+    void concurrentAdditionAndRemovalPreserveRecords(boolean reverseOrder) throws Exception {
         Fixture fixture = fixture();
         scrapService.addPatternScrap(fixture.first, fixture.id());
 
-        assertThat(concurrently(
+        concurrently(reverseOrder,
                 () -> scrapService.removePatternScrap(fixture.first, fixture.id()),
-                () -> scrapService.addPatternScrap(fixture.second, fixture.id()))).isEmpty();
+                () -> scrapService.addPatternScrap(fixture.second, fixture.id()));
 
         assertState(fixture, 0, 1);
         assertThat(scrapRepository.existsByUser_IdAndPattern_Id(fixture.first.getId(), fixture.id())).isFalse();
         assertThat(scrapRepository.existsByUser_IdAndPattern_Id(fixture.second.getId(), fixture.id())).isTrue();
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @DisplayName("같은 사용자의 찜 추가와 취소가 겹쳐도 최종 카운터와 기록이 일치한다")
-    void concurrentToggleKeepsCounterConsistent() throws Exception {
+    void concurrentToggleKeepsCounterConsistent(boolean reverseOrder) throws Exception {
         Fixture fixture = fixture();
 
-        assertThat(concurrently(
+        concurrently(reverseOrder,
                 () -> scrapService.addPatternScrap(fixture.first, fixture.id()),
-                () -> scrapService.removePatternScrap(fixture.first, fixture.id()))).isEmpty();
+                () -> scrapService.removePatternScrap(fixture.first, fixture.id()));
 
-        boolean scrapped = scrapRepository.existsByUser_IdAndPattern_Id(fixture.first.getId(), fixture.id());
-        assertState(fixture, 0, scrapped ? 1 : 0);
+        assertState(fixture, 0, reverseOrder ? 1 : 0);
     }
 
     @ParameterizedTest
@@ -230,23 +239,21 @@ class PatternCounterConcurrencyIntegrationTest {
     @DisplayName("사용자와 도안을 잠그는 구매 처리에 겹쳐도 카운터 요청이 교착되지 않는다")
     void counterUpdatesFollowUserThenPatternLockOrder(CounterOperation operation) throws Exception {
         Fixture fixture = fixture();
-        CountDownLatch started = new CountDownLatch(1);
+        CompletableFuture<Long> waitingSession = new CompletableFuture<>();
         AtomicReference<Future<?>> pending = new AtomicReference<>();
         var executor = Executors.newSingleThreadExecutor();
         try {
             transaction().executeWithoutResult(status -> {
                 userRepository.findByIdForUpdate(fixture.first.getId()).orElseThrow();
-                pending.set(executor.submit(() -> {
-                    started.countDown();
+                long blockingSession = lockObserver.currentSessionId();
+                pending.set(submitRequest(executor, waitingSession, () -> {
                     if (operation == CounterOperation.VIEW) {
                         viewService.increaseViewCount(fixture.first, fixture.id());
                     } else {
                         scrapService.addPatternScrap(fixture.first, fixture.id());
                     }
                 }));
-                await(started);
-                assertThatThrownBy(() -> pending.get().get(1, TimeUnit.SECONDS))
-                        .isInstanceOf(TimeoutException.class);
+                lockObserver.awaitBlockedBy(sessionId(waitingSession), blockingSession, pending.get());
 
                 // 구매는 사용자 락을 보유한 상태에서 도안 락을 요청한다.
                 patternRepository.findByIdAndDeletedAtIsNull(fixture.id()).orElseThrow();
@@ -384,46 +391,54 @@ class PatternCounterConcurrencyIntegrationTest {
                 .filter(scrap -> scrap.getPattern().getId().equals(fixture.id())).count()).isEqualTo(scraps);
     }
 
-    private List<Throwable> concurrently(Runnable... actions) throws Exception {
-        CountDownLatch ready = new CountDownLatch(actions.length);
-        CountDownLatch start = new CountDownLatch(1);
-        var executor = Executors.newFixedThreadPool(actions.length);
-        List<Future<?>> futures = new ArrayList<>();
+    private void concurrently(boolean reverseOrder, Runnable first, Runnable second) throws Exception {
+        Runnable holder = reverseOrder ? second : first;
+        Runnable waiter = reverseOrder ? first : second;
+        CompletableFuture<Long> waitingSession = new CompletableFuture<>();
+        AtomicReference<Future<?>> pending = new AtomicReference<>();
+        var executor = Executors.newSingleThreadExecutor();
         try {
-            for (Runnable action : actions) {
-                futures.add(executor.submit(() -> {
-                    ready.countDown();
-                    await(start);
-                    action.run();
-                }));
-            }
-            await(ready);
-            start.countDown();
-            List<Throwable> failures = new ArrayList<>();
-            for (Future<?> future : futures) {
-                try {
-                    future.get(30, TimeUnit.SECONDS);
-                } catch (ExecutionException exception) {
-                    failures.add(exception.getCause());
-                }
-            }
-            return failures;
+            transaction().executeWithoutResult(status -> {
+                long blockingSession = lockObserver.currentSessionId();
+                holder.run();
+                patternRepository.flush();
+                pending.set(submitRequest(executor, waitingSession, waiter));
+
+                // 첫 요청을 커밋하기 전에 두 번째 요청의 실제 DB 락 대기를 확인한다.
+                lockObserver.awaitBlockedBy(sessionId(waitingSession), blockingSession, pending.get());
+            });
+            pending.get().get(30, TimeUnit.SECONDS);
         } finally {
-            start.countDown();
-            futures.forEach(future -> future.cancel(true));
+            if (pending.get() != null) {
+                pending.get().cancel(true);
+            }
             executor.shutdownNow();
             assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
         }
     }
 
-    private void await(CountDownLatch latch) {
-        try {
-            if (!latch.await(10, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("동시 요청 준비 시간 초과");
+    private Future<?> submitRequest(ExecutorService executor, CompletableFuture<Long> session, Runnable request) {
+        return executor.submit(() -> {
+            try {
+                transaction().executeWithoutResult(status -> {
+                    session.complete(lockObserver.currentSessionId());
+                    request.run();
+                });
+            } catch (RuntimeException | Error failure) {
+                session.completeExceptionally(failure);
+                throw failure;
             }
+        });
+    }
+
+    private long sessionId(CompletableFuture<Long> session) {
+        try {
+            return session.get(10, TimeUnit.SECONDS);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(exception);
+        } catch (ExecutionException | TimeoutException exception) {
+            throw new IllegalStateException("테스트 요청의 DB 세션을 확인할 수 없습니다.", exception);
         }
     }
 
@@ -449,6 +464,11 @@ class PatternCounterConcurrencyIntegrationTest {
     @TestConfiguration(proxyBeanMethods = false)
     @Import({PatternViewService.class, ScrapService.class, UserService.class})
     static class TestConfig {
+
+        @Bean
+        DatabaseLockObserver databaseLockObserver(DataSource dataSource, ObjectProvider<MySQLContainer> mysql) {
+            return new DatabaseLockObserver(dataSource, mysql.getIfAvailable());
+        }
 
         @Bean
         ImageService imageService() {
