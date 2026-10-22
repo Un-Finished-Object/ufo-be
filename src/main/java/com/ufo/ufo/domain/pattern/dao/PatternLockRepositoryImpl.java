@@ -30,7 +30,7 @@ public class PatternLockRepositoryImpl implements PatternLockRepository {
                 return Optional.empty();
             }
         }
-        // 같은 트랜잭션의 재호출은 미저장 조회수·찜 수 변경을 유지한다.
+        // 같은 트랜잭션에서 다시 호출하면 아직 저장하지 않은 조회수와 찜 수 변경을 유지한다.
         return Optional.of(pattern);
     }
 }

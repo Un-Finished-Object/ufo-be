@@ -64,7 +64,7 @@ import org.testcontainers.mysql.MySQLContainer;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-@DisplayName("실제 DB 도안 조회수·찜 수 동시성 통합 테스트")
+@DisplayName("실제 DB 도안 조회수와 찜 수 동시성 통합 테스트")
 class PatternCounterConcurrencyIntegrationTest {
 
     @Autowired
@@ -340,7 +340,7 @@ class PatternCounterConcurrencyIntegrationTest {
     }
 
     @Test
-    @DisplayName("조회·찜 추가 후 실패하면 카운터와 두 기록을 모두 롤백한다")
+    @DisplayName("조회수 증가와 찜 추가 후 실패하면 카운터와 두 기록을 모두 롤백한다")
     void rollbackDiscardsCountersAndNewRecords() {
         Fixture fixture = fixture();
         var failure = new IllegalStateException("카운터 변경 후 실패");
