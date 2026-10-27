@@ -3,6 +3,7 @@ package com.ufo.ufo.global.security.jwt;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ufo.ufo.global.exception.ApiException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DisplayName("JWT 토큰 용도 검증 테스트")
@@ -50,7 +52,8 @@ class JwtTokenProviderTest {
         String refreshToken = provider.createRefreshToken("user@example.com");
 
         assertThatThrownBy(() -> provider.getAuthentication(refreshToken))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOfSatisfying(ApiException.class,
+                        exception -> assertThat(exception.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED));
     }
 
     @ParameterizedTest
