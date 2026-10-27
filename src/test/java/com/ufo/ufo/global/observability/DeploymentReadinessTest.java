@@ -66,6 +66,55 @@ class DeploymentReadinessTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"true", "false"})
+    @DisplayName("실패 컨테이너를 제거하기 전에 애플리케이션 로그를 비공개 기록에 보관한다")
+    void preservesApplicationLogsBeforeRemovingFailedContainer(String previous) throws Exception {
+        var result = runDeployment(Map.of("PREVIOUS", previous, "STATUS", "503"));
+
+        assertThat(result.exitCode()).isNotZero();
+        assertThat(result.replacementState()).isEqualTo("missing");
+        assertThat(result.artifact("replacement.log")).contains("Application startup failed", "PRIVATE_APP_DETAIL");
+        assertThat(result.output()).doesNotContain("Application startup failed", "PRIVATE_APP_DETAIL");
+    }
+
+    @Test
+    @DisplayName("애플리케이션 로그 수집에 실패해도 이전 버전 복구를 계속한다")
+    void continuesRollbackAfterLogCollectionFailure() throws Exception {
+        var result = runDeployment(Map.of("FAILURE", "logs", "STATUS", "503"));
+
+        assertRestored(result);
+        assertThat(result.output()).contains("ROLLBACK_SUCCEEDED").doesNotContain("PRIVATE_LOG_ERROR");
+        assertThat(result.artifact("rollback.log")).contains("애플리케이션 로그 수집 실패");
+        assertThat(result.artifact("replacement.log")).contains("PRIVATE_LOG_ERROR");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"503", "302", "000"})
+    @DisplayName("배포와 복구의 readiness 시도와 HTTP 상태를 배포 기록에 남긴다")
+    void recordsReadinessAttemptsAndRecovery(String status) throws Exception {
+        var result = runDeployment(Map.of("STATUS", status));
+
+        assertRestored(result);
+        assertThat(result.artifact("readiness.log"))
+                .contains("phase=readiness container=new-id attempt=1/40 status=" + status,
+                        "phase=readiness container=new-id attempt=40/40 status=" + status,
+                        "phase=rollback container=old-id attempt=1/40 status=200")
+                .containsPattern("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"000", "200"})
+    @DisplayName("readiness 연결 오류와 curl 종료 코드는 비공개 기록에만 남긴다")
+    void preservesReadinessConnectionErrors(String status) throws Exception {
+        var result = runDeployment(Map.of("FAILURE", "curl", "STATUS", status));
+
+        assertRestored(result);
+        assertThat(result.artifact("readiness.log"))
+                .contains("PRIVATE_CURL_ERROR", "status=" + status + " curl_exit=7");
+        assertThat(result.output()).doesNotContain("PRIVATE_CURL_ERROR");
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"0.0.0.0:8081", "[::]:8081", "", "port-error", "127.0.0.1:8081\n0.0.0.0:8081"})
     @DisplayName("관리 포트가 로컬에만 연결되지 않으면 새 서버를 제거하고 이전 버전을 복구한다")
     void restoresAfterUnsafeManagementBinding(String binding) throws Exception {
@@ -256,6 +305,14 @@ class DeploymentReadinessTest {
                     'image inspect '*) printf 'sha256:new-image'; return 0 ;;
                     'image tag '*) return 0 ;;
                     'image prune '*) [ "$UFO_TEST_FAILURE" != prune ]; return ;;
+                    'logs '*new-id)
+                      [ "$(< "$UFO_TEST_DIR/new-state")" != missing ] || return 1
+                      if [ "$UFO_TEST_FAILURE" = logs ]; then
+                        printf 'PRIVATE_LOG_ERROR\\n' >&2
+                        return 1
+                      fi
+                      printf 'Application startup failed: PRIVATE_APP_DETAIL\\n'
+                      return 0 ;;
                     *'config --images backend-server')
                       printf 'test-user/ufo-backend:test-sha\\nmysql:8.4'
                       return 0 ;;
@@ -357,6 +414,11 @@ class DeploymentReadinessTest {
                     count=$(< "$UFO_TEST_DIR/attempts")
                     count=$((count + 1))
                     printf '%s' "$count" > "$UFO_TEST_DIR/attempts"
+                    if [ "$UFO_TEST_FAILURE" = curl ]; then
+                      printf 'PRIVATE_CURL_ERROR\\n' >&2
+                      printf '%s' "$UFO_TEST_STATUS"
+                      return 7
+                    fi
                     if [ "$UFO_TEST_READY_AFTER" -gt 0 ] && [ "$count" -lt "$UFO_TEST_READY_AFTER" ]; then
                       printf 503
                     else printf '%s' "$UFO_TEST_STATUS"; fi
