@@ -30,7 +30,7 @@ docker update --restart=unless-stopped ufo-backend
 
 이 컨테이너는 Compose의 일회성 컨테이너로 표시된다. 배포와 복구는 워크플로를 통해 수행하고, 상태는 `docker inspect ufo-backend`와 `docker ps -a`로 확인한다. 운영 중 `compose up`, `compose down`, 컨테이너 일괄 정리를 실행하면 복구용 컨테이너까지 영향을 받을 수 있다.
 
-기존 서버가 있다면 실행 상태, 관리 포트와 readiness 200 응답을 교체 전에 확인한다. 새 서버와 복구한 서버는 각각 최대 40회 readiness를 확인한다. HTTP 요청은 연결 2초, 전체 3초로 제한하고 재시도 사이에 2초를 기다린다. 302 리다이렉트는 성공으로 취급하지 않는다. readiness에는 애플리케이션과 DB 연결 확인이 포함된다.
+기존 서버가 있다면 실행 상태, 관리 포트와 readiness 200 응답을 교체 전에 확인한다. 새 서버와 복구한 서버는 각각 최대 40회 readiness를 확인한다. HTTP 요청은 연결 2초, 전체 3초로 제한하고 재시도 사이에 2초를 기다린다. curl이 정상 종료하고 HTTP 200을 반환해야 준비 완료로 판단한다. 302 리다이렉트나 응답 수신 중 연결 오류는 성공으로 취급하지 않는다. readiness에는 애플리케이션과 DB 연결 확인이 포함된다.
 
 동일한 호스트 포트를 사용하므로 교체와 복구 사이에 요청을 처리하지 못하는 시간이 생긴다. 이 절차는 무중단 배포를 보장하지 않는다.
 
@@ -47,10 +47,14 @@ docker update --restart=unless-stopped ufo-backend
 | `previous-restart-policy` | 복구할 컨테이너의 원래 재시작 정책과 재시도 횟수 |
 | `image.yaml` | 새 컨테이너에 사용할 이미지 ID를 지정한 Compose 설정 |
 | `replacement-container-id` | 생성된 새 컨테이너 ID |
+| `replacement.log` | 삭제 전 수집한 실패 컨테이너의 타임스탬프 포함 애플리케이션 로그, 최근 200줄 |
+| `readiness.log` | UTC 확인 시각, 단계, 컨테이너 ID, 시도 횟수, HTTP 상태, curl 종료 코드와 연결 오류 |
 | `*.log` | Docker 명령 실패 진단 자료, 서버에서만 열람 |
 | `result` | 배포 또는 복구 결과 |
 
 자동 복구는 현재 `.env`로 이전 버전을 재생성하지 않는다. 원래 컨테이너를 다시 시작하므로 배포 전 환경 변수와 실행 설정을 그대로 사용한다. 컨테이너 조회 JSON은 진단 자료이며 실행 가능한 복원 스크립트가 아니다.
+
+실패 원인은 `replacement.log`와 `readiness.log`에서 먼저 확인한다. readiness 기록의 `phase=rollback`은 이전 버전 복구 후 확인한 결과다. 애플리케이션 로그 수집에 실패하면 `rollback.log`에 남기고 컨테이너 제거와 복구를 계속한다. 로그에도 비밀값이 포함될 수 있으므로 서버에서만 열람한다.
 
 | 결과 | 의미와 조치 |
 | --- | --- |
