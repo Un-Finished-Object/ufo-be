@@ -31,17 +31,21 @@ compose() {
 }
 
 wait_ready() {
-  local container_id=$1 max_attempts=${2:-40} address status attempt
+  local container_id=$1 max_attempts=${2:-40} phase=${3:-$PHASE} address status attempt curl_exit
   address=$(docker port "$container_id" 8081/tcp 2>>"$RECORD/readiness.log") || return 1
   if [[ ! "$address" =~ ^127\.0\.0\.1:[0-9]+$ ]]; then
     echo '관리 포트를 호스트 127.0.0.1에만 연결해야 합니다.' >>"$RECORD/readiness.log"
     return 1
   fi
   for ((attempt = 1; attempt <= max_attempts; attempt++)); do
-    status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+    curl_exit=0
+    status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
       --noproxy '*' --connect-timeout 2 --max-time 3 \
-      "http://$address/actuator/health/readiness" || true)
-    if [ "$status" = 200 ] &&
+      "http://$address/actuator/health/readiness" 2>>"$RECORD/readiness.log") || curl_exit=$?
+    printf '%s phase=%s container=%s attempt=%s/%s status=%s curl_exit=%s\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$phase" "$container_id" "$attempt" "$max_attempts" \
+      "$status" "$curl_exit" >>"$RECORD/readiness.log"
+    if [ "$curl_exit" -eq 0 ] && [ "$status" = 200 ] &&
         [ "$(docker inspect --format '{{.State.Running}}' "$container_id")" = true ]; then
       return 0
     fi
@@ -59,6 +63,9 @@ remove_replacement() {
   fi
   if [ "$current_id" = "$OLD_ID" ]; then return 0; fi
   printf '%s\n' "$current_id" >"$RECORD/replacement-container-id"
+  if ! docker logs --timestamps --tail 200 "$current_id" >"$RECORD/replacement.log" 2>&1; then
+    echo '애플리케이션 로그 수집 실패, 컨테이너 제거와 복구를 계속합니다.' >>"$RECORD/rollback.log"
+  fi
   docker inspect "$current_id" >"$RECORD/replacement-container.json" 2>>"$RECORD/rollback.log" || true
   docker rm -f "$current_id" >>"$RECORD/rollback.log" 2>&1
 }
@@ -72,7 +79,7 @@ restore_previous() {
   fi
   docker update --restart="$OLD_RESTART_POLICY" "$OLD_ID" >>"$RECORD/rollback.log" 2>&1 || return 1
   docker start "$OLD_ID" >>"$RECORD/rollback.log" 2>&1 || return 1
-  wait_ready "$OLD_ID"
+  wait_ready "$OLD_ID" 40 rollback
 }
 
 finish() {
