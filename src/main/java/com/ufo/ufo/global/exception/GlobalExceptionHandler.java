@@ -20,7 +20,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
-    public ResponseEntity<ApiResponse<Void>> handleApiException(ApiException e) {
+    public ResponseEntity<ApiResponse<Void>> handleApiException(ApiException e, HttpServletRequest request) {
+        if (e.getStatus().is5xxServerError()) {
+            ErrorLogSupport.httpFailure(log, request, e);
+        }
         return ResponseEntity.status(e.getStatus())
                 .body(ApiResponse.error(e.getCode(), e.getMessage()));
     }

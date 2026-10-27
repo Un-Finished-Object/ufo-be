@@ -1,6 +1,7 @@
 package com.ufo.ufo.global.security.websocket;
 
 import com.ufo.ufo.domain.chat.application.ChatSubscriptionAccessService;
+import com.ufo.ufo.global.exception.InvalidAccessTokenException;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import io.jsonwebtoken.JwtException;
 import java.util.List;
@@ -75,7 +76,7 @@ public class StompJwtAuthChannelInterceptor implements ChannelInterceptor {
                 throw new MessageDeliveryException("인증 사용자 정보를 확인할 수 없습니다.");
             }
             accessor.setUser(authentication);
-        } catch (JwtException | IllegalArgumentException exception) {
+        } catch (JwtException | IllegalArgumentException | InvalidAccessTokenException exception) {
             throw new MessageDeliveryException("유효한 인증 토큰이 필요합니다.");
         }
     }

@@ -3,7 +3,9 @@ package com.ufo.ufo.domain.image.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ufo.ufo.domain.image.config.ImageProperties;
+import com.ufo.ufo.domain.image.exception.ImageUploadPolicyException;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -156,7 +158,7 @@ public class S3PostPolicySigner {
         try {
             return objectMapper.writeValueAsString(object);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize object to JSON", e);
+            throw new ImageUploadPolicyException(e);
         }
     }
 
@@ -186,8 +188,8 @@ public class S3PostPolicySigner {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(key, "HmacSHA256"));
             return mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to calculate HMAC-SHA256", e);
+        } catch (GeneralSecurityException e) {
+            throw new ImageUploadPolicyException(e);
         }
     }
 

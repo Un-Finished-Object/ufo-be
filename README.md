@@ -221,6 +221,8 @@ Copy-Item .env.example .env
 | `test` | `create-drop` | `never` | 끔 |
 | `prod` | `none` | `never` | 끔 |
 
+`prod`에서는 애플리케이션 시작 시 Flyway로 스키마 변경을 적용합니다. 새 DB는 초기 SQL부터 생성하고, 기존 DB는 첫 도입 전에 백업과 스키마 비교를 마친 뒤 baseline을 등록해야 합니다. 등록 방법과 적용 실패 시 조치는 [스키마 마이그레이션 안내](docs/database/schema-migrations.md)를 참고하세요. `dev`, H2 테스트와 PostgreSQL 통합 테스트에서는 Flyway를 끕니다. MySQL 통합 테스트는 Flyway로 스키마를 생성합니다.
+
 기존에 Git에서 무시되던 `application-*.yml`에 비밀번호나 Secret을 적었다면, Git 변경 사항을 가져오기 전에 그 값을 무시되는 `.env` 또는 `.env.<profile>.local` 파일로 옮기세요. 프로필 설정 파일은 이제 커밋 대상입니다.
 
 ### 로컬 서버 실행

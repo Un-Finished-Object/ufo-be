@@ -1,3 +1,14 @@
+spring:
+  flyway:
+    enabled: false
+    locations: classpath:db/migration/mysql
+    baseline-on-migrate: false
+    baseline-version: "1"
+    clean-disabled: true
+    validate-on-migrate: true
+    validate-migration-naming: true
+    out-of-order: false
+
 server:
   forward-headers-strategy: framework
 

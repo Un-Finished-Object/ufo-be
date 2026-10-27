@@ -1,5 +1,6 @@
 package com.ufo.ufo.global.security.jwt;
 
+import com.ufo.ufo.global.exception.InvalidAccessTokenException;
 import com.ufo.ufo.global.security.types.Role;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -69,7 +70,7 @@ public class JwtTokenProvider {
     public Authentication getAuthentication(String token) {
         Claims claims = parseClaims(token);
         if (!isAccessClaims(claims)) {
-            throw new IllegalArgumentException("Access Token이 아닙니다.");
+            throw new InvalidAccessTokenException();
         }
         String role = claims.get("role", String.class);
         UserDetails principal = new User(claims.getSubject(), "",

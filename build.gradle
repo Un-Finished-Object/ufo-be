@@ -1,8 +1,18 @@
+buildscript {
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		classpath 'org.flywaydb:flyway-mysql:11.14.1'
+	}
+}
+
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.0.2'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'org.asciidoctor.jvm.convert' version '4.0.5'
+	id 'org.flywaydb.flyway' version '11.14.1'
 }
 
 group = 'com.ufo'
@@ -38,6 +48,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	runtimeOnly 'org.flywaydb:flyway-mysql'
 	implementation 'com.fasterxml.jackson.core:jackson-databind'
 	implementation 'software.amazon.awssdk:s3'
 	// JWT
@@ -84,6 +96,7 @@ tasks.register('integrationTest', Test) {
 		includeTags 'integration'
 	}
 	systemProperty 'ufo.test.database', database
+	systemProperty 'spring.profiles.active', database
 	inputs.property 'testDatabase', database
 	inputs.files(fileTree('scripts/database') { include '*.sql' })
 	reports.junitXml.outputLocation = layout.buildDirectory.dir("test-results/integrationTest/${database}")
@@ -94,4 +107,18 @@ tasks.register('integrationTest', Test) {
 tasks.named('asciidoctor') {
 	inputs.dir snippetsDir
 	dependsOn test
+}
+
+flyway {
+	url = System.getenv('DB_URL')
+	user = System.getenv('DB_USERNAME')
+	password = System.getenv('DB_PASSWORD')
+	locations = ['filesystem:src/main/resources/db/migration/mysql']
+	configurations = ['runtimeClasspath']
+	baselineVersion = '1'
+	baselineOnMigrate = false
+	cleanDisabled = true
+	validateOnMigrate = true
+	validateMigrationNaming = true
+	outOfOrder = false
 }

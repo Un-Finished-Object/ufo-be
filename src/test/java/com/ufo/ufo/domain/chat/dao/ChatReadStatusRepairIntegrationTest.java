@@ -27,7 +27,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-@JdbcTest(properties = "spring.config.name=application-db-test")
+@JdbcTest(properties = {"spring.config.name=application-db-test", "spring.flyway.enabled=false"})
 @ContextConfiguration(classes = DatabaseTestApplication.class)
 @Import(TestDatabaseConfig.class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

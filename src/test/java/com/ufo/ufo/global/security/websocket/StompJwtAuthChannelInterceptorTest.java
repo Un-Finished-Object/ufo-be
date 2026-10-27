@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.chat.application.ChatSubscriptionAccessService;
+import com.ufo.ufo.global.exception.InvalidAccessTokenException;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import io.jsonwebtoken.security.SignatureException;
 import java.util.List;
@@ -100,6 +101,20 @@ class StompJwtAuthChannelInterceptorTest {
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
         when(jwtTokenProvider.validateAccessToken("tampered-token"))
                 .thenThrow(new SignatureException("Invalid signature"));
+
+        assertThatThrownBy(() -> interceptor.preSend(message, null))
+                .isInstanceOf(MessageDeliveryException.class);
+    }
+
+    @Test
+    @DisplayName("인증 정보 생성 중 토큰 오류가 발생해도 STOMP 오류로 연결을 거부한다")
+    void preSend_WithAccessTokenFailure_RejectsConnection() {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
+        accessor.setNativeHeader("Authorization", "Bearer invalid-token");
+        accessor.setLeaveMutable(true);
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        when(jwtTokenProvider.validateAccessToken("invalid-token")).thenReturn(true);
+        when(jwtTokenProvider.getAuthentication("invalid-token")).thenThrow(new InvalidAccessTokenException());
 
         assertThatThrownBy(() -> interceptor.preSend(message, null))
                 .isInstanceOf(MessageDeliveryException.class);
