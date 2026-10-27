@@ -366,3 +366,5 @@ curl --fail http://127.0.0.1:8081/actuator/health/readiness
 ```
 
 Docker Compose에서는 컨테이너의 관리 포트를 `0.0.0.0:8081`로 열고 호스트의 `127.0.0.1:${MANAGEMENT_HOST_PORT:-8081}`에만 연결합니다. API 포트에서는 상태 확인 경로를 사용할 수 없습니다. 관리 포트를 외부에 공개하거나 리버스 프록시로 전달하지 않습니다.
+
+운영 배포 실패 시 이전 컨테이너 복구, 배포 기록 확인과 수동 복구 방법은 [배포와 롤백 절차](docs/deployment/rollback.md)를 참고하세요.
