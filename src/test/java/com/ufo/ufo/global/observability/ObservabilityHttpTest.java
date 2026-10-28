@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ThrowableProxyUtil;
+import com.ufo.ufo.global.config.JacksonConfig;
 import com.ufo.ufo.global.config.WebMvcConfig;
 import com.ufo.ufo.global.exception.GlobalExceptionHandler;
 import com.ufo.ufo.global.security.config.SecurityConfig;
 import com.ufo.ufo.global.security.handler.OAuth2SuccessHandler;
+import com.ufo.ufo.global.security.handler.RestSecurityExceptionHandler;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import com.ufo.ufo.global.security.oauth.CookieOAuth2AuthorizationRequestRepository;
 import com.ufo.ufo.global.security.oauth.CustomOAuth2UserService;
@@ -132,7 +134,7 @@ class ObservabilityHttpTest {
     @DisplayName("인증이 거부된 요청에도 식별자를 반환하고 기존 접근 제한을 유지해야 한다")
     void includesRequestIdOnAuthenticationFailure() throws Exception {
         var response = get(port, "/v1/users/me", "denied-123", null);
-        assertThat(response.statusCode()).isEqualTo(302);
+        assertThat(response.statusCode()).isEqualTo(401);
         assertThat(response.headers().firstValue("X-Request-ID")).contains("denied-123");
     }
 
@@ -143,7 +145,7 @@ class ObservabilityHttpTest {
         try (var applicationLogs = new LogCapture(RequestIdFilter.class);
                 var containerLogs = new LogCapture("org.apache.catalina.core.ContainerBase")) {
             var response = get(port, "/v1/patterns?filterFailure=" + failureType, "failed-123", null);
-            assertThat(response.statusCode()).isIn(302, 500);
+            assertThat(response.statusCode()).isEqualTo(500);
             assertThat(response.headers().firstValue("X-Request-ID")).contains("failed-123");
             assertThat(response.body()).doesNotContain("exception-secret", "cause-secret", "suppressed-secret");
             assertThat(applicationLogs.events()).hasSize(1);
@@ -186,9 +188,9 @@ class ObservabilityHttpTest {
             assertThat(response.statusCode()).isEqualTo(200);
             assertThat(response.body()).isEqualTo("{\"status\":\"UP\"}");
             var mainResponse = get(port, path, null, tokenProvider.createAccessToken("user@example.com", "ROLE_USER"));
-            assertThat(mainResponse.statusCode()).isIn(302, 403, 404);
+            assertThat(mainResponse.statusCode()).isIn(403, 404);
         }
-        assertThat(get(managementPort, "/actuator/env", null, null).statusCode()).isIn(302, 403, 404);
+        assertThat(get(managementPort, "/actuator/env", null, null).statusCode()).isIn(401, 403, 404);
     }
 
     private HttpResponse<String> get(int targetPort, String path, String requestId, String token) throws Exception {
@@ -204,7 +206,8 @@ class ObservabilityHttpTest {
 
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration(exclude = {DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class})
-    @Import({SecurityConfig.class, WebMvcConfig.class, GlobalExceptionHandler.class, RequestIdFilter.class,
+    @Import({SecurityConfig.class, RestSecurityExceptionHandler.class, JacksonConfig.class,
+            WebMvcConfig.class, GlobalExceptionHandler.class, RequestIdFilter.class,
             ManagementSecurityConfig.class, PublicController.class})
     static class TestApplication {
 

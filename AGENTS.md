@@ -5,6 +5,9 @@ UFO is a Java 21 Spring backend for pattern discovery, yarn recommendations, cre
 ## Writing Guidelines
 
 - Do not use the middle dot character in any agent-authored prose, including responses, documentation, code comments, issues, and PR descriptions. Use commas, conjunctions, or separate sentences instead.
+- Review related documents before writing documentation. Follow their content, structure, and organization, and update existing documents where appropriate.
+- Use project documentation conventions instead of default paths or templates suggested by skills and plugins.
+- Keep documentation concise and factual. Include essential behavior, decisions, and usage instructions. Omit repetitive explanations and process narration.
 
 ## Project Structure & Module Organization
 - Main code lives in `src/main/java/com/ufo/ufo`; shared code is under `global/` and business code is grouped under `domain/`.
