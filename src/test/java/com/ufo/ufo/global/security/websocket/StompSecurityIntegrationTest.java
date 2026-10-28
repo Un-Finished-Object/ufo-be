@@ -163,6 +163,28 @@ class StompSecurityIntegrationTest {
     }
 
     @Test
+    @DisplayName("다른 키로 서명한 토큰은 내부 예외를 노출하지 않고 연결을 종료해야 한다")
+    void connect_WithWronglySignedToken_RejectsConnectionWithoutLeakingDetails() throws Exception {
+        JwtTokenProvider otherProvider = new JwtTokenProvider(
+                "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=");
+        ReflectionTestUtils.setField(otherProvider, "accessTokenExpireTime", 60_000L);
+        String token = otherProvider.createAccessToken("test@example.com", Role.ROLE_USER.name());
+
+        assertUntrustedTokenRejected(token);
+    }
+
+    @Test
+    @DisplayName("서명이 변조된 토큰은 내부 예외를 노출하지 않고 연결을 종료해야 한다")
+    void connect_WithTamperedToken_RejectsConnectionWithoutLeakingDetails() throws Exception {
+        String token = tokenProvider.createAccessToken("test@example.com", Role.ROLE_USER.name());
+        int signatureStart = token.lastIndexOf('.') + 1;
+        char replacement = token.charAt(signatureStart) == 'A' ? 'B' : 'A';
+        String tamperedToken = token.substring(0, signatureStart) + replacement + token.substring(signatureStart + 1);
+
+        assertUntrustedTokenRejected(tamperedToken);
+    }
+
+    @Test
     @DisplayName("서명된 Refresh Token으로 STOMP에 연결할 수 없어야 한다")
     void rejectsRefreshTokenDuringConnect() throws Exception {
         StompConnection connection = open(tokenProvider.createRefreshToken("test@example.com"));
@@ -257,6 +279,15 @@ class StompSecurityIntegrationTest {
         connection.send("SEND\ndestination:" + destination + "\ncontent-type:text/plain\n\nforged");
 
         assertThat(connection.nextFrame()).startsWith("ERROR\n");
+    }
+
+    private void assertUntrustedTokenRejected(String token) throws Exception {
+        StompConnection connection = open(token);
+
+        assertThat(connection.nextFrame()).startsWith("ERROR\n")
+                .doesNotContain(token, JWT_SECRET, "test@example.com", "SignatureException", "JwtException",
+                        "io.jsonwebtoken");
+        connection.closed.get(5, TimeUnit.SECONDS);
     }
 
     private StompConnection connect(String email, Role role) throws Exception {
