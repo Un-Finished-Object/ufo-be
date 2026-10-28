@@ -2,6 +2,7 @@ package com.ufo.ufo.global.security.config;
 
 import com.ufo.ufo.global.security.filter.JwtAuthenticationFilter;
 import com.ufo.ufo.global.security.handler.OAuth2SuccessHandler;
+import com.ufo.ufo.global.security.handler.RestSecurityExceptionHandler;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import com.ufo.ufo.global.security.oauth.CookieOAuth2AuthorizationRequestRepository;
 import com.ufo.ufo.global.security.oauth.CustomOidcUserService;
@@ -29,6 +30,7 @@ public class SecurityConfig {
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final JwtTokenProvider jwtTokenProvider;
     private final CookieOAuth2AuthorizationRequestRepository cookieOAuth2AuthorizationRequestRepository;
+    private final RestSecurityExceptionHandler restSecurityExceptionHandler;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -38,6 +40,9 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(restSecurityExceptionHandler)
+                        .accessDeniedHandler(restSecurityExceptionHandler))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").denyAll()
                         .requestMatchers("/v1/auth/login/**", "/v1/auth/oauth/**", "/v1/auth/token/refresh").permitAll()

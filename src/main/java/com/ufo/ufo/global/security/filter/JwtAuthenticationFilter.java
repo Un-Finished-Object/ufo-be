@@ -1,6 +1,8 @@
 package com.ufo.ufo.global.security.filter;
 
+import com.ufo.ufo.global.exception.InvalidAccessTokenException;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,9 +23,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         final String token = jwtTokenProvider.resolveToken(request);
 
-        if (token != null && jwtTokenProvider.validateAccessToken(token)) {
-            final Authentication authentication = jwtTokenProvider.getAuthentication(token);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+        if (token != null) {
+            try {
+                if (jwtTokenProvider.validateAccessToken(token)) {
+                    final Authentication authentication = jwtTokenProvider.getAuthentication(token);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
+            } catch (JwtException | IllegalArgumentException | InvalidAccessTokenException exception) {
+                SecurityContextHolder.clearContext();
+            }
         }
         filterChain.doFilter(request, response);
     }
