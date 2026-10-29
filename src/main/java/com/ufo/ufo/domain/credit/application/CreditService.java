@@ -2,6 +2,7 @@ package com.ufo.ufo.domain.credit.application;
 
 import com.ufo.ufo.domain.credit.dao.CreditTransactionRepository;
 import com.ufo.ufo.domain.credit.dao.UnlockRepository;
+import com.ufo.ufo.domain.credit.dao.projection.CreditTransactionHistory;
 import com.ufo.ufo.domain.credit.domain.CreditTransaction;
 import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
 import com.ufo.ufo.domain.credit.domain.Unlock;
@@ -20,8 +21,6 @@ import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -46,13 +45,14 @@ public class CreditService {
     public CreditTransactionsResponse getTransactions(User user, String type, String reason, Integer page) {
         User loginUser = userService.getUserById(user.getId());
         int pageNumber = normalizePage(page);
-        List<CreditTransaction> transactions = creditTransactionRepository.findAll(
-                        createTransactionFilter(loginUser.getId(), type, reason),
-                        PageRequest.of(pageNumber - 1, TRANSACTION_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"))
-                )
-                .getContent();
-
-        List<CreditTransactionItemResponse> items = toTransactionItems(transactions, loginUser.getBallBalance());
+        List<CreditTransactionItemResponse> items = creditTransactionRepository.findHistory(
+                        loginUser.getId(),
+                        normalizeFlow(type),
+                        normalizeReason(reason),
+                        PageRequest.of(pageNumber - 1, TRANSACTION_PAGE_SIZE)
+                ).stream()
+                .map(this::toTransactionItem)
+                .toList();
         return new CreditTransactionsResponse(items, pageNumber);
     }
 
@@ -147,48 +147,30 @@ public class CreditService {
         return page;
     }
 
-    private Specification<CreditTransaction> createTransactionFilter(Long userId, String type, String reason) {
-        Specification<CreditTransaction> specification = (root, query, cb) -> cb.equal(root.get("user").get("id"), userId);
-
-        if (StringUtils.hasText(type)) {
-            String upperType = type.toUpperCase(Locale.ROOT);
-            if ("EARN".equals(upperType)) {
-                specification = specification.and((root, query, cb) -> cb.greaterThan(root.get("amount"), 0));
-            } else if ("SPEND".equals(upperType)) {
-                specification = specification.and((root, query, cb) -> cb.lessThan(root.get("amount"), 0));
-            }
+    private String normalizeFlow(String type) {
+        if (!StringUtils.hasText(type)) {
+            return null;
         }
-
-        if (StringUtils.hasText(reason)) {
-            String upperReason = reason.toUpperCase(Locale.ROOT);
-            specification = specification.and((root, query, cb) -> cb.equal(root.get("type"), CreditTransactionType.valueOf(upperReason)));
-        }
-        return specification;
+        String flow = type.toUpperCase(Locale.ROOT);
+        return "EARN".equals(flow) || "SPEND".equals(flow) ? flow : null;
     }
 
-    private List<CreditTransactionItemResponse> toTransactionItems(List<CreditTransaction> transactions, int currentBalance) {
-        int balanceAfter = currentBalance;
-        List<CreditTransactionItemResponse> items = new java.util.ArrayList<>(transactions.size());
-        for (CreditTransaction transaction : transactions) {
-            items.add(toTransactionItem(transaction, balanceAfter));
-            balanceAfter -= transaction.getAmount();
+    private String normalizeReason(String reason) {
+        if (!StringUtils.hasText(reason)) {
+            return null;
         }
-        return items;
+        return CreditTransactionType.valueOf(reason.toUpperCase(Locale.ROOT)).name();
     }
 
-    private CreditTransactionItemResponse toTransactionItem(CreditTransaction transaction, int balanceAfter) {
+    private CreditTransactionItemResponse toTransactionItem(CreditTransactionHistory transaction) {
         return new CreditTransactionItemResponse(
                 "ct_" + transaction.getId(),
-                toFlowType(transaction),
+                transaction.getAmount() >= 0 ? "EARN" : "SPEND",
                 Math.abs(transaction.getAmount()),
-                balanceAfter,
-                transaction.getType().name(),
+                transaction.getBalanceAfter(),
+                transaction.getReason(),
                 transaction.getCreatedAt()
         );
-    }
-
-    private String toFlowType(CreditTransaction transaction) {
-        return transaction.getAmount() >= 0 ? "EARN" : "SPEND";
     }
 
     private int resolveUnlockCost(UnlockType unlockType) {

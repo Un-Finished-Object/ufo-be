@@ -1,15 +1,16 @@
 package com.ufo.ufo.domain.credit.application;
 
-import java.lang.reflect.Field;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.groups.Tuple.tuple;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ufo.ufo.domain.credit.dao.CreditTransactionRepository;
 import com.ufo.ufo.domain.credit.dao.UnlockRepository;
+import com.ufo.ufo.domain.credit.dao.projection.CreditTransactionHistory;
 import com.ufo.ufo.domain.credit.domain.CreditTransaction;
 import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
 import com.ufo.ufo.domain.credit.domain.Unlock;
@@ -31,8 +32,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.jpa.domain.Specification;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("크레딧 서비스 테스트")
@@ -69,16 +68,17 @@ class CreditServiceTest {
         User user = UserFixture.createUserWithId(1L);
         user.addCredits(11);
         when(userService.getUserById(1L)).thenReturn(user);
-        CreditTransaction transaction = CreditTransaction.builder()
-                .user(user)
-                .amount(-1)
-                .type(CreditTransactionType.CHATROOM_ENTRY)
-                .build();
-        setTransactionId(transaction, 1L);
-        when(creditTransactionRepository.findAll(
-                org.mockito.ArgumentMatchers.<Specification<CreditTransaction>>any(),
+        CreditTransactionHistory transaction = mock(CreditTransactionHistory.class);
+        when(transaction.getId()).thenReturn(1L);
+        when(transaction.getAmount()).thenReturn(-1);
+        when(transaction.getReason()).thenReturn("CHATROOM_ENTRY");
+        when(transaction.getBalanceAfter()).thenReturn(11);
+        when(creditTransactionRepository.findHistory(
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq("SPEND"),
+                org.mockito.ArgumentMatchers.eq("CHATROOM_ENTRY"),
                 org.mockito.ArgumentMatchers.any(org.springframework.data.domain.Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(transaction)));
+                .thenReturn(List.of(transaction));
 
         CreditTransactionsResponse response = creditService.getTransactions(user, "SPEND", "CHATROOM_ENTRY", 1);
 
@@ -219,15 +219,5 @@ class CreditServiceTest {
         verify(creditTransactionRepository).save(captor.capture());
         assertThat(captor.getValue().getAmount()).isEqualTo(CreditPolicy.SIGNUP_BONUS_BALLS);
         assertThat(captor.getValue().getType()).isEqualTo(CreditTransactionType.SIGNUP_BONUS);
-    }
-
-    private void setTransactionId(CreditTransaction transaction, Long id) {
-        try {
-            Field idField = CreditTransaction.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(transaction, id);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
-        }
     }
 }
