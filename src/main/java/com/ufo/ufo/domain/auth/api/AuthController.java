@@ -5,6 +5,7 @@ import com.ufo.ufo.domain.auth.dto.request.SignupRequest;
 import com.ufo.ufo.domain.auth.dto.response.SignupResponse;
 import com.ufo.ufo.domain.auth.dto.response.TokenResponse;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.global.exception.InvalidTokenException;
 import com.ufo.ufo.global.response.ApiResponse;
 import com.ufo.ufo.global.security.annotation.LoginUser;
 import com.ufo.ufo.global.security.oauth.OAuthCookieManager;
@@ -37,7 +38,12 @@ public class AuthController {
     }
 
     @PostMapping("/token/refresh")
-    public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(@CookieValue("refresh_token") String refreshToken) {
+    public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(
+            @CookieValue(value = "refresh_token", required = false) String refreshToken
+    ) {
+        if (refreshToken == null) {
+            throw new InvalidTokenException();
+        }
         return ResponseEntity.ok(ApiResponse.success(authService.reissue(refreshToken)));
     }
 
