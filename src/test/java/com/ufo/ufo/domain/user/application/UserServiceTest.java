@@ -137,6 +137,7 @@ class UserServiceTest {
         ArgumentCaptor<ProfileImageChangedEvent> eventCaptor =
                 ArgumentCaptor.forClass(ProfileImageChangedEvent.class);
         verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().userId()).isEqualTo(10L);
         assertThat(eventCaptor.getValue().previousImageKey()).isEqualTo("profiles/1/profile.png");
         assertThat(eventCaptor.getValue().newImageKey()).isEqualTo("profiles/10/updated.png");
     }
