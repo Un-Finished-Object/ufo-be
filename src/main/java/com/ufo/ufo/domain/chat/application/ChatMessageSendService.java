@@ -52,6 +52,10 @@ public class ChatMessageSendService {
             eventPublisher.sendError(roomId, "INVALID_MESSAGE_TEXT", "메시지 내용은 비어 있을 수 없습니다.", clientMessageId);
             return;
         }
+        if (text.codePointCount(0, text.length()) > ChatMessage.MAX_TEXT_LENGTH) {
+            eventPublisher.sendError(roomId, "INVALID_MESSAGE_TEXT", "메시지는 1,000자까지 입력할 수 있습니다.", clientMessageId);
+            return;
+        }
 
         Optional<ChatMessage> maybeReplyMessage = resolveReplyMessage(request, roomId, clientMessageId);
         if (request.replyRequested() && maybeReplyMessage.isEmpty()) {
