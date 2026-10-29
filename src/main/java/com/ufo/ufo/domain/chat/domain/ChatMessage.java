@@ -23,6 +23,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatMessage extends BaseEntity {
 
+    public static final int MAX_TEXT_LENGTH = 1000;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "chat_message_id")
@@ -36,7 +38,7 @@ public class ChatMessage extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "text", nullable = false, length = 1000)
+    @Column(name = "text", nullable = false, length = MAX_TEXT_LENGTH)
     private String text;
 
     @ManyToOne(fetch = FetchType.LAZY)
