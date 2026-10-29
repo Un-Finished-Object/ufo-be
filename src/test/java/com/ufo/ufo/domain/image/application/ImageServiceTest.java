@@ -8,21 +8,25 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ufo.ufo.domain.image.config.ImageProperties;
-import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest.FileInfo;
+import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
 import com.ufo.ufo.domain.image.exception.ImageBucketNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageCdnBaseUrlNotConfiguredException;
 import com.ufo.ufo.domain.image.exception.ImageFileMetadataMismatchException;
+import com.ufo.ufo.domain.image.exception.ImageStorageUnavailableException;
 import com.ufo.ufo.domain.image.exception.InvalidImageContentTypeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageFileCountException;
 import com.ufo.ufo.domain.image.exception.InvalidImagePurposeException;
 import com.ufo.ufo.domain.image.exception.InvalidImageSizeException;
 import com.ufo.ufo.domain.image.exception.InvalidProfileImageUrlException;
+import com.ufo.ufo.domain.image.exception.ProfileImagePermissionDeniedException;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.global.exception.ApiException;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -31,15 +35,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("이미지 서비스 테스트")
@@ -257,36 +265,43 @@ class ImageServiceTest {
     void validateProfileImageKey_ValidKey_DoesNotChangeObjectState() {
         imageService.validateProfileImageKey(user, "profiles/1/avatar");
 
-        verifyNoInteractions(s3Client);
-    }
-
-    @Test
-    @DisplayName("프로필 이미지 교체 완료 시 새 객체를 linked 처리하고 기존 객체를 삭제해야 한다")
-    void completeProfileImageReplacement_LinksNewImageAndDeletesPreviousImage() {
-        imageService.completeProfileImageReplacement("profiles/1/new-avatar", "profiles/1/old-avatar");
-
-        ArgumentCaptor<PutObjectTaggingRequest> captor = ArgumentCaptor.forClass(PutObjectTaggingRequest.class);
-        verify(s3Client).putObjectTagging(captor.capture());
-        assertThat(captor.getValue().bucket()).isEqualTo("ufo-bucket");
-        assertThat(captor.getValue().key()).isEqualTo("profiles/1/new-avatar");
-        assertThat(captor.getValue().tagging().tagSet()).anySatisfy(tag -> {
-            assertThat(tag.key()).isEqualTo("ufo-upload-status");
-            assertThat(tag.value()).isEqualTo("linked");
-        });
-
-        ArgumentCaptor<DeleteObjectRequest> deleteCaptor = ArgumentCaptor.forClass(DeleteObjectRequest.class);
-        verify(s3Client).deleteObject(deleteCaptor.capture());
-        assertThat(deleteCaptor.getValue().bucket()).isEqualTo("ufo-bucket");
-        assertThat(deleteCaptor.getValue().key()).isEqualTo("profiles/1/old-avatar");
-    }
-
-    @Test
-    @DisplayName("기본 프로필 이미지는 새 이미지 연결 후에도 삭제하지 않아야 한다")
-    void completeProfileImageReplacement_DefaultPreviousImage_DoesNotDeleteDefaultImage() {
-        imageService.completeProfileImageReplacement("profiles/1/new-avatar", "defaults/profile.png");
-
-        verify(s3Client).putObjectTagging(any(PutObjectTaggingRequest.class));
+        verify(s3Client).headObject(HeadObjectRequest.builder().bucket("ufo-bucket").key("profiles/1/avatar").build());
+        verify(s3Client, never()).putObjectTagging(any(PutObjectTaggingRequest.class));
         verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"404,400", "403,503", "500,503"})
+    @DisplayName("프로필 이미지가 없을 때와 저장소에 접근할 수 없을 때를 구분해야 한다")
+    void validateProfileImageKey_WithStorageFailure_ReturnsAppropriateStatus(int s3Status, int expectedStatus) {
+        when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenThrow(S3Exception.builder().statusCode(s3Status).message("storage-secret").build());
+
+        assertThatThrownBy(() -> imageService.validateProfileImageKey(user, "profiles/1/avatar"))
+                .isInstanceOfSatisfying(ApiException.class, error -> {
+                    assertThat(error.getStatus().value()).isEqualTo(expectedStatus);
+                    assertThat(error.getMessage()).doesNotContain("storage-secret", "profiles/1/avatar");
+                });
+    }
+
+    @Test
+    @DisplayName("S3 연결 오류는 저장소 접근 오류로 처리해야 한다")
+    void validateProfileImageKey_WithConnectionFailure_ThrowsStorageUnavailableException() {
+        when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenThrow(SdkClientException.create("storage-secret"));
+
+        assertThatThrownBy(() -> imageService.validateProfileImageKey(user, "profiles/1/avatar"))
+                .isInstanceOf(ImageStorageUnavailableException.class)
+                .hasMessage("이미지 저장소에 접근할 수 없습니다.");
+    }
+
+    @Test
+    @DisplayName("다른 사용자 이미지의 업로드 여부는 조회하지 않아야 한다")
+    void validateProfileImageKey_WithOtherOwner_DoesNotAccessS3() {
+        assertThatThrownBy(() -> imageService.validateProfileImageKey(user, "profiles/2/avatar"))
+                .isInstanceOf(ProfileImagePermissionDeniedException.class);
+
+        verifyNoInteractions(s3Client);
     }
 
     @Test
@@ -294,15 +309,7 @@ class ImageServiceTest {
     void validateProfileImageKey_DefaultImageKey_Passes() {
         assertThatCode(() -> imageService.validateProfileImageKey(user, "defaults/profile.png"))
                 .doesNotThrowAnyException();
-    }
-
-    @Test
-    @DisplayName("새 프로필 이미지가 기본 프로필 이미지인 경우 태깅을 수행하지 않고 기존 이미지만 삭제해야 한다")
-    void completeProfileImageReplacement_DefaultNewImage_DoesNotLinkDefaultImageAndDeletesPreviousImage() {
-        imageService.completeProfileImageReplacement("defaults/profile.png", "profiles/1/old-avatar");
-
-        verify(s3Client, never()).putObjectTagging(any(PutObjectTaggingRequest.class));
-        verify(s3Client).deleteObject(any(DeleteObjectRequest.class));
+        verifyNoInteractions(s3Client);
     }
 
     private ImageService createService(ImageProperties properties) {

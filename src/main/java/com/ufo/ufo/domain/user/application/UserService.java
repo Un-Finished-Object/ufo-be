@@ -84,7 +84,7 @@ public class UserService {
             }
         }
         if (!Objects.equals(profileImage, previousProfileImage)) {
-            eventPublisher.publishEvent(new ProfileImageChangedEvent(previousProfileImage, profileImage));
+            eventPublisher.publishEvent(new ProfileImageChangedEvent(user.getId(), previousProfileImage, profileImage));
         }
         return loginUser;
     }
