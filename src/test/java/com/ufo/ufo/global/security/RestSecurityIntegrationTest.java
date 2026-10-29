@@ -1,13 +1,30 @@
 package com.ufo.ufo.global.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ufo.ufo.domain.auth.api.AuthController;
+import com.ufo.ufo.domain.auth.application.AuthService;
+import com.ufo.ufo.domain.pattern.api.PatternController;
+import com.ufo.ufo.domain.pattern.application.PatternAlternativeService;
+import com.ufo.ufo.domain.pattern.application.PatternPurchaseService;
+import com.ufo.ufo.domain.pattern.application.PatternQueryService;
+import com.ufo.ufo.domain.pattern.application.PatternRecommendationService;
+import com.ufo.ufo.domain.pattern.application.PatternViewService;
+import com.ufo.ufo.domain.pattern.dto.response.PatternListResponse;
+import com.ufo.ufo.domain.scrap.application.ScrapService;
+import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.global.config.JacksonConfig;
+import com.ufo.ufo.global.config.WebMvcConfig;
+import com.ufo.ufo.global.exception.GlobalExceptionHandler;
+import com.ufo.ufo.global.exception.InvalidTokenException;
 import com.ufo.ufo.global.security.config.SecurityConfig;
 import com.ufo.ufo.global.security.handler.OAuth2SuccessHandler;
 import com.ufo.ufo.global.security.handler.RestSecurityExceptionHandler;
@@ -15,9 +32,16 @@ import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import com.ufo.ufo.global.security.oauth.CookieOAuth2AuthorizationRequestRepository;
 import com.ufo.ufo.global.security.oauth.CustomOAuth2UserService;
 import com.ufo.ufo.global.security.oauth.CustomOidcUserService;
+import com.ufo.ufo.global.security.oauth.OAuthCookieManager;
+import com.ufo.ufo.global.security.resolver.LoginUserArgumentResolver;
+import com.ufo.ufo.support.fixture.UserFixture;
+import com.ufo.ufo.support.logging.LogCapture;
+import jakarta.servlet.http.Cookie;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.Base64;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -48,7 +72,7 @@ import org.springframework.web.bind.annotation.RestController;
         "spring.jwt.refresh-token-expire=120000"
 })
 @ContextConfiguration(classes = RestSecurityIntegrationTest.TestApplication.class)
-@DisplayName("REST 인증과 권한 오류 응답 통합 테스트")
+@DisplayName("REST 인증과 요청 오류 응답 통합 테스트")
 class RestSecurityIntegrationTest {
 
     static final String JWT_SECRET = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
@@ -71,6 +95,115 @@ class RestSecurityIntegrationTest {
     @MockitoBean
     private CookieOAuth2AuthorizationRequestRepository cookieRepository;
 
+    @MockitoBean
+    private AuthService authService;
+
+    @MockitoBean
+    private OAuthCookieManager oauthCookieManager;
+
+    @MockitoBean
+    private UserRepository userRepository;
+
+    @MockitoBean
+    private PatternQueryService patternQueryService;
+
+    @MockitoBean
+    private PatternRecommendationService patternRecommendationService;
+
+    @MockitoBean
+    private PatternViewService patternViewService;
+
+    @MockitoBean
+    private PatternAlternativeService patternAlternativeService;
+
+    @MockitoBean
+    private PatternPurchaseService patternPurchaseService;
+
+    @MockitoBean
+    private ScrapService scrapService;
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{\"type\":", "{\"type\":\"json-secret", "{\"type\":{\"secret\":\"json-secret\"}}", "[]"})
+    @DisplayName("잘못된 JSON 구매 요청은 입력값을 노출하지 않고 400을 반환해야 한다")
+    void purchase_WithUnreadableJson_ReturnsBadRequest(String json) throws Exception {
+        when(userRepository.findByEmail("user@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUserWithId(1L)));
+        String token = tokenProvider.createAccessToken("user@example.com", "ROLE_USER");
+
+        try (var capture = new LogCapture(GlobalExceptionHandler.class)) {
+            String body = mockMvc.perform(post("/v1/patterns/1/purchase")
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                            .cookie(new Cookie("refresh_token", "cookie-secret"))
+                            .contentType(MediaType.APPLICATION_JSON).content(json))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                    .andExpect(jsonPath("$.data").isEmpty())
+                    .andExpect(jsonPath("$.error.code").value("400"))
+                    .andExpect(jsonPath("$.error.message").isNotEmpty())
+                    .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+
+            assertThat(body).doesNotContain("json-secret", "cookie-secret", token, "Exception", "user@example.com");
+            assertThat(capture.events()).isEmpty();
+        }
+        verifyNoInteractions(patternPurchaseService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "null"})
+    @DisplayName("필수 구매 본문이 없으면 400을 반환해야 한다")
+    void purchase_WithoutRequestBody_ReturnsBadRequest(String body) throws Exception {
+        when(userRepository.findByEmail("user@example.com"))
+                .thenReturn(Optional.of(UserFixture.createUserWithId(1L)));
+
+        mockMvc.perform(post("/v1/patterns/1/purchase")
+                        .header(HttpHeaders.AUTHORIZATION,
+                                "Bearer " + tokenProvider.createAccessToken("user@example.com", "ROLE_USER"))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.data").isEmpty())
+                .andExpect(jsonPath("$.error.code").value("400"))
+                .andExpect(jsonPath("$.error.message").isNotEmpty());
+
+        verifyNoInteractions(patternPurchaseService);
+    }
+
+    @Test
+    @DisplayName("재발급 쿠키가 없으면 토큰을 재발급하지 않고 401을 반환해야 한다")
+    void refreshToken_WithoutCookie_ReturnsUnauthorized() throws Exception {
+        try (var capture = new LogCapture(GlobalExceptionHandler.class)) {
+            String body = mockMvc.perform(post("/v1/auth/token/refresh")
+                            .cookie(new Cookie("other_cookie", "cookie-secret")))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                    .andExpect(jsonPath("$.data").isEmpty())
+                    .andExpect(jsonPath("$.error.code").value("401"))
+                    .andExpect(jsonPath("$.error.message").isNotEmpty())
+                    .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+
+            assertThat(body).doesNotContain("cookie-secret", "Exception");
+            assertThat(capture.events()).isEmpty();
+        }
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    @DisplayName("잘못된 재발급 토큰은 토큰 값을 노출하지 않고 401을 반환해야 한다")
+    void refreshToken_WithInvalidCookie_ReturnsUnauthorized() throws Exception {
+        when(authService.reissue("invalid-refresh-secret")).thenThrow(new InvalidTokenException());
+
+        String body = mockMvc.perform(post("/v1/auth/token/refresh")
+                        .cookie(new Cookie("refresh_token", "invalid-refresh-secret")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.data").isEmpty())
+                .andExpect(jsonPath("$.error.code").value("401"))
+                .andExpect(jsonPath("$.error.message").isNotEmpty())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+
+        assertThat(body).doesNotContain("invalid-refresh-secret", "Exception");
+    }
+
     @ParameterizedTest
     @CsvSource({
             "missing,application/json", "missing,text/html",
@@ -80,8 +213,8 @@ class RestSecurityIntegrationTest {
             "tampered,application/json", "tampered,text/html",
             "refresh,application/json", "refresh,text/html"
     })
-    @DisplayName("토큰 인증에 실패하면 Accept 헤더와 관계없이 리다이렉트 없이 401 JSON을 반환해야 한다")
-    void request_WithoutValidAccessToken_ReturnsUnauthorizedJson(String tokenKind, String accept) throws Exception {
+    @DisplayName("토큰 인증에 실패하면 Accept 헤더와 관계없이 리다이렉트 없이 401을 반환해야 한다")
+    void request_WithoutValidAccessToken_ReturnsUnauthorized(String tokenKind, String accept) throws Exception {
         String token = invalidToken(tokenKind);
         MockHttpServletRequestBuilder request = get("/v1/users/me").accept(accept);
         if (token != null) {
@@ -105,8 +238,8 @@ class RestSecurityIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"application/json", "text/html"})
-    @DisplayName("일반 사용자가 관리자 API를 요청하면 리다이렉트 없이 403 JSON을 반환해야 한다")
-    void request_WithInsufficientAuthority_ReturnsForbiddenJson(String accept) throws Exception {
+    @DisplayName("일반 사용자가 관리자 API를 요청하면 리다이렉트 없이 403을 반환해야 한다")
+    void request_WithInsufficientAuthority_ReturnsForbidden(String accept) throws Exception {
         mockMvc.perform(get("/v1/admin/chats").accept(accept)
                         .header(HttpHeaders.AUTHORIZATION,
                                 "Bearer " + tokenProvider.createAccessToken("user@example.com", "ROLE_USER")))
@@ -142,9 +275,14 @@ class RestSecurityIntegrationTest {
     @Test
     @DisplayName("공개 도안 API는 토큰 없이도 접근할 수 있어야 한다")
     void request_PublicApiWithoutToken_ReturnsSuccess() throws Exception {
-        mockMvc.perform(get("/v1/patterns"))
+        when(patternQueryService.getPatterns(null, "apparel", null, "news", 1))
+                .thenReturn(new PatternListResponse(List.of(), 1, 0));
+
+        mockMvc.perform(get("/v1/patterns")
+                        .param("category", "apparel").param("sort", "news").param("page", "1"))
                 .andExpect(status().isOk())
-                .andExpect(content().string("[]"));
+                .andExpect(jsonPath("$.data.items").isEmpty())
+                .andExpect(jsonPath("$.error").isEmpty());
     }
 
     @Test
@@ -186,7 +324,8 @@ class RestSecurityIntegrationTest {
 
     @Configuration(proxyBeanMethods = false)
     @Import({SecurityConfig.class, JwtTokenProvider.class, JacksonConfig.class,
-            RestSecurityExceptionHandler.class, TestController.class})
+            RestSecurityExceptionHandler.class, TestController.class, GlobalExceptionHandler.class,
+            AuthController.class, PatternController.class, WebMvcConfig.class, LoginUserArgumentResolver.class})
     static class TestApplication {
 
         @Bean
@@ -212,11 +351,6 @@ class RestSecurityIntegrationTest {
         @GetMapping({"/v1/users/me", "/v1/admin/chats"})
         String currentUser(Principal principal) {
             return principal.getName();
-        }
-
-        @GetMapping("/v1/patterns")
-        String patterns() {
-            return "[]";
         }
     }
 }
