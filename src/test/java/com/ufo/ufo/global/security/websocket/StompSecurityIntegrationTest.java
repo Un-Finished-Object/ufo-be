@@ -54,6 +54,8 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.SimpMessageType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.broker.SimpleBrokerMessageHandler;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -68,6 +70,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.messaging.SubProtocolWebSocketHandler;
 
 @SpringBootTest(
         classes = StompSecurityIntegrationTest.TestApplication.class,
@@ -97,6 +100,9 @@ class StompSecurityIntegrationTest {
 
     @Autowired
     private SubscriptionProbe subscriptionProbe;
+
+    @Autowired
+    private ConnectionProbe connectionProbe;
 
     @MockitoBean
     private UserRepository userRepository;
@@ -291,12 +297,20 @@ class StompSecurityIntegrationTest {
     }
 
     private StompConnection connect(String email, Role role) throws Exception {
-        StompConnection connection = open(tokenProvider.createAccessToken(email, role.name()));
+        String connectionId = UUID.randomUUID().toString();
+        CompletableFuture<Void> connected = connectionProbe.expect(connectionId);
+        StompConnection connection = open(tokenProvider.createAccessToken(email, role.name()), connectionId);
         assertThat(connection.nextFrame()).startsWith("CONNECTED\n");
+        // CONNECTED 수신 직후에는 서버의 전송 잠금이 남아 있을 수 있어 처리 완료까지 기다린다.
+        connected.get(5, TimeUnit.SECONDS);
         return connection;
     }
 
     private StompConnection open(String token) throws Exception {
+        return open(token, null);
+    }
+
+    private StompConnection open(String token, String connectionId) throws Exception {
         StompConnection connection = new StompConnection();
         connection.socket = httpClient.newWebSocketBuilder()
                 .header("Origin", "http://localhost")
@@ -304,7 +318,8 @@ class StompSecurityIntegrationTest {
                 .get(5, TimeUnit.SECONDS);
         connections.add(connection);
         String authorization = token == null ? "" : "Authorization:Bearer " + token + "\n";
-        connection.send("CONNECT\naccept-version:1.2\nheart-beat:0,0\n" + authorization + "\n");
+        String connectionHeader = connectionId == null ? "" : "test-connection-id:" + connectionId + "\n";
+        connection.send("CONNECT\naccept-version:1.2\nheart-beat:0,0\n" + authorization + connectionHeader + "\n");
         return connection;
     }
 
@@ -360,6 +375,40 @@ class StompSecurityIntegrationTest {
         }
     }
 
+    private static class ConnectionProbe implements ExecutorChannelInterceptor {
+
+        private final Map<String, CompletableFuture<Void>> expected = new ConcurrentHashMap<>();
+
+        CompletableFuture<Void> expect(String connectionId) {
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            expected.put(connectionId, future);
+            return future;
+        }
+
+        @Override
+        public void afterMessageHandled(Message<?> message, MessageChannel channel, MessageHandler handler,
+                                        Exception exception) {
+            if (!(handler instanceof SubProtocolWebSocketHandler)
+                    || SimpMessageHeaderAccessor.getMessageType(message.getHeaders()) != SimpMessageType.CONNECT_ACK
+                    || !(message.getHeaders().get(SimpMessageHeaderAccessor.CONNECT_MESSAGE_HEADER)
+                    instanceof Message<?> connectMessage)) {
+                return;
+            }
+            String connectionId = StompHeaderAccessor.wrap(connectMessage).getFirstNativeHeader("test-connection-id");
+            if (connectionId == null) {
+                return;
+            }
+            CompletableFuture<Void> future = expected.remove(connectionId);
+            if (future != null) {
+                if (exception == null) {
+                    future.complete(null);
+                } else {
+                    future.completeExceptionally(exception);
+                }
+            }
+        }
+    }
+
     private static class SubscriptionProbe implements ExecutorChannelInterceptor {
 
         private final Map<String, CompletableFuture<Void>> expected = new ConcurrentHashMap<>();
@@ -410,6 +459,7 @@ class StompSecurityIntegrationTest {
     static class TestApplication implements WebSocketMessageBrokerConfigurer {
 
         private final SubscriptionProbe subscriptionProbe = new SubscriptionProbe();
+        private final ConnectionProbe connectionProbe = new ConnectionProbe();
 
         @Bean
         CorsProperties corsProperties() {
@@ -428,9 +478,20 @@ class StompSecurityIntegrationTest {
             return subscriptionProbe;
         }
 
+        @Bean
+        ConnectionProbe connectionProbe() {
+            return connectionProbe;
+        }
+
         @Override
         public void configureClientInboundChannel(ChannelRegistration registration) {
             registration.interceptors(subscriptionProbe);
         }
+
+        @Override
+        public void configureClientOutboundChannel(ChannelRegistration registration) {
+            registration.interceptors(connectionProbe);
+        }
+
     }
 }
