@@ -3,8 +3,8 @@ package com.ufo.ufo.domain.image.application;
 import com.ufo.ufo.domain.image.config.ImageProperties;
 import com.ufo.ufo.domain.image.domain.ImagePurpose;
 import com.ufo.ufo.domain.image.dto.request.ImagePresignedUrlIssueRequest;
-import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
 import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse.UrlInfo;
+import com.ufo.ufo.domain.image.dto.response.ImagePresignedUrlIssueResponse;
 import com.ufo.ufo.domain.user.domain.User;
 import java.time.Duration;
 import java.time.Instant;
@@ -59,19 +59,8 @@ public class ImageService {
 
     public void validateProfileImageKey(User user, String imageKey) {
         keyPolicy.validateProfileImageKey(user, imageKey);
-    }
-
-    public void completeProfileImageReplacement(String newImageKey, String previousImageKey) {
-        String normalizedNewImageKey = keyPolicy.normalizeImageKey(newImageKey);
-        if (!keyPolicy.isDefaultProfileImageKey(normalizedNewImageKey)) {
-            keyPolicy.validateProfilePrefix(normalizedNewImageKey);
-            objectManager.markLinked(normalizedNewImageKey);
-        }
-
-        if (keyPolicy.shouldDeletePreviousProfileImage(previousImageKey, normalizedNewImageKey)) {
-            String previousKey = keyPolicy.normalizeImageKey(previousImageKey);
-            keyPolicy.validateProfilePrefix(previousKey);
-            objectManager.delete(previousKey);
+        if (!keyPolicy.isDefaultProfileImageKey(imageKey)) {
+            objectManager.requireUploaded(imageKey);
         }
     }
 }
