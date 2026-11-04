@@ -8,9 +8,11 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Optional;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,20 +49,30 @@ public class JwtTokenProvider {
     }
 
     public String createAccessToken(String email, String role) {
-        return createToken(email, role, ACCESS_TOKEN_TYPE, accessTokenExpireTime);
+        return createAccessToken(email, role, null);
     }
 
     public String createRefreshToken(String email) {
-        return createToken(email, null, REFRESH_TOKEN_TYPE, refreshTokenExpireTime);
+        return createRefreshToken(email, null);
     }
 
-    private String createToken(String email, String role, String tokenType, long expireTime) {
+    public String createAccessToken(String email, String role, String sessionId) {
+        return createToken(email, role, ACCESS_TOKEN_TYPE, accessTokenExpireTime, sessionId);
+    }
+
+    public String createRefreshToken(String email, String sessionId) {
+        return createToken(email, null, REFRESH_TOKEN_TYPE, refreshTokenExpireTime, sessionId);
+    }
+
+    private String createToken(String email, String role, String tokenType, long expireTime, String sessionId) {
         final Date now = new Date();
         final Date expiredDate = new Date(now.getTime() + expireTime);
         return Jwts.builder()
                 .subject(email)
                 .claim("role", role)
                 .claim(TOKEN_TYPE_CLAIM, tokenType)
+                .claim("sid", sessionId)
+                .id(UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiration(expiredDate)
                 .signWith(key)
@@ -97,9 +109,25 @@ public class JwtTokenProvider {
     }
 
     public Optional<String> getRefreshTokenSubject(String token) {
+        return readRefreshToken(token).map(TokenClaims::email);
+    }
+
+    public Optional<TokenClaims> readAccessToken(String token) {
+        return readToken(token, true);
+    }
+
+    public Optional<TokenClaims> readRefreshToken(String token) {
+        return readToken(token, false);
+    }
+
+    private Optional<TokenClaims> readToken(String token, boolean access) {
         try {
             Claims claims = parseClaims(token);
-            return isRefreshClaims(claims) ? Optional.of(claims.getSubject()) : Optional.empty();
+            if (!(access ? isAccessClaims(claims) : isRefreshClaims(claims))) {
+                return Optional.empty();
+            }
+            return Optional.of(new TokenClaims(claims.getSubject(), claims.get("role", String.class),
+                    claims.get("sid", String.class), claims.getExpiration().toInstant()));
         } catch (JwtException | IllegalArgumentException e) {
             return Optional.empty();
         }
@@ -124,7 +152,10 @@ public class JwtTokenProvider {
     }
 
     private boolean hasSubject(Claims claims) {
-        return claims.getSubject() != null && !claims.getSubject().isBlank();
+        Object sessionId = claims.get("sid");
+        return claims.getSubject() != null && !claims.getSubject().isBlank()
+                && claims.getExpiration() != null
+                && (sessionId == null || sessionId instanceof String id && !id.isBlank() && id.length() <= 64);
     }
 
     private boolean hasTokenType(Claims claims, String expectedType) {
@@ -133,6 +164,16 @@ public class JwtTokenProvider {
     }
 
     private Claims parseClaims(String token) {
+        if (token == null) {
+            throw new IllegalArgumentException("토큰이 필요합니다.");
+        }
+        String signature = token.substring(token.lastIndexOf('.') + 1);
+        String canonical = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(Base64.getUrlDecoder().decode(signature));
+        // 같은 서명을 다른 문자열로 표현해 구형 토큰의 해시 검사를 우회하지 못하게 한다.
+        if (!signature.equals(canonical)) {
+            throw new IllegalArgumentException("올바르지 않은 토큰 서명 인코딩입니다.");
+        }
         return Jwts.parser()
                 .verifyWith(key)
                 .build()
