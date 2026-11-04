@@ -6,10 +6,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.auth.application.AuthSessionService;
 import com.ufo.ufo.domain.chat.application.ChatSubscriptionAccessService;
 import com.ufo.ufo.global.exception.InvalidAccessTokenException;
-import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
+import com.ufo.ufo.global.security.jwt.AccessTokenContext;
 import io.jsonwebtoken.security.SignatureException;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,7 +38,10 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 class StompJwtAuthChannelInterceptorTest {
 
     @Mock
-    private JwtTokenProvider jwtTokenProvider;
+    private AuthSessionService authSessionService;
+
+    @Mock
+    private AuthenticatedWebSocketSessions sessions;
 
     @Mock
     private ChatSubscriptionAccessService chatSubscriptionAccessService;
@@ -52,10 +57,11 @@ class StompJwtAuthChannelInterceptorTest {
         accessor.setNativeHeader("Authorization", "Bearer valid-token");
         accessor.setLeaveMutable(true);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
-        Authentication authentication = new UsernamePasswordAuthenticationToken("test@example.com", "", null);
+        var authentication = new UsernamePasswordAuthenticationToken("test@example.com", "", null);
+        authentication.setDetails(new AccessTokenContext(
+                "test@example.com", "session-id", "token-hash", Instant.now().plusSeconds(60)));
 
-        when(jwtTokenProvider.validateAccessToken("valid-token")).thenReturn(true);
-        when(jwtTokenProvider.getAuthentication("valid-token")).thenReturn(authentication);
+        when(authSessionService.authenticateAccessToken("valid-token")).thenReturn(authentication);
 
         Message<?> result = interceptor.preSend(message, null);
         StompHeaderAccessor wrapped = StompHeaderAccessor.wrap(result);
@@ -72,7 +78,7 @@ class StompJwtAuthChannelInterceptorTest {
         accessor.setLeaveMutable(true);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
-        when(jwtTokenProvider.validateAccessToken("invalid-token")).thenReturn(false);
+        when(authSessionService.authenticateAccessToken("invalid-token")).thenThrow(new InvalidAccessTokenException());
 
         assertThatThrownBy(() -> interceptor.preSend(message, null))
                 .isInstanceOf(MessageDeliveryException.class);
@@ -99,7 +105,7 @@ class StompJwtAuthChannelInterceptorTest {
         accessor.setNativeHeader("Authorization", "Bearer tampered-token");
         accessor.setLeaveMutable(true);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
-        when(jwtTokenProvider.validateAccessToken("tampered-token"))
+        when(authSessionService.authenticateAccessToken("tampered-token"))
                 .thenThrow(new SignatureException("Invalid signature"));
 
         assertThatThrownBy(() -> interceptor.preSend(message, null))
@@ -113,8 +119,7 @@ class StompJwtAuthChannelInterceptorTest {
         accessor.setNativeHeader("Authorization", "Bearer invalid-token");
         accessor.setLeaveMutable(true);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
-        when(jwtTokenProvider.validateAccessToken("invalid-token")).thenReturn(true);
-        when(jwtTokenProvider.getAuthentication("invalid-token")).thenThrow(new InvalidAccessTokenException());
+        when(authSessionService.authenticateAccessToken("invalid-token")).thenThrow(new InvalidAccessTokenException());
 
         assertThatThrownBy(() -> interceptor.preSend(message, null))
                 .isInstanceOf(MessageDeliveryException.class);
