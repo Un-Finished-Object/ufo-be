@@ -12,6 +12,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.ufo.ufo.domain.auth.api.AuthController;
 import com.ufo.ufo.domain.auth.application.AuthService;
+import com.ufo.ufo.domain.auth.application.AuthSessionService;
+import com.ufo.ufo.domain.auth.dao.AuthSessionRepository;
+import com.ufo.ufo.domain.auth.dao.RevokedAccessTokenRepository;
+import com.ufo.ufo.domain.auth.domain.AuthSession;
 import com.ufo.ufo.domain.pattern.api.PatternController;
 import com.ufo.ufo.domain.pattern.application.PatternAlternativeService;
 import com.ufo.ufo.domain.pattern.application.PatternPurchaseService;
@@ -40,20 +44,26 @@ import jakarta.servlet.http.Cookie;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
@@ -97,6 +107,15 @@ class RestSecurityIntegrationTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @Autowired
+    private AuthSessionService sessions;
+
+    @MockitoBean
+    private AuthSessionRepository sessionRepository;
+
+    @MockitoBean
+    private RevokedAccessTokenRepository revokedTokens;
 
     @MockitoBean
     private OAuthCookieManager oauthCookieManager;
@@ -322,8 +341,67 @@ class RestSecurityIntegrationTest {
         };
     }
 
+    @Test
+    @DisplayName("실제 로그아웃 API 이후 보호 API와 토큰 재발급은 401이어야 한다")
+    void logout_RejectsAccessAndRefreshThroughHttp() throws Exception {
+        var logins = new HashMap<String, AuthSession>();
+        var user = UserFixture.createUserWithId(1L);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(sessionRepository.saveAndFlush(ArgumentMatchers.any())).thenAnswer(call -> {
+            AuthSession login = call.getArgument(0);
+            logins.put(login.getId(), login);
+            return login;
+        });
+        when(sessionRepository.findByIdForUpdate(ArgumentMatchers.anyString()))
+                .thenAnswer(call -> Optional.ofNullable(logins.get(call.getArgument(0))));
+        when(sessionRepository.existsByIdAndUser_EmailAndRevokedAtIsNullAndRetainUntilAfter(
+                ArgumentMatchers.anyString(), ArgumentMatchers.anyString(),
+                ArgumentMatchers.any())).thenAnswer(call -> {
+            var login = logins.get(call.getArgument(0));
+            return login != null && login.getRevokedAt() == null;
+        });
+        Mockito.doAnswer(call -> {
+            sessions.logout(call.getArgument(0));
+            return null;
+        }).when(authService).logout(ArgumentMatchers.any());
+        when(authService.reissue(ArgumentMatchers.anyString()))
+                .thenAnswer(call -> sessions.reissue(call.getArgument(0)));
+        when(oauthCookieManager.expireRefreshTokenCookie(false))
+                .thenReturn(ResponseCookie.from("refresh_token", "").maxAge(0).build());
+        String refresh = sessions.issueRefreshToken(user.getEmail());
+        String access = sessions.reissue(refresh).accessToken();
+        mockMvc.perform(get("/v1/users/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + access))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/v1/auth/logout").header(HttpHeaders.AUTHORIZATION, "Bearer " + access)
+                        .cookie(new Cookie("refresh_token", refresh)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isMap())
+                .andExpect(jsonPath("$.error").isEmpty())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE,
+                        Matchers.containsString("Max-Age=0")));
+
+        mockMvc.perform(get("/v1/users/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + access))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error.code").value("401"));
+        mockMvc.perform(post("/v1/auth/token/refresh").cookie(new Cookie("refresh_token", refresh)))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error.code").value("401"));
+    }
+
+    @Test
+    @DisplayName("로그인 상태 DB를 조회할 수 없으면 보호 API를 인증하지 않아야 한다")
+    void sessionDatabaseFailure_DoesNotAuthenticate() throws Exception {
+        when(revokedTokens.existsById(ArgumentMatchers.anyString()))
+                .thenThrow(new DataAccessResourceFailureException("DB unavailable"));
+        String access = tokenProvider.createAccessToken("user@example.com", "ROLE_USER");
+
+        mockMvc.perform(get("/v1/users/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + access))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error.code").value("401"));
+    }
+
     @Configuration(proxyBeanMethods = false)
-    @Import({SecurityConfig.class, JwtTokenProvider.class, JacksonConfig.class,
+    @Import({AuthSessionService.class,
+            SecurityConfig.class, JwtTokenProvider.class, JacksonConfig.class,
             RestSecurityExceptionHandler.class, TestController.class, GlobalExceptionHandler.class,
             AuthController.class, PatternController.class, WebMvcConfig.class, LoginUserArgumentResolver.class})
     static class TestApplication {

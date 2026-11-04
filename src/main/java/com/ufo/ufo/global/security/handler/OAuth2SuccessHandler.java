@@ -1,5 +1,6 @@
 package com.ufo.ufo.global.security.handler;
 
+import com.ufo.ufo.domain.auth.application.AuthSessionService;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import com.ufo.ufo.global.security.oauth.CustomOAuth2User;
 import com.ufo.ufo.global.security.oauth.OAuthCookieManager;
@@ -23,6 +24,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final JwtTokenProvider jwtTokenProvider;
     private final OAuthCookieManager oAuthCookieManager;
     private final OAuthRedirectProperties oAuthRedirectProperties;
+    private final AuthSessionService authSessionService;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -32,7 +34,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String email = oAuth2User.getEmail();
         String role = oAuth2User.getRoleKey();
 
-        String refreshToken = jwtTokenProvider.createRefreshToken(email);
+        String refreshToken = authSessionService.issueRefreshToken(email);
 
         log.info("Social Login Success: email={}, role={}", email, role);
 

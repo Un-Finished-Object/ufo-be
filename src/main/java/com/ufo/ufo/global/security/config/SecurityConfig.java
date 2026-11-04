@@ -1,12 +1,13 @@
 package com.ufo.ufo.global.security.config;
 
+import com.ufo.ufo.domain.auth.application.AuthSessionService;
 import com.ufo.ufo.global.security.filter.JwtAuthenticationFilter;
 import com.ufo.ufo.global.security.handler.OAuth2SuccessHandler;
 import com.ufo.ufo.global.security.handler.RestSecurityExceptionHandler;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import com.ufo.ufo.global.security.oauth.CookieOAuth2AuthorizationRequestRepository;
-import com.ufo.ufo.global.security.oauth.CustomOidcUserService;
 import com.ufo.ufo.global.security.oauth.CustomOAuth2UserService;
+import com.ufo.ufo.global.security.oauth.CustomOidcUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,6 +30,7 @@ public class SecurityConfig {
     private final CustomOidcUserService customOidcUserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final JwtTokenProvider jwtTokenProvider;
+    private final AuthSessionService authSessionService;
     private final CookieOAuth2AuthorizationRequestRepository cookieOAuth2AuthorizationRequestRepository;
     private final RestSecurityExceptionHandler restSecurityExceptionHandler;
 
@@ -64,7 +66,7 @@ public class SecurityConfig {
                                 .userService(customOAuth2UserService)
                                 .oidcUserService(customOidcUserService))
                         .successHandler(oAuth2SuccessHandler))
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider),
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, authSessionService),
                         UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

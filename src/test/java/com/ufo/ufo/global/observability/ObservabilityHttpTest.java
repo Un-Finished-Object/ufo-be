@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ThrowableProxyUtil;
+import com.ufo.ufo.domain.auth.application.AuthSessionService;
 import com.ufo.ufo.global.config.JacksonConfig;
 import com.ufo.ufo.global.config.WebMvcConfig;
 import com.ufo.ufo.global.exception.GlobalExceptionHandler;
@@ -33,6 +34,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
@@ -73,6 +76,9 @@ class ObservabilityHttpTest {
     private Environment environment;
     @Autowired
     private JwtTokenProvider tokenProvider;
+    @MockitoBean
+    private AuthSessionService authSessionService;
+
     @MockitoBean
     private CustomOAuth2UserService oauth2UserService;
     @MockitoBean
@@ -181,6 +187,8 @@ class ObservabilityHttpTest {
     @Test
     @DisplayName("상태 확인은 관리 포트에서만 허용하고 내부 상세 정보를 숨겨야 한다")
     void exposesOnlyHealthOnManagementPort() throws Exception {
+        Mockito.when(authSessionService.authenticateAccessToken(ArgumentMatchers.anyString()))
+                .thenAnswer(call -> tokenProvider.getAuthentication(call.getArgument(0)));
         int managementPort = environment.getProperty("local.management.port", Integer.class, port);
         assertThat(managementPort).isNotEqualTo(port);
         for (String path : new String[] {"/actuator/health/liveness", "/actuator/health/readiness"}) {
