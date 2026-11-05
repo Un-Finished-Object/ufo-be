@@ -3,6 +3,10 @@ package com.ufo.ufo.global.security.websocket;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.auth.application.AuthSessionService;
+import com.ufo.ufo.domain.auth.dao.AuthSessionRepository;
+import com.ufo.ufo.domain.auth.dao.RevokedAccessTokenRepository;
+import com.ufo.ufo.domain.auth.domain.AuthSession;
 import com.ufo.ufo.domain.chat.application.ChatSubscriptionAccessService;
 import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
@@ -17,6 +21,7 @@ import com.ufo.ufo.global.security.types.Role;
 import com.ufo.ufo.support.fixture.ChatRoomFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
+import jakarta.servlet.http.Cookie;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
@@ -39,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
@@ -50,6 +56,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageHandler;
@@ -62,6 +69,7 @@ import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ExecutorChannelInterceptor;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
@@ -113,6 +121,17 @@ class StompSecurityIntegrationTest {
     @MockitoBean
     private ChatRoomStatusRepository chatRoomStatusRepository;
 
+    @Autowired
+    private AuthSessionService sessions;
+    @Autowired
+    private AuthenticatedWebSocketSessions authenticatedSockets;
+    @MockitoBean
+    private AuthSessionRepository sessionRepository;
+    @MockitoBean
+    private RevokedAccessTokenRepository revokedTokens;
+
+    private final Map<String, AuthSession> logins = new ConcurrentHashMap<>();
+
     private final List<StompConnection> connections = new ArrayList<>();
     private HttpClient httpClient;
 
@@ -129,6 +148,23 @@ class StompSecurityIntegrationTest {
         UserFixture.setId(guest, 4L);
         ChatRoom room = ChatRoomFixture.createRoomWithId(PatternFixture.createPatternWithId(100L), 10L);
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(member));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
+        logins.clear();
+        when(sessionRepository.findByIdForUpdate(ArgumentMatchers.anyString()))
+                .thenAnswer(call -> Optional.ofNullable(logins.get(call.getArgument(0))));
+        when(sessionRepository.saveAndFlush(ArgumentMatchers.any())).thenAnswer(call -> {
+            AuthSession login = call.getArgument(0);
+            logins.put(login.getId(), login);
+            return login;
+        });
+        when(sessionRepository.existsByIdAndUser_EmailAndRevokedAtIsNullAndRetainUntilAfter(
+                ArgumentMatchers.anyString(), ArgumentMatchers.anyString(),
+                ArgumentMatchers.any())).thenAnswer(call -> {
+            var login = logins.get(call.getArgument(0));
+            return login != null && login.getRevokedAt() == null
+                    && login.getUser().getEmail().equals(call.getArgument(1))
+                    && login.getRetainUntil().isAfter(call.getArgument(2));
+        });
         when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(admin));
         when(userRepository.findByEmail("deleted@example.com")).thenReturn(Optional.of(deleted));
         when(userRepository.findByEmail("guest@example.com")).thenReturn(Optional.of(guest));
@@ -296,10 +332,108 @@ class StompSecurityIntegrationTest {
         connection.closed.get(5, TimeUnit.SECONDS);
     }
 
+    @Test
+    @DisplayName("로그아웃 후 이미 구독한 연결에 메시지를 전달하지 않고 종료해야 한다")
+    void logout_ClosesExistingSubscriptionBeforeDelivery() throws Exception {
+        String refresh = sessions.issueRefreshToken("test@example.com");
+        String access = sessions.reissue(refresh).accessToken();
+        StompConnection connection = connectToken(access);
+        subscribeAndWait(connection, "/sub/chat/rooms/10");
+
+        logout(access, refresh);
+        messagingTemplate.convertAndSend("/sub/chat/rooms/10", "after-logout-private-message");
+
+        assertThat(connection.closed).succeedsWithin(5, TimeUnit.SECONDS);
+        assertThat(connection.frames).noneMatch(frame -> frame.contains("after-logout-private-message"));
+    }
+
+    @Test
+    @DisplayName("로그아웃한 Access Token으로 새 STOMP 연결을 만들 수 없어야 한다")
+    void logout_RejectsNewConnection() throws Exception {
+        String refresh = sessions.issueRefreshToken("test@example.com");
+        String access = sessions.reissue(refresh).accessToken();
+        logout(access, refresh);
+
+        StompConnection connection = open(access);
+
+        assertThat(connection.nextFrame()).startsWith("ERROR\n");
+        connection.closed.get(5, TimeUnit.SECONDS);
+    }
+
+    @Test
+    @DisplayName("한 로그인에서 로그아웃해도 다른 로그인은 채팅을 계속 사용할 수 있어야 한다")
+    void logout_AllowsOtherLoginToContinue() throws Exception {
+        String first = sessions.issueRefreshToken("test@example.com");
+        String second = sessions.issueRefreshToken("test@example.com");
+        StompConnection connection = connectToken(sessions.reissue(second).accessToken());
+        subscribeAndWait(connection, "/sub/chat/rooms/10");
+        logout(sessions.reissue(first).accessToken(), first);
+
+        connection.send("SEND\ndestination:/pub/chat/message\ncontent-type:text/plain\n\nstill-active");
+
+        assertThat(connection.nextFrame()).endsWith("\n\ntest@example.com:still-active");
+    }
+
+    private void logout(String access, String refresh) {
+        var request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + access);
+        request.setCookies(new Cookie("refresh_token", refresh));
+        sessions.logout(request);
+    }
+
+    @Test
+    @DisplayName("로그아웃 후 이미 연결된 클라이언트의 전송을 거부해야 한다")
+    void logout_RejectsInboundFrameFromExistingConnection() throws Exception {
+        String refresh = sessions.issueRefreshToken("test@example.com");
+        String access = sessions.reissue(refresh).accessToken();
+        StompConnection connection = connectToken(access);
+        subscribeAndWait(connection, "/sub/chat/rooms/10");
+        logout(access, refresh);
+
+        connection.send("SEND\ndestination:/pub/chat/message\ncontent-type:text/plain\n\nrevoked-send");
+
+        assertThat(connection.closed).succeedsWithin(5, TimeUnit.SECONDS);
+        assertThat(connection.frames).noneMatch(frame -> frame.contains("test@example.com:revoked-send"));
+    }
+
+    @Test
+    @DisplayName("유휴 연결 정리는 무효화한 연결을 종료해야 한다")
+    void cleanup_ClosesIdleRevokedConnection() throws Exception {
+        String refresh = sessions.issueRefreshToken("test@example.com");
+        String access = sessions.reissue(refresh).accessToken();
+        StompConnection connection = connectToken(access);
+        logout(access, refresh);
+
+        authenticatedSockets.closeInvalidSessions();
+
+        assertThat(connection.closed).succeedsWithin(5, TimeUnit.SECONDS);
+    }
+
+    @Test
+    @DisplayName("상태 DB 장애 시 연결된 구독자에게 메시지를 전달하지 않아야 한다")
+    void databaseFailure_ClosesConnectionWithoutDelivering() throws Exception {
+        String refresh = sessions.issueRefreshToken("test@example.com");
+        StompConnection connection = connectToken(sessions.reissue(refresh).accessToken());
+        subscribeAndWait(connection, "/sub/chat/rooms/10");
+        when(sessionRepository.existsByIdAndUser_EmailAndRevokedAtIsNullAndRetainUntilAfter(
+                ArgumentMatchers.anyString(), ArgumentMatchers.anyString(),
+                ArgumentMatchers.any()))
+                .thenThrow(new DataAccessResourceFailureException("DB unavailable"));
+
+        messagingTemplate.convertAndSend("/sub/chat/rooms/10", "unavailable-db-private-message");
+
+        assertThat(connection.closed).succeedsWithin(5, TimeUnit.SECONDS);
+        assertThat(connection.frames).noneMatch(frame -> frame.contains("unavailable-db-private-message"));
+    }
+
     private StompConnection connect(String email, Role role) throws Exception {
+        return connectToken(tokenProvider.createAccessToken(email, role.name()));
+    }
+
+    private StompConnection connectToken(String token) throws Exception {
         String connectionId = UUID.randomUUID().toString();
         CompletableFuture<Void> connected = connectionProbe.expect(connectionId);
-        StompConnection connection = open(tokenProvider.createAccessToken(email, role.name()), connectionId);
+        StompConnection connection = open(token, connectionId);
         assertThat(connection.nextFrame()).startsWith("CONNECTED\n");
         // CONNECTED 수신 직후에는 서버의 전송 잠금이 남아 있을 수 있어 처리 완료까지 기다린다.
         connected.get(5, TimeUnit.SECONDS);
@@ -454,7 +588,9 @@ class StompSecurityIntegrationTest {
             UserDetailsServiceAutoConfiguration.class,
             OAuth2ClientAutoConfiguration.class
     })
-    @Import({WebSocketConfig.class, StompJwtAuthChannelInterceptor.class, JwtTokenProvider.class,
+    @Import({AuthSessionService.class,
+            WebSocketConfig.class, StompJwtAuthChannelInterceptor.class, AuthenticatedWebSocketSessions.class,
+            JwtTokenProvider.class,
             ChatSubscriptionAccessService.class, EchoController.class})
     static class TestApplication implements WebSocketMessageBrokerConfigurer {
 

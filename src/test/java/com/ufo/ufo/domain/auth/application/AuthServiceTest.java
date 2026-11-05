@@ -2,7 +2,6 @@ package com.ufo.ufo.domain.auth.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -14,41 +13,31 @@ import com.ufo.ufo.domain.auth.dto.response.TokenResponse;
 import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
 import com.ufo.ufo.domain.credit.policy.CreditPolicy;
-import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.image.application.ImageService;
+import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.referral.application.ReferralService;
 import com.ufo.ufo.domain.user.application.UserService;
-import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.domain.user.exception.InvalidNicknameException;
-import com.ufo.ufo.global.exception.InvalidTokenException;
-import com.ufo.ufo.global.exception.UserNotFoundException;
-import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import com.ufo.ufo.global.security.types.Role;
 import com.ufo.ufo.support.fixture.UserFixture;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Auth 서비스 테스트")
 class AuthServiceTest {
 
     @Mock
-    private JwtTokenProvider jwtTokenProvider;
-
-    @Mock
-    private UserRepository userRepository;
+    private AuthSessionService authSessionService;
 
     @Mock
     private UserService userService;
@@ -173,106 +162,33 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("유효한 refresh token이면 access token을 재발급해야 한다")
-    void reissue_WithValidRefreshToken_ReturnsTokenResponse() {
-        String refreshToken = "refresh-token";
-        String email = "user@example.com";
-        User user = UserFixture.createUser(email, Role.ROLE_USER);
+    @DisplayName("토큰 재발급은 로그인 관리 서비스에서 처리한 결과를 반환해야 한다")
+    void reissue_ReturnsSessionServiceResponse() {
+        TokenResponse expected = new TokenResponse("new-access-token", "Bearer", 60000L);
+        when(authSessionService.reissue("refresh-token")).thenReturn(expected);
 
-        when(jwtTokenProvider.getRefreshTokenSubject(refreshToken)).thenReturn(Optional.of(email));
-        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(jwtTokenProvider.createAccessToken(email, user.getRoleKey())).thenReturn("new-access-token");
-        when(jwtTokenProvider.getAccessTokenExpireTime()).thenReturn(3_600_000L);
-
-        TokenResponse response = authService.reissue(refreshToken);
-
-        assertThat(response.accessToken()).isEqualTo("new-access-token");
-        assertThat(response.tokenType()).isEqualTo("Bearer");
-        assertThat(response.expiresIn()).isEqualTo(3_600_000L);
+        assertThat(authService.reissue("refresh-token")).isSameAs(expected);
     }
 
     @Test
-    @DisplayName("유효하지 않은 refresh token이면 InvalidTokenException이 발생해야 한다")
-    void reissue_WithInvalidRefreshToken_ThrowsInvalidTokenException() {
-        when(jwtTokenProvider.getRefreshTokenSubject("bad-token")).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> authService.reissue("bad-token"))
-                .isInstanceOf(InvalidTokenException.class);
-
-        verify(userRepository, never()).findByEmail(anyString());
-    }
-
-    @Test
-    @DisplayName("Access Token을 재발급 쿠키로 보내면 거부해야 한다")
-    void reissue_WithAccessToken_ThrowsInvalidTokenException() {
-        JwtTokenProvider realProvider = realJwtProvider();
-        String accessToken = realProvider.createAccessToken("user@example.com", Role.ROLE_USER.name());
-        AuthService service = new AuthService(realProvider, userRepository, userService, interestService,
-                imageService, creditService, referralService);
-
-        assertThatThrownBy(() -> service.reissue(accessToken))
-                .isInstanceOf(InvalidTokenException.class);
-        verify(userRepository, never()).findByEmail(anyString());
-    }
-
-    @Test
-    @DisplayName("실제 Refresh Token으로 새 Access Token을 발급해야 한다")
-    void reissue_WithSignedRefreshToken_ReturnsAccessToken() {
-        JwtTokenProvider realProvider = realJwtProvider();
-        String email = "user@example.com";
-        User user = UserFixture.createUser(email, Role.ROLE_USER);
-        String refreshToken = realProvider.createRefreshToken(email);
-        AuthService service = new AuthService(realProvider, userRepository, userService, interestService,
-                imageService, creditService, referralService);
-        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-
-        TokenResponse response = service.reissue(refreshToken);
-
-        assertThat(realProvider.validateAccessToken(response.accessToken())).isTrue();
-        assertThat(realProvider.getRefreshTokenSubject(response.accessToken())).isEmpty();
-        assertThat(response.tokenType()).isEqualTo("Bearer");
-        assertThat(response.expiresIn()).isEqualTo(60_000L);
-    }
-
-    @Test
-    @DisplayName("토큰 주체 사용자 정보가 없으면 UserNotFoundException이 발생해야 한다")
-    void reissue_WhenUserNotFound_ThrowsUserNotFoundException() {
-        String refreshToken = "refresh-token";
-        String email = "missing@example.com";
-
-        when(jwtTokenProvider.getRefreshTokenSubject(refreshToken)).thenReturn(Optional.of(email));
-        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> authService.reissue(refreshToken))
-                .isInstanceOf(UserNotFoundException.class);
-    }
-
-    @Test
-    @DisplayName("로그아웃 시 세션이 있으면 invalidate를 호출해야 한다")
-    void logout_WhenSessionExists_InvalidatesSession() {
+    @DisplayName("로그아웃 시 로그인 무효화 후 HTTP 세션을 정리해야 한다")
+    void logout_InvalidatesLoginAndHttpSession() {
         when(request.getSession(false)).thenReturn(session);
 
         authService.logout(request);
 
-        verify(session).invalidate();
+        var order = Mockito.inOrder(authSessionService, session);
+        order.verify(authSessionService).logout(request);
+        order.verify(session).invalidate();
     }
 
     @Test
-    @DisplayName("로그아웃 시 세션이 없으면 예외 없이 종료해야 한다")
-    void logout_WhenSessionAbsent_DoesNothing() {
-        when(request.getSession(false)).thenReturn(null);
+    @DisplayName("로그인 무효화 저장에 실패하면 로그아웃을 성공 처리하지 않아야 한다")
+    void logout_WhenInvalidationFails_DoesNotClearHttpSession() {
+        Mockito.doThrow(new IllegalStateException("DB 오류"))
+                .when(authSessionService).logout(request);
 
-        authService.logout(request);
-
-        verify(request).getSession(false);
-    }
-
-    private JwtTokenProvider realJwtProvider() {
-        String secret = Base64.getEncoder().encodeToString(
-                "0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8));
-        JwtTokenProvider realProvider = new JwtTokenProvider(secret);
-        ReflectionTestUtils.setField(realProvider, "accessTokenExpireTime", 60_000L);
-        ReflectionTestUtils.setField(realProvider, "refreshTokenExpireTime", 120_000L);
-        return realProvider;
+        assertThatThrownBy(() -> authService.logout(request)).isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(session);
     }
 }

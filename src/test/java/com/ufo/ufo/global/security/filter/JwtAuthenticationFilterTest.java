@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.auth.application.AuthSessionService;
+import com.ufo.ufo.domain.auth.dao.AuthSessionRepository;
+import com.ufo.ufo.domain.auth.dao.RevokedAccessTokenRepository;
+import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import io.jsonwebtoken.security.SignatureException;
 import java.nio.charset.StandardCharsets;
@@ -24,6 +28,7 @@ class JwtAuthenticationFilterTest {
 
     private JwtTokenProvider provider;
     private JwtAuthenticationFilter filter;
+    private AuthSessionService sessions;
 
     @BeforeEach
     void setUp() {
@@ -32,7 +37,11 @@ class JwtAuthenticationFilterTest {
         provider = new JwtTokenProvider(secret);
         ReflectionTestUtils.setField(provider, "accessTokenExpireTime", 60_000L);
         ReflectionTestUtils.setField(provider, "refreshTokenExpireTime", 120_000L);
-        filter = new JwtAuthenticationFilter(provider);
+        sessions = new AuthSessionService(provider,
+                mock(UserRepository.class),
+                mock(AuthSessionRepository.class),
+                mock(RevokedAccessTokenRepository.class));
+        filter = new JwtAuthenticationFilter(provider, sessions);
         SecurityContextHolder.clearContext();
     }
 
@@ -72,11 +81,11 @@ class JwtAuthenticationFilterTest {
         JwtTokenProvider failingProvider = mock(JwtTokenProvider.class);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/v1/users/me");
         when(failingProvider.resolveToken(request)).thenReturn("changed-token");
-        when(failingProvider.validateAccessToken("changed-token")).thenReturn(true);
-        when(failingProvider.getAuthentication("changed-token"))
+        var failingSessions = mock(AuthSessionService.class);
+        when(failingSessions.authenticateAccessToken("changed-token"))
                 .thenThrow(new SignatureException("internal-signature-detail"));
 
-        new JwtAuthenticationFilter(failingProvider).doFilter(
+        new JwtAuthenticationFilter(failingProvider, failingSessions).doFilter(
                 request, new MockHttpServletResponse(), (servletRequest, servletResponse) ->
                         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull());
     }

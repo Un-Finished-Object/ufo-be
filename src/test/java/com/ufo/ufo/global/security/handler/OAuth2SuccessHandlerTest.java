@@ -3,6 +3,7 @@ package com.ufo.ufo.global.security.handler;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.auth.application.AuthSessionService;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import com.ufo.ufo.global.security.oauth.CustomOAuth2User;
 import com.ufo.ufo.global.security.oauth.OAuthCookieManager;
@@ -29,6 +30,9 @@ class OAuth2SuccessHandlerTest {
     private JwtTokenProvider jwtTokenProvider;
 
     @Mock
+    private AuthSessionService authSessionService;
+
+    @Mock
     private OAuthCookieManager oAuthCookieManager;
 
     @Mock
@@ -53,7 +57,7 @@ class OAuth2SuccessHandlerTest {
                 "https://ufo.example.com/admin/dashboard",
                 ".ufo.example.com"
         );
-        successHandler = new OAuth2SuccessHandler(jwtTokenProvider, oAuthCookieManager, properties);
+        successHandler = new OAuth2SuccessHandler(jwtTokenProvider, oAuthCookieManager, properties, authSessionService);
         successHandler.setRedirectStrategy(redirectStrategy);
     }
 
@@ -94,7 +98,7 @@ class OAuth2SuccessHandlerTest {
                 Map.of("email", "test@example.com")
         );
         when(authentication.getPrincipal()).thenReturn(oAuth2User);
-        when(jwtTokenProvider.createRefreshToken("test@example.com")).thenReturn("refresh-token");
+        when(authSessionService.issueRefreshToken("test@example.com")).thenReturn("refresh-token");
         when(jwtTokenProvider.getRefreshTokenExpireTime()).thenReturn(3_600_000L);
         when(oAuthCookieManager.createRefreshTokenCookie("refresh-token", 3_600L, false))
                 .thenReturn(ResponseCookie.from("refresh_token", "refresh-token").build());

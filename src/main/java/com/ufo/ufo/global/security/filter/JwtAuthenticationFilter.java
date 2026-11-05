@@ -1,5 +1,6 @@
 package com.ufo.ufo.global.security.filter;
 
+import com.ufo.ufo.domain.auth.application.AuthSessionService;
 import com.ufo.ufo.global.exception.InvalidAccessTokenException;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import io.jsonwebtoken.JwtException;
@@ -9,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -17,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final AuthSessionService authSessionService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -25,11 +28,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (token != null) {
             try {
-                if (jwtTokenProvider.validateAccessToken(token)) {
-                    final Authentication authentication = jwtTokenProvider.getAuthentication(token);
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
-            } catch (JwtException | IllegalArgumentException | InvalidAccessTokenException exception) {
+                final Authentication authentication = authSessionService.authenticateAccessToken(token);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } catch (JwtException | IllegalArgumentException | InvalidAccessTokenException
+                     | DataAccessException exception) {
                 SecurityContextHolder.clearContext();
             }
         }

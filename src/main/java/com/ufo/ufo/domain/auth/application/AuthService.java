@@ -6,16 +6,12 @@ import com.ufo.ufo.domain.auth.dto.response.TokenResponse;
 import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.credit.domain.CreditTransactionType;
 import com.ufo.ufo.domain.credit.policy.CreditPolicy;
-import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.image.application.ImageService;
+import com.ufo.ufo.domain.interest.application.InterestService;
 import com.ufo.ufo.domain.referral.application.ReferralService;
 import com.ufo.ufo.domain.user.application.UserService;
-import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.NicknamePolicy;
 import com.ufo.ufo.domain.user.domain.User;
-import com.ufo.ufo.global.exception.InvalidTokenException;
-import com.ufo.ufo.global.exception.UserNotFoundException;
-import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.util.List;
@@ -28,8 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final JwtTokenProvider jwtTokenProvider;
-    private final UserRepository userRepository;
+    private final AuthSessionService authSessionService;
     private final UserService userService;
     private final InterestService interestService;
     private final ImageService imageService;
@@ -58,20 +53,12 @@ public class AuthService {
         );
     }
 
-    @Transactional
     public TokenResponse reissue(String refreshToken) {
-        String email = jwtTokenProvider.getRefreshTokenSubject(refreshToken)
-                .orElseThrow(InvalidTokenException::new);
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(UserNotFoundException::new);
-
-        String newAccessToken = jwtTokenProvider.createAccessToken(email, user.getRoleKey());
-
-        return new TokenResponse(newAccessToken, JwtTokenProvider.BEARER_TYPE, jwtTokenProvider.getAccessTokenExpireTime());
+        return authSessionService.reissue(refreshToken);
     }
 
     public void logout(HttpServletRequest request) {
+        authSessionService.logout(request);
         HttpSession session = request.getSession(false);
         if (session != null) {
             session.invalidate();

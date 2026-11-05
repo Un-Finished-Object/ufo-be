@@ -66,15 +66,24 @@ class DatabaseMigrationIntegrationTest {
     void createsSchemaOnce() {
         Flyway migrations = flyway();
 
-        assertThat(migrations.migrate().migrationsExecuted).isEqualTo(3);
+        assertThat(migrations.migrate().migrationsExecuted).isEqualTo(4);
         assertThat(migrations.migrate().migrationsExecuted).isZero();
-        assertThat(tableCount()).isEqualTo(23);
+        assertThat(tableCount()).isEqualTo(25);
         assertThat(readStatusUniqueCount()).isEqualTo(1);
         assertThat(jdbc.queryForList("""
                 SELECT COLUMN_NAME FROM information_schema.COLUMNS
                 WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='profile_image_tasks'
                 """, String.class)).containsExactlyInAnyOrder(
                 "task_id", "created_at", "user_id", "task_type", "image_key", "attempts", "next_attempt_at");
+        assertThat(jdbc.queryForList("""
+                SELECT COLUMN_NAME FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='auth_sessions'
+                """, String.class)).containsExactlyInAnyOrder(
+                "session_id", "user_id", "refresh_expires_at", "retain_until", "revoked_at");
+        assertThat(jdbc.queryForList("""
+                SELECT COLUMN_NAME FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='revoked_access_tokens'
+                """, String.class)).containsExactlyInAnyOrder("token_hash", "expires_at");
         migrations.validate();
     }
 
@@ -94,7 +103,7 @@ class DatabaseMigrationIntegrationTest {
         insertUser();
 
         registerBaseline();
-        assertThat(flyway().migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(flyway().migrate().migrationsExecuted).isEqualTo(3);
         assertThat(jdbc.queryForObject("SELECT ball_balance FROM users WHERE user_id=1", Integer.class))
                 .isEqualTo(150);
         assertThat(readStatusUniqueCount()).isEqualTo(1);
@@ -131,7 +140,7 @@ class DatabaseMigrationIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT ball_balance FROM users WHERE user_id=1", Integer.class))
                 .isEqualTo(150);
         assertThat(readStatusUniqueCount()).isZero();
-        assertThat(flyway().migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(flyway().migrate().migrationsExecuted).isEqualTo(3);
     }
 
     @Test
@@ -162,6 +171,8 @@ class DatabaseMigrationIntegrationTest {
                 directory.resolve("V2__ensure_chat_read_status_unique.sql"));
         Files.copy(source.resolve("V3__create_profile_image_tasks.sql"),
                 directory.resolve("V3__create_profile_image_tasks.sql"));
+        Files.copy(source.resolve("V4__create_auth_sessions.sql"),
+                directory.resolve("V4__create_auth_sessions.sql"));
         Flyway changed = Flyway.configure().dataSource(dataSource)
                 .locations("filesystem:" + directory.toAbsolutePath()).load();
 
@@ -215,7 +226,7 @@ class DatabaseMigrationIntegrationTest {
             ScriptUtils.executeSqlScript(connection, new FileSystemResource("scripts/database/inspect-schema.sql"));
             connection.rollback();
         }
-        assertThat(tableCount()).isEqualTo(23);
+        assertThat(tableCount()).isEqualTo(25);
     }
 
     private Flyway flyway() {

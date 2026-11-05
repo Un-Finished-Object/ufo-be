@@ -1,7 +1,9 @@
 package com.ufo.ufo.global.security.websocket;
 
+import com.ufo.ufo.domain.auth.application.AuthSessionService;
 import com.ufo.ufo.domain.chat.application.ChatSubscriptionAccessService;
 import com.ufo.ufo.global.exception.InvalidAccessTokenException;
+import com.ufo.ufo.global.security.jwt.AccessTokenContext;
 import com.ufo.ufo.global.security.jwt.JwtTokenProvider;
 import io.jsonwebtoken.JwtException;
 import java.util.List;
@@ -9,6 +11,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -28,7 +31,8 @@ public class StompJwtAuthChannelInterceptor implements ChannelInterceptor {
     private static final Pattern ROOM_SUBSCRIPTION = Pattern.compile("^/sub/chat/rooms/([1-9][0-9]*)$");
     private static final Set<String> PUBLISH_DESTINATIONS = Set.of("/pub/chat/message", "/pub/chat/read");
 
-    private final JwtTokenProvider jwtTokenProvider;
+    private final AuthSessionService authSessionService;
+    private final AuthenticatedWebSocketSessions sessions;
     private final ChatSubscriptionAccessService chatSubscriptionAccessService;
 
     @Override
@@ -49,6 +53,7 @@ public class StompJwtAuthChannelInterceptor implements ChannelInterceptor {
         }
 
         Authentication authentication = requireAuthentication(accessor);
+        sessions.requireActive(accessor.getSessionId());
         if (command == StompCommand.SUBSCRIBE) {
             Long roomId = subscriptionRoomId(accessor.getDestination());
             if (!chatSubscriptionAccessService.canSubscribe(authentication, roomId)) {
@@ -68,15 +73,20 @@ public class StompJwtAuthChannelInterceptor implements ChannelInterceptor {
     private void authenticate(StompHeaderAccessor accessor) {
         String token = resolveToken(accessor);
         try {
-            if (token == null || !jwtTokenProvider.validateAccessToken(token)) {
+            if (token == null) {
                 throw new MessageDeliveryException("유효한 인증 토큰이 필요합니다.");
             }
-            Authentication authentication = jwtTokenProvider.getAuthentication(token);
+            Authentication authentication = authSessionService.authenticateAccessToken(token);
             if (!isAuthenticated(authentication)) {
                 throw new MessageDeliveryException("인증 사용자 정보를 확인할 수 없습니다.");
             }
             accessor.setUser(authentication);
-        } catch (JwtException | IllegalArgumentException | InvalidAccessTokenException exception) {
+            if (!(authentication.getDetails() instanceof AccessTokenContext context)) {
+                throw new MessageDeliveryException("인증 상태를 확인할 수 없습니다.");
+            }
+            sessions.authenticate(accessor.getSessionId(), context);
+        } catch (JwtException | IllegalArgumentException | InvalidAccessTokenException
+                 | DataAccessException exception) {
             throw new MessageDeliveryException("유효한 인증 토큰이 필요합니다.");
         }
     }

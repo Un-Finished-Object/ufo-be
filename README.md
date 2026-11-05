@@ -107,8 +107,8 @@ Google, Kakao, Naver OAuth2 로그인 뒤 Access Token과 Refresh Token을 발�
 
 * Access Token은 REST API의 `Authorization: Bearer` 헤더로 전달
 * Refresh Token은 HttpOnly Cookie로 관리
-* 새 토큰에는 `token_type`이 기록되며 REST·STOMP는 Access Token만, 재발급 API는 Refresh Token만 받음
-* 서버는 세션을 생성하지 않는 Stateless 방식으로 동작
+* 새 토큰에는 용도(`token_type`)와 로그인 식별자(`sid`)를 기록하며 REST와 STOMP는 Access Token만, 재발급 API는 Refresh Token만 받음
+* HTTP 세션은 생성하지 않으며 로그인별 토큰 상태는 DB에서 관리
 * Spring Security Filter에서 Access Token 검증 및 인증 정보 구성
 * `@LoginUser` Argument Resolver로 현재 사용자를 Controller에 주입
 * 일반 사용자와 관리자 API 권한 분리
@@ -117,9 +117,11 @@ REST API는 인증 실패 시 401, 권한 부족 시 403과 공통 `{data, error
 
 JSON 형식이 잘못됐거나 필수 요청 본문이 없으면 400을 반환합니다. `POST /v1/auth/token/refresh`에 `refresh_token` 쿠키가 없으면 401을 반환합니다.
 
-WebSocket 연결에서도 STOMP `CONNECT` 프레임의 Access Token을 검증합니다. HTTP 요청과 실시간 연결은 같은 인증 기준을 사용합니다.
+WebSocket 연결에서도 STOMP `CONNECT` 프레임의 Access Token을 검증합니다. 연결 후에도 메시지를 보내거나 받기 전에 로그인 상태를 확인하며, 무효화한 연결은 종료합니다. 프레임이 오가지 않는 연결도 기본 30초 간격으로 확인합니다.
 
-기존에 발급한 토큰에는 `token_type`이 없습니다. 서버를 먼저 배포하면 역할(`role`)이 있는 기존 토큰은 Access Token으로, 역할이 없는 기존 토큰은 Refresh Token으로 구분해 각 토큰의 만료 시각까지 허용합니다. 새로 로그인하거나 토큰을 재발급하면 용도가 기록된 토큰이 발급됩니다. 클라이언트의 Bearer 헤더와 Refresh Token 쿠키 형식은 그대로 사용하므로 프런트엔드 변경은 필요하지 않습니다.
+로그아웃하면 해당 로그인에서 발급한 Access Token과 Refresh Token을 무효화합니다. 다른 기기의 로그인은 별도로 관리하며, 같은 사용자의 Bearer 토큰과 쿠키가 서로 다른 로그인을 가리키면 요청에 포함된 두 로그인만 무효화합니다. DB에 상태를 저장하므로 여러 서버와 재시작 후에도 적용되며, 토큰 원문은 저장하지 않습니다. 토큰이 모두 만료된 기록은 기본 1시간 간격으로 정리합니다.
+
+`sid`가 없는 기존 Refresh Token은 최초 재발급이나 로그아웃에서 해시로 식별합니다. 기존 Access Token은 만료까지 허용하되 로그아웃에 제시된 토큰은 해시를 기록해 거부합니다. 제시되지 않은 다른 구형 Access Token은 특정 로그인에 연결할 정보가 없어 원래 만료 시각까지 유효합니다. `token_type`이 없는 토큰도 역할(`role`) 유무로 용도를 구분합니다. Bearer 헤더와 쿠키, 요청과 응답 형식은 바뀌지 않습니다. 세부 정책은 [로그아웃 토큰 무효화 설계](docs/design/logout-token-invalidation.md)를 참고하세요.
 
 ---
 
