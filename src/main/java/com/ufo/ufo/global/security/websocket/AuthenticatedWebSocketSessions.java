@@ -9,7 +9,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.MessageDeliveryException;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketSession;
@@ -56,7 +55,6 @@ public class AuthenticatedWebSocketSessions {
         throw new MessageDeliveryException("유효한 인증이 필요합니다.");
     }
 
-    @Scheduled(fixedDelayString = "${app.auth.sessions.socket-check-delay-ms:30000}")
     public void closeInvalidSessions() {
         connections.forEach((id, connection) -> {
             if (connection.context != null) {
