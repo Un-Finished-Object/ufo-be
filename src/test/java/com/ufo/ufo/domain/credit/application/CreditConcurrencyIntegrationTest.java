@@ -11,6 +11,7 @@ import com.ufo.ufo.domain.auth.application.AuthService;
 import com.ufo.ufo.domain.auth.application.AuthSessionService;
 import com.ufo.ufo.domain.auth.dto.request.SignupRequest;
 import com.ufo.ufo.domain.chat.application.ChatNicknameGenerator;
+import com.ufo.ufo.domain.chat.application.ChatRoomParticipationService;
 import com.ufo.ufo.domain.chat.application.ChatRoomProvisioningService;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
@@ -569,7 +570,8 @@ class CreditConcurrencyIntegrationTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     @Import({UserService.class, CreditService.class, PatternPurchaseService.class,
-            ChatRoomProvisioningService.class, ChatNicknameGenerator.class, AttendanceService.class,
+            ChatRoomParticipationService.class, ChatRoomProvisioningService.class,
+            ChatNicknameGenerator.class, AttendanceService.class,
             ReferralService.class, ReferralCodeGenerator.class,
             InterestService.class, AuthService.class, AuthSessionService.class})
     static class TestConfig {
