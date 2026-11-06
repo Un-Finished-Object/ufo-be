@@ -5,8 +5,10 @@ import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.chat.exception.ChatNicknameNotFoundException;
+import com.ufo.ufo.domain.chat.exception.ChatRoomNotFoundException;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
+import com.ufo.ufo.global.exception.UserNotFoundException;
 import java.security.Principal;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +58,11 @@ public class ChatSocketAccessService {
                 .map(ChatRoomStatus::getNickname)
                 .filter(nickname -> !nickname.isBlank())
                 .orElseThrow(ChatNicknameNotFoundException::new);
+    }
+
+    void lockRoom(User user, Long roomId) {
+        userRepository.findByIdForUpdate(user.getId()).orElseThrow(UserNotFoundException::new);
+        chatRoomRepository.findByIdForUpdate(roomId).orElseThrow(ChatRoomNotFoundException::new);
     }
 
     private String extractUserEmail(Principal principal) {
