@@ -4,24 +4,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
 import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
+import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
+import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
 import com.ufo.ufo.domain.chat.domain.ChatMessage;
 import com.ufo.ufo.domain.chat.domain.ChatReadStatus;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
 import com.ufo.ufo.domain.chat.dto.websocket.request.ChatReadUpdateRequest;
 import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
-import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.domain.user.dao.UserRepository;
+import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.ChatRoomFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -43,6 +44,9 @@ class ChatReadUpdateServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private ChatRoomRepository roomRepository;
+
+    @Mock
     private ChatSocketEventPublisher eventPublisher;
 
     private ChatReadUpdateService readUpdateService;
@@ -50,7 +54,7 @@ class ChatReadUpdateServiceTest {
     @BeforeEach
     void setUp() {
         ChatReadStatusService readStatusService = new ChatReadStatusService(
-                userRepository, chatMessageRepository, chatReadStatusRepository);
+                userRepository, chatMessageRepository, chatReadStatusRepository, roomRepository);
         readUpdateService = new ChatReadUpdateService(accessService, readStatusService, eventPublisher);
     }
 
@@ -68,6 +72,7 @@ class ChatReadUpdateServiceTest {
         when(chatMessageRepository.findByIdAndRoom_Id(53L, 10L))
                 .thenReturn(Optional.of(ChatMessage.builder().room(room).user(user).text("메시지").build()));
         when(userRepository.findByIdForUpdate(21L)).thenReturn(Optional.of(user));
+        when(roomRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(room));
         when(chatReadStatusRepository.findByRoom_IdAndUser_Id(10L, 21L)).thenReturn(Optional.of(readStatus));
 
         readUpdateService.update(principal, new ChatReadUpdateRequest(10L, 53L));

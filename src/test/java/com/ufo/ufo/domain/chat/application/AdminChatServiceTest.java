@@ -68,7 +68,7 @@ class AdminChatServiceTest {
     @BeforeEach
     void setUp() {
         ChatReadStatusService readStatusService = new ChatReadStatusService(
-                userRepository, chatMessageRepository, chatReadStatusRepository);
+                userRepository, chatMessageRepository, chatReadStatusRepository, chatRoomRepository);
         adminChatService = new AdminChatService(
                 chatRoomRepository, chatMessageRepository, readStatusService, userService, imageService);
     }
@@ -171,6 +171,7 @@ class AdminChatServiceTest {
         when(chatMessageRepository.findByIdAndRoom_Id(messageId, roomId)).thenReturn(Optional.of(message));
         when(chatReadStatusRepository.findByRoom_IdAndUser_Id(roomId, 999L)).thenReturn(Optional.empty());
         when(userRepository.findByIdForUpdate(999L)).thenReturn(Optional.of(adminUser));
+        when(chatRoomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
         when(chatReadStatusRepository.save(any(ChatReadStatus.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 

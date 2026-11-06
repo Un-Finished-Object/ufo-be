@@ -3,17 +3,11 @@ package com.ufo.ufo.domain.chat.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.ufo.ufo.domain.chat.dto.websocket.request.ChatMessageSendRequest;
-import com.ufo.ufo.domain.chat.dto.websocket.request.ChatReadUpdateRequest;
-import com.ufo.ufo.domain.chat.dto.websocket.response.ChatErrorPayload;
-import com.ufo.ufo.domain.chat.dto.websocket.response.ChatEventType;
-import com.ufo.ufo.domain.chat.dto.websocket.response.ChatMessageCreatedPayload;
-import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
-import com.ufo.ufo.domain.chat.dto.websocket.response.ChatSocketEvent;
 import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
 import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
@@ -22,6 +16,13 @@ import com.ufo.ufo.domain.chat.domain.ChatMessage;
 import com.ufo.ufo.domain.chat.domain.ChatReadStatus;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
 import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
+import com.ufo.ufo.domain.chat.dto.websocket.request.ChatMessageSendRequest;
+import com.ufo.ufo.domain.chat.dto.websocket.request.ChatReadUpdateRequest;
+import com.ufo.ufo.domain.chat.dto.websocket.response.ChatErrorPayload;
+import com.ufo.ufo.domain.chat.dto.websocket.response.ChatEventType;
+import com.ufo.ufo.domain.chat.dto.websocket.response.ChatMessageCreatedPayload;
+import com.ufo.ufo.domain.chat.dto.websocket.response.ChatReadUpdatedPayload;
+import com.ufo.ufo.domain.chat.dto.websocket.response.ChatSocketEvent;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
@@ -48,6 +49,7 @@ import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
@@ -78,12 +80,18 @@ class ChatWebSocketServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(userRepository.findByIdForUpdate(any()))
+                .thenAnswer(invocation -> Optional.of(UserFixture.createUserWithId(invocation.getArgument(0))));
+        lenient().when(chatRoomRepository.findByIdForUpdate(any()))
+                .thenAnswer(invocation -> chatRoomRepository
+                        .findByIdAndPattern_DeletedAtIsNull(invocation.getArgument(0)));
         context = new AnnotationConfigApplicationContext();
         context.registerBean(SimpMessagingTemplate.class, () -> messagingTemplate);
         context.registerBean(EmbeddedDatabase.class, () -> new EmbeddedDatabaseBuilder()
                 .generateUniqueName(true).setType(EmbeddedDatabaseType.H2).build(),
                 definition -> definition.setDestroyMethodName("shutdown"));
         context.register(ChatSocketEventPublisher.class, TransactionConfig.class);
+        context.registerBean(ServiceEventListener.class, () -> new ServiceEventListener(messagingTemplate));
         context.refresh();
         transaction = new TransactionTemplate(
                 new DataSourceTransactionManager(context.getBean(EmbeddedDatabase.class)));
@@ -94,9 +102,23 @@ class ChatWebSocketServiceTest {
         chatWebSocketService = new ChatWebSocketService(
                 new ChatMessageSendService(accessService, chatMessageRepository, eventPublisher),
                 new ChatReadUpdateService(accessService,
-                        new ChatReadStatusService(userRepository, chatMessageRepository, chatReadStatusRepository),
+                        new ChatReadStatusService(userRepository, chatMessageRepository,
+                                chatReadStatusRepository, chatRoomRepository),
                         eventPublisher)
         );
+    }
+
+    static class ServiceEventListener {
+        private final SimpMessagingTemplate template;
+
+        ServiceEventListener(SimpMessagingTemplate template) {
+            this.template = template;
+        }
+
+        @TransactionalEventListener
+        public void onEvent(ChatSocketEvent<?> event) {
+            template.convertAndSend("/sub/chat/rooms/" + event.roomId(), event);
+        }
     }
 
     @AfterEach
