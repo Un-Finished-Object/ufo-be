@@ -66,9 +66,9 @@ class DatabaseMigrationIntegrationTest {
     void createsSchemaOnce() {
         Flyway migrations = flyway();
 
-        assertThat(migrations.migrate().migrationsExecuted).isEqualTo(4);
+        assertThat(migrations.migrate().migrationsExecuted).isEqualTo(5);
         assertThat(migrations.migrate().migrationsExecuted).isZero();
-        assertThat(tableCount()).isEqualTo(25);
+        assertThat(tableCount()).isEqualTo(26);
         assertThat(readStatusUniqueCount()).isEqualTo(1);
         assertThat(jdbc.queryForList("""
                 SELECT COLUMN_NAME FROM information_schema.COLUMNS
@@ -103,7 +103,7 @@ class DatabaseMigrationIntegrationTest {
         insertUser();
 
         registerBaseline();
-        assertThat(flyway().migrate().migrationsExecuted).isEqualTo(3);
+        assertThat(flyway().migrate().migrationsExecuted).isEqualTo(4);
         assertThat(jdbc.queryForObject("SELECT ball_balance FROM users WHERE user_id=1", Integer.class))
                 .isEqualTo(150);
         assertThat(readStatusUniqueCount()).isEqualTo(1);
@@ -140,7 +140,7 @@ class DatabaseMigrationIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT ball_balance FROM users WHERE user_id=1", Integer.class))
                 .isEqualTo(150);
         assertThat(readStatusUniqueCount()).isZero();
-        assertThat(flyway().migrate().migrationsExecuted).isEqualTo(3);
+        assertThat(flyway().migrate().migrationsExecuted).isEqualTo(4);
     }
 
     @Test
@@ -173,6 +173,8 @@ class DatabaseMigrationIntegrationTest {
                 directory.resolve("V3__create_profile_image_tasks.sql"));
         Files.copy(source.resolve("V4__create_auth_sessions.sql"),
                 directory.resolve("V4__create_auth_sessions.sql"));
+        Files.copy(source.resolve("V5__create_chat_event_outbox.sql"),
+                directory.resolve("V5__create_chat_event_outbox.sql"));
         Flyway changed = Flyway.configure().dataSource(dataSource)
                 .locations("filesystem:" + directory.toAbsolutePath()).load();
 
@@ -226,7 +228,7 @@ class DatabaseMigrationIntegrationTest {
             ScriptUtils.executeSqlScript(connection, new FileSystemResource("scripts/database/inspect-schema.sql"));
             connection.rollback();
         }
-        assertThat(tableCount()).isEqualTo(25);
+        assertThat(tableCount()).isEqualTo(26);
     }
 
     private Flyway flyway() {
