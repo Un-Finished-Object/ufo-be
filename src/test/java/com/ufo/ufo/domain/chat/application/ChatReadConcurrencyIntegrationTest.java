@@ -66,6 +66,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.support.ExecutorSubscribableChannel;
@@ -115,9 +116,41 @@ class ChatReadConcurrencyIntegrationTest {
     private PlatformTransactionManager transactionManager;
 
     @Autowired
+    private ChatEventOutboxProcessor outboxProcessor;
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @Autowired
     private DataSource dataSource;
     @Autowired(required = false)
     private MySQLContainer mysqlContainer;
+
+    @Test
+    @DisplayName("전송 실패 후 관리자가 삭제한 메시지는 재시도 시 본문을 숨기고 후속 이벤트를 전송해야 한다")
+    void retryMasksDeletedMessageAndContinuesRoom() {
+        Fixture fixture = fixture(Role.ROLE_ADMIN);
+        capturedEvents.failNextDelivery = true;
+        messageSendService.send(() -> fixture.user.getEmail(), new ChatMessageSendRequest(
+                fixture.room.getId(), "삭제할 원문", "deleted-before-retry", false, null));
+        Long messageId = messageRepository.findByRoom_IdOrderByIdDesc(fixture.room.getId(),
+                org.springframework.data.domain.PageRequest.of(0, 1)).getFirst().getId();
+        messageSendService.send(() -> fixture.user.getEmail(), new ChatMessageSendRequest(
+                fixture.room.getId(), "다음 메시지", "following-message", false, null));
+        assertThat(capturedEvents.events).isEmpty();
+
+        adminChatService.deleteMessage(fixture.user, fixture.room.getId(), messageId);
+        jdbc.update("update chat_event_outbox set next_attempt_at = ? where room_id = ? and published_at is null",
+                LocalDateTime.now().minusMinutes(1), fixture.room.getId());
+        outboxProcessor.processRoom(fixture.room.getId());
+
+        assertThat(capturedEvents.events.stream()
+                .map(event -> ((ChatMessageCreatedPayload) event.payload()).text()).toList())
+                .containsExactly("", "다음 메시지");
+        ChatMessageCreatedPayload deleted = (ChatMessageCreatedPayload) capturedEvents.events.element().payload();
+        assertThat(deleted.messageId()).isEqualTo(messageId);
+        assertThat(deleted.clientMessageId()).isEqualTo("deleted-before-retry");
+        assertThat(messageRepository.findById(messageId).orElseThrow().getDeletedAt()).isNotNull();
+    }
 
     @Test
     @EnabledIfSystemProperty(named = "ufo.test.database", matches = "mysql")

@@ -1,8 +1,11 @@
 package com.ufo.ufo.domain.chat.application;
 
 import com.ufo.ufo.domain.chat.dao.ChatEventOutboxRepository;
+import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
 import com.ufo.ufo.domain.chat.domain.ChatEventOutbox;
+import com.ufo.ufo.domain.chat.dto.websocket.response.ChatMessageCreatedPayload;
+import com.ufo.ufo.domain.chat.dto.websocket.response.ChatSocketEvent;
 import com.ufo.ufo.global.observability.ErrorLogSupport;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,7 @@ public class ChatEventOutboxProcessor {
     private final ChatEventOutboxRepository repository;
     private final ChatEventCodec codec;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ChatMessageRepository messageRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.READ_COMMITTED)
     public void processRoom(Long roomId) {
@@ -36,7 +40,7 @@ public class ChatEventOutboxProcessor {
             }
             entry.startAttempt();
             try {
-                messagingTemplate.convertAndSend("/sub/chat/rooms/" + roomId, codec.decode(entry));
+                messagingTemplate.convertAndSend("/sub/chat/rooms/" + roomId, eventToSend(entry));
                 entry.complete(LocalDateTime.now());
             } catch (RuntimeException failure) {
                 entry.defer(LocalDateTime.now());
@@ -47,6 +51,17 @@ public class ChatEventOutboxProcessor {
             }
             repository.flush();
         }
+    }
+
+    private ChatSocketEvent<?> eventToSend(ChatEventOutbox entry) {
+        ChatSocketEvent<?> event = codec.decode(entry);
+        if (event.payload() instanceof ChatMessageCreatedPayload payload
+                && !messageRepository.existsByIdAndRoom_IdAndDeletedAtIsNull(payload.messageId(), entry.getRoomId())) {
+            return new ChatSocketEvent<>(event.eventType(), event.roomId(), new ChatMessageCreatedPayload(
+                    payload.messageId(), payload.clientMessageId(), payload.senderName(), "",
+                    payload.replySenderName(), payload.replyMessageId(), payload.createdAt()));
+        }
+        return event;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

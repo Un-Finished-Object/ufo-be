@@ -85,6 +85,7 @@ public class AdminChatService {
         validateAdminRole(adminUser);
         chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(chatRoomId)
                 .orElseThrow(ChatRoomNotFoundException::new);
+        chatRoomRepository.findByIdForUpdate(chatRoomId).orElseThrow(ChatRoomNotFoundException::new);
 
         ChatMessage chatMessage = chatMessageRepository.findByIdAndRoom_Id(messageId, chatRoomId)
                 .orElseThrow(InvalidChatMessageIdException::new);

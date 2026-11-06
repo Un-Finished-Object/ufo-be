@@ -124,10 +124,14 @@ class AdminChatServiceTest {
 
         when(userService.getUserById(999L)).thenReturn(adminUser);
         when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
+        when(chatRoomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
         when(chatMessageRepository.findByIdAndRoom_Id(messageId, roomId)).thenReturn(Optional.of(message));
 
         AdminDeleteChatMessageResponse response = adminChatService.deleteMessage(adminUser, roomId, messageId);
 
+        var order = org.mockito.Mockito.inOrder(chatRoomRepository, chatMessageRepository);
+        order.verify(chatRoomRepository).findByIdForUpdate(roomId);
+        order.verify(chatMessageRepository).findByIdAndRoom_Id(messageId, roomId);
         assertThat(response.chatRoomId()).isEqualTo(roomId);
         assertThat(response.messageId()).isEqualTo(messageId);
         assertThat(response.deletedAt()).isNotNull();
@@ -145,6 +149,7 @@ class AdminChatServiceTest {
 
         when(userService.getUserById(999L)).thenReturn(adminUser);
         when(chatRoomRepository.findByIdAndPattern_DeletedAtIsNull(roomId)).thenReturn(Optional.of(room));
+        when(chatRoomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
         when(chatMessageRepository.findByIdAndRoom_Id(messageId, roomId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> adminChatService.deleteMessage(adminUser, roomId, messageId))

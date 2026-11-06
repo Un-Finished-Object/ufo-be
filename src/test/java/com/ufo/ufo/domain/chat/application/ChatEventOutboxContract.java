@@ -77,10 +77,12 @@ abstract class ChatEventOutboxContract {
 
     private User user;
     private ChatRoom room;
+    private Long messageId;
 
     @BeforeEach
     void prepareRoom() {
         repository.deleteAllInBatch();
+        messageId = null;
         transaction().executeWithoutResult(status -> {
             String identifier = UUID.randomUUID().toString().replace("-", "");
             user = UserFixture.createUser(identifier + "@example.test", Role.ROLE_USER);
@@ -341,7 +343,9 @@ abstract class ChatEventOutboxContract {
 
     private void publishState(ChatEventType type) {
         if (type == ChatEventType.MESSAGE_CREATED) {
-            entityManager.persist(ChatMessage.builder().room(room).user(user).text("private-message").build());
+            ChatMessage message = ChatMessage.builder().room(room).user(user).text("private-message").build();
+            entityManager.persist(message);
+            messageId = message.getId();
         } else {
             entityManager.persist(ChatReadStatus.builder().room(room).user(user)
                     .lastReadMessageId(53L).readAt(EVENT_TIME).build());
@@ -351,6 +355,12 @@ abstract class ChatEventOutboxContract {
 
     private void publish(ChatEventType type) {
         if (type == ChatEventType.MESSAGE_CREATED) {
+            if (messageId == null
+                    && TransactionSynchronizationManager.isActualTransactionActive()) {
+                ChatMessage message = ChatMessage.builder().room(room).user(user).text("private-message").build();
+                entityManager.persist(message);
+                messageId = message.getId();
+            }
             publisher.sendMessageCreated(room.getId(), (ChatMessageCreatedPayload) payload(type));
         } else {
             publisher.sendReadUpdated(room.getId(), (ChatReadUpdatedPayload) payload(type));
@@ -359,7 +369,7 @@ abstract class ChatEventOutboxContract {
 
     private Object payload(ChatEventType type) {
         return type == ChatEventType.MESSAGE_CREATED
-                ? new ChatMessageCreatedPayload(53L, "message-123", "민트 메리노", "private-message",
+                ? new ChatMessageCreatedPayload(messageId, "message-123", "민트 메리노", "private-message",
                         "답장 작성자", 52L, EVENT_TIME)
                 : new ChatReadUpdatedPayload(user.getId(), 53L, EVENT_TIME);
     }
