@@ -2,18 +2,14 @@ package com.ufo.ufo.domain.pattern.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.ufo.ufo.domain.chat.application.ChatNicknameGenerator;
-import com.ufo.ufo.domain.chat.application.ChatRoomProvisioningService;
-import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
-import com.ufo.ufo.domain.chat.domain.ChatRoom;
-import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
+import com.ufo.ufo.domain.chat.application.ChatRoomParticipationService;
 import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.credit.domain.UnlockType;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
@@ -22,9 +18,7 @@ import com.ufo.ufo.domain.pattern.dto.request.PatternPurchaseRequest;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseStatusResponse;
 import com.ufo.ufo.domain.pattern.exception.ChatRoomAlreadyPurchasedException;
-import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.global.exception.ApiException;
-import com.ufo.ufo.support.fixture.ChatRoomFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import java.time.LocalDateTime;
@@ -33,7 +27,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -43,113 +36,80 @@ class PatternPurchaseServiceTest {
 
     @Mock
     private PatternRepository patternRepository;
-
     @Mock
     private CreditService creditService;
-
     @Mock
-    private UserService userService;
-
-    @Mock
-    private ChatRoomProvisioningService chatRoomProvisioningService;
-
-    @Mock
-    private ChatRoomStatusRepository chatRoomStatusRepository;
-
-    @Mock
-    private ChatNicknameGenerator chatNicknameGenerator;
-
+    private ChatRoomParticipationService participationService;
     @InjectMocks
-    private PatternPurchaseService patternPurchaseService;
+    private PatternPurchaseService purchaseService;
 
     @Test
-    @DisplayName("구매 요청 type이 chat이면 채팅 잠금 해제만 구매해야 한다")
-    void purchase_TypeChat_PurchasesChatOnly() {
+    @DisplayName("채팅 해금 구매 후 채팅 도메인에 참여 처리를 위임해야 한다")
+    void purchasesChatBeforeJoining() {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
-        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, 20L);
-
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(userService.getUserById(1L)).thenReturn(user);
         when(creditService.purchaseUnlock(user, 10L, UnlockType.CHAT)).thenReturn(true);
-        when(chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(false);
-        when(chatRoomProvisioningService.assignJoinableRoom(any(Pattern.class)))
-                .thenReturn(room);
-        when(chatRoomProvisioningService.lockRoom(room)).thenReturn(room);
-        when(chatRoomStatusRepository.countByRoom_Id(20L)).thenReturn(1L);
-        when(chatNicknameGenerator.generate(1L)).thenReturn("버건디 린넨");
-        when(chatRoomStatusRepository.saveAndFlush(any(ChatRoomStatus.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        PatternPurchaseResponse response = patternPurchaseService.purchase(
-                user, 10L, new PatternPurchaseRequest("chat"));
+        PatternPurchaseResponse response = purchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat"));
 
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.type()).isEqualTo("chat");
-        verify(creditService, times(1)).purchaseUnlock(user, 10L, UnlockType.CHAT);
-        verify(creditService, times(0)).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
-        verify(chatRoomProvisioningService, times(1)).assignJoinableRoom(any(Pattern.class));
-        verify(chatRoomStatusRepository, times(1)).saveAndFlush(any(ChatRoomStatus.class));
-        verify(chatNicknameGenerator).generate(1L);
-        InOrder roomAllocation = inOrder(chatRoomProvisioningService, chatRoomStatusRepository);
-        roomAllocation.verify(chatRoomProvisioningService).lockRoom(room);
-        roomAllocation.verify(chatRoomStatusRepository).countByRoom_Id(20L);
-        roomAllocation.verify(chatRoomStatusRepository).saveAndFlush(any(ChatRoomStatus.class));
+        var order = inOrder(creditService, participationService);
+        order.verify(creditService).purchaseUnlock(user, 10L, UnlockType.CHAT);
+        order.verify(participationService).join(user, pattern);
+        verify(creditService, never()).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
     }
 
     @Test
-    @DisplayName("구매 요청 type이 yarn이면 대체 실 잠금 해제만 구매해야 한다")
-    void purchase_TypeYarn_PurchasesAlternativeOnly() {
+    @DisplayName("대체 실 구매는 채팅 참여를 요청하지 않아야 한다")
+    void purchasesYarnWithoutJoining() {
         var user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(10L);
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
+        when(patternRepository.findById(10L)).thenReturn(Optional.of(PatternFixture.createPatternWithId(10L)));
 
-        PatternPurchaseResponse response = patternPurchaseService.purchase(
-                user, 10L, new PatternPurchaseRequest("yarn"));
+        PatternPurchaseResponse response = purchaseService.purchase(user, 10L, new PatternPurchaseRequest("yarn"));
 
-        assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.type()).isEqualTo("yarn");
-        verify(creditService, times(0)).purchaseUnlock(user, 10L, UnlockType.CHAT);
-        verify(creditService, times(1)).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
-        verifyNoInteractions(chatRoomStatusRepository);
-        verifyNoInteractions(chatRoomProvisioningService);
+        verify(creditService).purchaseUnlock(user, 10L, UnlockType.YARN_INFO);
+        verify(creditService, never()).purchaseUnlock(user, 10L, UnlockType.CHAT);
+        verifyNoInteractions(participationService);
     }
 
     @Test
-    @DisplayName("이미 구매한 채팅방이면 예외가 발생해야 한다")
-    void purchase_ChatAlreadyPurchased_ThrowsException() {
+    @DisplayName("이미 채팅을 해금했다면 참여 처리를 요청하지 않고 중복 오류를 반환해야 한다")
+    void rejectsAlreadyUnlockedChat() {
         var user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(10L);
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(userService.getUserById(1L)).thenReturn(user);
-        when(creditService.purchaseUnlock(user, 10L, UnlockType.CHAT)).thenReturn(true);
-        when(chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(1L, 10L)).thenReturn(true);
+        when(patternRepository.findById(10L)).thenReturn(Optional.of(PatternFixture.createPatternWithId(10L)));
+        when(creditService.purchaseUnlock(user, 10L, UnlockType.CHAT)).thenReturn(false);
 
-        assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))
+        assertThatThrownBy(() -> purchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))
                 .isInstanceOf(ChatRoomAlreadyPurchasedException.class);
-        verifyNoInteractions(chatRoomProvisioningService);
+
+        verifyNoInteractions(participationService);
     }
 
     @Test
-    @DisplayName("구매 여부 조회는 채팅/대체 실 해금 여부를 반환해야 한다")
-    void getStatus_ReturnsUnlockStatus() {
+    @DisplayName("채팅 참여 중 오류가 발생하면 구매 처리도 실패해야 한다")
+    void propagatesParticipationFailure() {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
-        ChatRoom room = ChatRoomFixture.createRoomWithId(pattern, 20L);
-        ChatRoomStatus status = ChatRoomStatus.builder()
-                .user(user)
-                .room(room)
-                .favorite(false)
-                .hidden(false)
-                .nickname("민트 메리노")
-                .build();
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(chatRoomStatusRepository.findFirstByUser_IdAndRoom_Pattern_IdOrderByCreatedAtDescIdDesc(1L, 10L))
-                .thenReturn(Optional.of(status));
-        when(creditService.isUnlocked(1L, 10L, UnlockType.CHAT)).thenReturn(true);
-        when(creditService.isUnlocked(1L, 10L, UnlockType.YARN_INFO)).thenReturn(false);
+        when(creditService.purchaseUnlock(user, 10L, UnlockType.CHAT)).thenReturn(true);
+        doThrow(new ChatRoomAlreadyPurchasedException()).when(participationService).join(user, pattern);
 
-        PatternPurchaseStatusResponse response = patternPurchaseService.getStatus(user, 10L);
+        assertThatThrownBy(() -> purchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))
+                .isInstanceOf(ChatRoomAlreadyPurchasedException.class);
+    }
+
+    @Test
+    @DisplayName("구매 여부와 채팅 도메인에서 조회한 최근 참여 방 ID를 반환해야 한다")
+    void returnsUnlocksAndLatestRoomId() {
+        var user = UserFixture.createUserWithId(1L);
+        when(patternRepository.findById(10L)).thenReturn(Optional.of(PatternFixture.createPatternWithId(10L)));
+        when(participationService.findLatestJoinedRoomId(1L, 10L)).thenReturn(Optional.of(20L));
+        when(creditService.isUnlocked(1L, 10L, UnlockType.CHAT)).thenReturn(true);
+
+        PatternPurchaseStatusResponse response = purchaseService.getStatus(user, 10L);
 
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.chat()).isTrue();
@@ -158,63 +118,54 @@ class PatternPurchaseServiceTest {
     }
 
     @Test
-    @DisplayName("구매 여부 조회에서 채팅방 구매 내역이 없으면 채팅방 ID는 null이어야 한다")
-    void getStatus_ChatRoomStatusNotFound_ReturnsNullChatRoomId() {
+    @DisplayName("참여 내역이 없으면 구매 조회의 방 ID는 null이어야 한다")
+    void returnsNullWithoutJoinedRoom() {
         var user = UserFixture.createUserWithId(1L);
-        Pattern pattern = PatternFixture.createPatternWithId(10L);
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
-        when(chatRoomStatusRepository.findFirstByUser_IdAndRoom_Pattern_IdOrderByCreatedAtDescIdDesc(1L, 10L))
-                .thenReturn(Optional.empty());
-        when(creditService.isUnlocked(1L, 10L, UnlockType.CHAT)).thenReturn(false);
-        when(creditService.isUnlocked(1L, 10L, UnlockType.YARN_INFO)).thenReturn(false);
+        when(patternRepository.findById(10L)).thenReturn(Optional.of(PatternFixture.createPatternWithId(10L)));
+        when(participationService.findLatestJoinedRoomId(1L, 10L)).thenReturn(Optional.empty());
 
-        PatternPurchaseStatusResponse response = patternPurchaseService.getStatus(user, 10L);
+        PatternPurchaseStatusResponse response = purchaseService.getStatus(user, 10L);
 
-        assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.chat()).isFalse();
         assertThat(response.alternative()).isFalse();
         assertThat(response.chatRoomId()).isNull();
     }
 
     @Test
-    @DisplayName("존재하지 않는 도안 구매는 예외가 발생해야 한다")
-    void purchase_PatternNotFound_ThrowsException() {
+    @DisplayName("존재하지 않는 도안은 구매 요청을 거부해야 한다")
+    void rejectsMissingPattern() {
         var user = UserFixture.createUserWithId(1L);
         when(patternRepository.findById(10L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))
+        assertThatThrownBy(() -> purchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))
                 .isInstanceOf(ApiException.class);
-        verifyNoInteractions(creditService);
-        verifyNoInteractions(chatRoomStatusRepository);
-        verifyNoInteractions(chatRoomProvisioningService);
+
+        verifyNoInteractions(creditService, participationService);
     }
 
     @Test
-    @DisplayName("삭제된 도안 구매는 예외가 발생해야 한다")
-    void purchase_DeletedPattern_ThrowsException() {
-        var user = UserFixture.createUserWithId(1L);
-        Pattern deletedPattern = PatternFixture.createPatternWithId(10L);
-        PatternFixture.setDeletedAt(deletedPattern, LocalDateTime.now());
-        when(patternRepository.findById(10L)).thenReturn(Optional.of(deletedPattern));
-
-        assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))
-                .isInstanceOf(ApiException.class);
-        verifyNoInteractions(creditService);
-        verifyNoInteractions(chatRoomStatusRepository);
-        verifyNoInteractions(chatRoomProvisioningService);
-    }
-
-    @Test
-    @DisplayName("구매 요청 type이 유효하지 않으면 예외가 발생해야 한다")
-    void purchase_InvalidType_ThrowsException() {
+    @DisplayName("삭제된 도안은 구매 요청을 거부해야 한다")
+    void rejectsDeletedPattern() {
         var user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
+        PatternFixture.setDeletedAt(pattern, LocalDateTime.now());
         when(patternRepository.findById(10L)).thenReturn(Optional.of(pattern));
 
-        assertThatThrownBy(() -> patternPurchaseService.purchase(user, 10L, new PatternPurchaseRequest("9")))
+        assertThatThrownBy(() -> purchaseService.purchase(user, 10L, new PatternPurchaseRequest("chat")))
                 .isInstanceOf(ApiException.class);
-        verifyNoInteractions(creditService);
-        verifyNoInteractions(chatRoomStatusRepository);
-        verifyNoInteractions(chatRoomProvisioningService);
+
+        verifyNoInteractions(creditService, participationService);
+    }
+
+    @Test
+    @DisplayName("유효하지 않은 구매 유형은 구매 요청을 거부해야 한다")
+    void rejectsInvalidType() {
+        var user = UserFixture.createUserWithId(1L);
+        when(patternRepository.findById(10L)).thenReturn(Optional.of(PatternFixture.createPatternWithId(10L)));
+
+        assertThatThrownBy(() -> purchaseService.purchase(user, 10L, new PatternPurchaseRequest("9")))
+                .isInstanceOf(ApiException.class);
+
+        verifyNoInteractions(creditService, participationService);
     }
 }

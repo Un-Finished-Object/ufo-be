@@ -1,10 +1,6 @@
 package com.ufo.ufo.domain.pattern.application;
 
-import com.ufo.ufo.domain.chat.application.ChatNicknameGenerator;
-import com.ufo.ufo.domain.chat.application.ChatRoomProvisioningService;
-import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
-import com.ufo.ufo.domain.chat.domain.ChatRoom;
-import com.ufo.ufo.domain.chat.domain.ChatRoomStatus;
+import com.ufo.ufo.domain.chat.application.ChatRoomParticipationService;
 import com.ufo.ufo.domain.credit.application.CreditService;
 import com.ufo.ufo.domain.credit.domain.UnlockType;
 import com.ufo.ufo.domain.pattern.dao.PatternRepository;
@@ -14,11 +10,9 @@ import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternPurchaseStatusResponse;
 import com.ufo.ufo.domain.pattern.exception.ChatRoomAlreadyPurchasedException;
 import com.ufo.ufo.domain.pattern.exception.PatternNotFoundException;
-import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.domain.User;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,10 +24,7 @@ public class PatternPurchaseService {
 
     private final PatternRepository patternRepository;
     private final CreditService creditService;
-    private final UserService userService;
-    private final ChatRoomProvisioningService chatRoomProvisioningService;
-    private final ChatRoomStatusRepository chatRoomStatusRepository;
-    private final ChatNicknameGenerator chatNicknameGenerator;
+    private final ChatRoomParticipationService participationService;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public PatternPurchaseResponse purchase(User user, Long patternId, PatternPurchaseRequest request) {
@@ -46,17 +37,14 @@ public class PatternPurchaseService {
             }
         }
         if (unlockTypes.contains(UnlockType.CHAT)) {
-            ensureChatRoomStatus(user, pattern);
+            participationService.join(user, pattern);
         }
         return PatternPurchaseResponse.from(user.getId(), request.type());
     }
 
     public PatternPurchaseStatusResponse getStatus(User user, Long patternId) {
         findActivePattern(patternId);
-        Long chatRoomId = chatRoomStatusRepository
-                .findFirstByUser_IdAndRoom_Pattern_IdOrderByCreatedAtDescIdDesc(user.getId(), patternId)
-                .map(chatRoomStatus -> chatRoomStatus.getRoom().getId())
-                .orElse(null);
+        Long chatRoomId = participationService.findLatestJoinedRoomId(user.getId(), patternId).orElse(null);
         return PatternPurchaseStatusResponse.from(
                 user.getId(),
                 creditService.isUnlocked(user.getId(), patternId, UnlockType.CHAT),
@@ -72,28 +60,5 @@ public class PatternPurchaseService {
             throw new PatternNotFoundException();
         }
         return pattern;
-    }
-
-    private void ensureChatRoomStatus(User user, Pattern pattern) {
-        User loginUser = userService.getUserById(user.getId());
-        if (chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(loginUser.getId(), pattern.getId())) {
-            throw new ChatRoomAlreadyPurchasedException();
-        }
-
-        ChatRoom assignedRoom = chatRoomProvisioningService.assignJoinableRoom(pattern);
-        ChatRoom chatRoom = chatRoomProvisioningService.lockRoom(assignedRoom);
-        long roomStatusCount = chatRoomStatusRepository.countByRoom_Id(chatRoom.getId());
-        String chatNickname = chatNicknameGenerator.generate(roomStatusCount);
-        try {
-            chatRoomStatusRepository.saveAndFlush(ChatRoomStatus.builder()
-                    .user(loginUser)
-                    .room(chatRoom)
-                    .favorite(false)
-                    .hidden(false)
-                    .nickname(chatNickname)
-                    .build());
-        } catch (DataIntegrityViolationException exception) {
-            throw new ChatRoomAlreadyPurchasedException();
-        }
     }
 }

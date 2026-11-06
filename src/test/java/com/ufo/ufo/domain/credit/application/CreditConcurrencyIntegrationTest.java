@@ -2,6 +2,8 @@ package com.ufo.ufo.domain.credit.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -11,6 +13,7 @@ import com.ufo.ufo.domain.auth.application.AuthService;
 import com.ufo.ufo.domain.auth.application.AuthSessionService;
 import com.ufo.ufo.domain.auth.dto.request.SignupRequest;
 import com.ufo.ufo.domain.chat.application.ChatNicknameGenerator;
+import com.ufo.ufo.domain.chat.application.ChatRoomParticipationService;
 import com.ufo.ufo.domain.chat.application.ChatRoomProvisioningService;
 import com.ufo.ufo.domain.chat.dao.ChatRoomStatusRepository;
 import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
@@ -67,6 +70,9 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
@@ -97,7 +103,7 @@ class CreditConcurrencyIntegrationTest {
     private CreditTransactionRepository transactionRepository;
     @Autowired
     private UnlockRepository unlockRepository;
-    @Autowired
+    @MockitoSpyBean
     private ChatRoomStatusRepository chatRoomStatusRepository;
     @Autowired
     private ChatRoomRepository chatRoomRepository;
@@ -119,6 +125,8 @@ class CreditConcurrencyIntegrationTest {
     private AuthService authService;
     @Autowired
     private PlatformTransactionManager transactionManager;
+    @Autowired
+    private JdbcTemplate jdbc;
 
     @Test
     @DisplayName("잔액 10의 서로 다른 동시 구매는 하나만 승인하고 나머지는 잔액 부족으로 거절한다")
@@ -444,6 +452,72 @@ class CreditConcurrencyIntegrationTest {
     }
 
     @Test
+    @DisplayName("채팅 참여 저장이 실패하면 차감, 거래, 해금과 신규 채팅방을 모두 취소해야 한다")
+    void failedParticipation_RollsBackPurchaseAndNewRoom() {
+        User user = createUser(20, Role.ROLE_USER);
+        Pattern pattern = patternRepository.saveAndFlush(PatternFixture.createPattern());
+        doThrow(new DataIntegrityViolationException("injected participation failure"))
+                .when(chatRoomStatusRepository).saveAndFlush(any(ChatRoomStatus.class));
+
+        assertThatThrownBy(() -> purchase(user, pattern, "chat"))
+                .isInstanceOf(ChatRoomAlreadyPurchasedException.class);
+
+        assertWallet(user, 20, 0, 0);
+        assertThat(userTransactions(user)).isEmpty();
+        assertThat(chatRoomStatusRepository.existsByUser_IdAndRoom_Pattern_Id(user.getId(), pattern.getId())).isFalse();
+        assertThat(chatRoomRepository.findAll().stream()
+                .filter(room -> room.getPattern().getId().equals(pattern.getId()))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("최초 채팅 구매가 동시에 들어와도 같은 방에 배정하고 서로 다른 닉네임을 생성해야 한다")
+    void differentUsersPurchasingFirstRoom_ShareRoomAndDistinctNicknames() throws Exception {
+        User first = createUser(10, Role.ROLE_USER);
+        User second = createUser(10, Role.ROLE_USER);
+        Pattern pattern = patternRepository.saveAndFlush(PatternFixture.createPattern());
+        CountDownLatch ready = new CountDownLatch(2);
+
+        assertThat(runTogether(List.of(
+                () -> withDetachedUser(first, ready, current -> purchase(current, pattern, "chat")),
+                () -> withDetachedUser(second, ready, current -> purchase(current, pattern, "chat")))))
+                .isEmpty();
+
+        assertWallet(first, 0, -10, 1);
+        assertWallet(second, 0, -10, 1);
+        assertThat(userTransactions(first)).hasSize(1);
+        assertThat(userTransactions(second)).hasSize(1);
+        List<ChatRoom> rooms = chatRoomRepository.findAll().stream()
+                .filter(room -> room.getPattern().getId().equals(pattern.getId())).toList();
+        assertThat(rooms).hasSize(1);
+        List<ChatRoomStatus> participants = chatRoomStatusRepository.findAll().stream()
+                .filter(status -> status.getRoom().getId().equals(rooms.getFirst().getId())).toList();
+        assertThat(participants).hasSize(2);
+        assertThat(participants).extracting(ChatRoomStatus::getNickname).doesNotHaveDuplicates();
+        assertThat(purchaseService.getStatus(first, pattern.getId()).chatRoomId()).isEqualTo(rooms.getFirst().getId());
+        assertThat(purchaseService.getStatus(second, pattern.getId()).chatRoomId()).isEqualTo(rooms.getFirst().getId());
+    }
+
+    @Test
+    @DisplayName("참여 시각이 같으면 참여 ID가 큰 최근 채팅방을 구매 조회에 표시해야 한다")
+    void purchaseStatus_SelectsLatestParticipationWhenTimestampsMatch() {
+        User user = createUser(20, Role.ROLE_USER);
+        Pattern pattern = patternRepository.saveAndFlush(PatternFixture.createPattern());
+        LocalDateTime now = LocalDateTime.now();
+        ChatRoom first = chatRoomRepository.saveAndFlush(ChatRoom.builder().pattern(pattern)
+                .segmentStartAt(now.minusDays(14)).segmentEndAt(now.minusDays(7)).build());
+        ChatRoom latest = chatRoomRepository.saveAndFlush(ChatRoom.builder().pattern(pattern)
+                .segmentStartAt(now.minusDays(7)).segmentEndAt(now).build());
+        chatRoomStatusRepository.saveAndFlush(ChatRoomStatus.builder()
+                .user(user).room(first).nickname("민트 메리노").build());
+        chatRoomStatusRepository.saveAndFlush(ChatRoomStatus.builder()
+                .user(user).room(latest).nickname("버건디 린넨").build());
+        jdbc.update("update chat_room_statuses set created_at = ? where user_id = ?", now, user.getId());
+
+        assertThat(purchaseService.getStatus(user, pattern.getId()).chatRoomId()).isEqualTo(latest.getId());
+        assertWallet(user, 20, 0, 0);
+    }
+
+    @Test
     @DisplayName("같은 기존 채팅방을 동시에 구매해도 닉네임 순번이 겹치지 않는다")
     void differentUsersPurchasingExistingRoom_AssignDistinctNicknames() throws Exception {
         User first = createUser(10, Role.ROLE_USER);
@@ -569,7 +643,8 @@ class CreditConcurrencyIntegrationTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     @Import({UserService.class, CreditService.class, PatternPurchaseService.class,
-            ChatRoomProvisioningService.class, ChatNicknameGenerator.class, AttendanceService.class,
+            ChatRoomParticipationService.class, ChatRoomProvisioningService.class,
+            ChatNicknameGenerator.class, AttendanceService.class,
             ReferralService.class, ReferralCodeGenerator.class,
             InterestService.class, AuthService.class, AuthSessionService.class})
     static class TestConfig {
