@@ -2,8 +2,10 @@ package com.ufo.ufo.domain.chat.application;
 
 import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
 import com.ufo.ufo.domain.chat.dao.ChatReadStatusRepository;
+import com.ufo.ufo.domain.chat.dao.ChatRoomRepository;
 import com.ufo.ufo.domain.chat.domain.ChatReadStatus;
 import com.ufo.ufo.domain.chat.domain.ChatRoom;
+import com.ufo.ufo.domain.chat.exception.ChatRoomNotFoundException;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.exception.UserNotFoundException;
@@ -21,6 +23,7 @@ public class ChatReadStatusService {
     private final UserRepository userRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatReadStatusRepository chatReadStatusRepository;
+    private final ChatRoomRepository chatRoomRepository;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public Optional<ChatReadStatus> markRead(User user, ChatRoom room, Long messageId) {
@@ -32,6 +35,7 @@ public class ChatReadStatusService {
         // 첫 읽음 요청의 중복 저장을 막도록 사용자 행을 먼저 잠근다.
         User lockedUser = userRepository.findByIdForUpdate(user.getId())
                 .orElseThrow(UserNotFoundException::new);
+        chatRoomRepository.findByIdForUpdate(room.getId()).orElseThrow(ChatRoomNotFoundException::new);
         LocalDateTime readAt = LocalDateTime.now();
         ChatReadStatus status = chatReadStatusRepository.findByRoom_IdAndUser_Id(room.getId(), lockedUser.getId())
                 .orElseGet(() -> chatReadStatusRepository.save(ChatReadStatus.builder()

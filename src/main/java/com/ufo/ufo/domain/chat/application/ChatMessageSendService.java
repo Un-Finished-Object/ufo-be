@@ -62,6 +62,7 @@ public class ChatMessageSendService {
             return;
         }
 
+        accessService.lockRoom(sender, roomId);
         ChatMessage savedMessage = chatMessageRepository.save(
                 ChatMessage.builder()
                         .room(maybeRoom.get())

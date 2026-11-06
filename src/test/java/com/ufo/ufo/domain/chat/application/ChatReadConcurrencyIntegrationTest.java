@@ -3,6 +3,7 @@ package com.ufo.ufo.domain.chat.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 
 import com.ufo.ufo.domain.chat.dao.ChatMessageRepository;
@@ -28,12 +29,15 @@ import com.ufo.ufo.domain.user.application.UserService;
 import com.ufo.ufo.domain.user.dao.UserRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.global.security.types.Role;
+import com.ufo.ufo.support.database.DatabaseLockObserver;
 import com.ufo.ufo.support.database.DatabaseTestApplication;
 import com.ufo.ufo.support.database.JpaAuditingTestConfig;
 import com.ufo.ufo.support.database.TestDatabaseConfig;
+import com.ufo.ufo.support.fixture.ChatOutboxTestConfig;
 import com.ufo.ufo.support.fixture.ChatRoomFixture;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.logging.LogCapture;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -43,13 +47,16 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +66,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.support.ExecutorSubscribableChannel;
@@ -69,6 +77,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.testcontainers.mysql.MySQLContainer;
 
 @Tag("integration")
 @Timeout(45)
@@ -105,6 +114,76 @@ class ChatReadConcurrencyIntegrationTest {
     private CapturedEvents capturedEvents;
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private ChatEventOutboxProcessor outboxProcessor;
+    @Autowired
+    private JdbcTemplate jdbc;
+
+    @Autowired
+    private DataSource dataSource;
+    @Autowired(required = false)
+    private MySQLContainer mysqlContainer;
+
+    @Test
+    @DisplayName("전송 실패 후 관리자가 삭제한 메시지는 재시도 시 본문을 숨기고 후속 이벤트를 전송해야 한다")
+    void retryMasksDeletedMessageAndContinuesRoom() {
+        Fixture fixture = fixture(Role.ROLE_ADMIN);
+        capturedEvents.failNextDelivery = true;
+        messageSendService.send(() -> fixture.user.getEmail(), new ChatMessageSendRequest(
+                fixture.room.getId(), "삭제할 원문", "deleted-before-retry", false, null));
+        Long messageId = messageRepository.findByRoom_IdOrderByIdDesc(fixture.room.getId(),
+                org.springframework.data.domain.PageRequest.of(0, 1)).getFirst().getId();
+        messageSendService.send(() -> fixture.user.getEmail(), new ChatMessageSendRequest(
+                fixture.room.getId(), "다음 메시지", "following-message", false, null));
+        assertThat(capturedEvents.events).isEmpty();
+
+        adminChatService.deleteMessage(fixture.user, fixture.room.getId(), messageId);
+        jdbc.update("update chat_event_outbox set next_attempt_at = ? where room_id = ? and published_at is null",
+                LocalDateTime.now().minusMinutes(1), fixture.room.getId());
+        outboxProcessor.processRoom(fixture.room.getId());
+
+        assertThat(capturedEvents.events.stream()
+                .map(event -> ((ChatMessageCreatedPayload) event.payload()).text()).toList())
+                .containsExactly("", "다음 메시지");
+        ChatMessageCreatedPayload deleted = (ChatMessageCreatedPayload) capturedEvents.events.element().payload();
+        assertThat(deleted.messageId()).isEqualTo(messageId);
+        assertThat(deleted.clientMessageId()).isEqualTo("deleted-before-retry");
+        assertThat(messageRepository.findById(messageId).orElseThrow().getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "ufo.test.database", matches = "mysql")
+    @DisplayName("동일 사용자의 메시지 전송과 읽음 처리는 사용자부터 잠가 교착하지 않아야 한다")
+    void sendingAndReadingAcquireUserBeforeRoom() throws Exception {
+        Fixture fixture = fixture(Role.ROLE_USER);
+        var observer = new DatabaseLockObserver(dataSource, mysqlContainer);
+        var sendingSession = new AtomicLong();
+        var sendingRequest = new AtomicReference<Future<?>>();
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            transaction.executeWithoutResult(status -> {
+                userRepository.findByIdForUpdate(fixture.user.getId()).orElseThrow();
+                long readingSession = observer.currentSessionId();
+                sendingRequest.set(executor.submit(() -> transaction.executeWithoutResult(sendingStatus -> {
+                    sendingSession.set(observer.currentSessionId());
+                    messageSendService.send(() -> fixture.user.getEmail(), new ChatMessageSendRequest(
+                            fixture.room.getId(), "동시 전송", "concurrent-send", false, null));
+                })));
+                await().atMost(Duration.ofSeconds(5))
+                        .until(() -> sendingSession.get() != 0);
+                observer.awaitBlockedBy(sendingSession.get(), readingSession, sendingRequest.get());
+                read(fixture, fixture.latest.getId());
+            });
+            sendingRequest.get().get(15, TimeUnit.SECONDS);
+        }
+        assertSingleLatestStatus(fixture);
+        assertThat(messageRepository.findByRoom_IdOrderByIdDesc(fixture.room.getId(),
+                org.springframework.data.domain.PageRequest.of(0, 10))).hasSize(3);
+        assertThat(capturedEvents.events.stream().map(ChatSocketEvent::eventType).toList())
+                .containsExactly(ChatEventType.READ_UPDATED, ChatEventType.MESSAGE_CREATED);
+    }
 
     @BeforeEach
     void clearEvents() {
@@ -330,10 +409,10 @@ class ChatReadConcurrencyIntegrationTest {
 
     @Test
     @DisplayName("이벤트 수신 직후 다른 스레드에서 메시지를 조회하고 답장을 저장할 수 있다")
-    void receivedMessageCanBeQueriedAndRepliedToImmediately() {
+    void receivedMessageCanBeQueriedAndRepliedToImmediately() throws Exception {
         Fixture fixture = fixture(Role.ROLE_USER);
         AtomicReference<ChatMessagesResponse> receivedSnapshot = new AtomicReference<>();
-        AtomicReference<Throwable> requestFailure = new AtomicReference<>();
+        AtomicReference<Future<ChatMessagesResponse>> replyRequest = new AtomicReference<>();
 
         try (var executor = Executors.newSingleThreadExecutor()) {
             capturedEvents.onEvent = event -> {
@@ -341,28 +420,20 @@ class ChatReadConcurrencyIntegrationTest {
                         || !"original-message".equals(message.clientMessageId())) {
                     return;
                 }
-                try {
-                    // 수신 요청이 원래 전송 요청의 커밋 이전에 실행되면 조회와 답장이 실패한다.
-                    receivedSnapshot.set(executor.submit(() -> {
-                        ChatMessagesResponse response = chatMessageService.getMessages(
-                                fixture.user, fixture.room.getId(), null);
-                        messageSendService.send(() -> fixture.user.getEmail(), new ChatMessageSendRequest(
-                                fixture.room.getId(), "즉시 답장", "immediate-reply", true, message.messageId()));
-                        return response;
-                    }).get(15, TimeUnit.SECONDS));
-                } catch (Exception exception) {
-                    requestFailure.set(exception);
-                    if (exception instanceof InterruptedException) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
+                replyRequest.set(executor.submit(() -> {
+                    ChatMessagesResponse response = chatMessageService.getMessages(
+                            fixture.user, fixture.room.getId(), null);
+                    messageSendService.send(() -> fixture.user.getEmail(), new ChatMessageSendRequest(
+                            fixture.room.getId(), "즉시 답장", "immediate-reply", true, message.messageId()));
+                    return response;
+                }));
             };
 
             messageSendService.send(() -> fixture.user.getEmail(), new ChatMessageSendRequest(
                     fixture.room.getId(), "새 원본 메시지", "original-message", false, null));
+            receivedSnapshot.set(replyRequest.get().get(15, TimeUnit.SECONDS));
         }
 
-        assertThat(requestFailure.get()).isNull();
         assertThat(receivedSnapshot.get()).isNotNull();
         assertThat(receivedSnapshot.get().messages()).hasSize(3)
                 .first().extracting(item -> item.text()).isEqualTo("새 원본 메시지");
@@ -390,7 +461,7 @@ class ChatReadConcurrencyIntegrationTest {
         Fixture fixture = fixture(Role.ROLE_USER);
         capturedEvents.failNextDelivery = true;
 
-        try (var logs = new LogCapture(ChatSocketEventPublisher.class)) {
+        try (var logs = new LogCapture(ChatEventOutboxProcessor.class)) {
             assertThatCode(() -> publishSuccess(fixture, eventType)).doesNotThrowAnyException();
 
             assertThat(capturedEvents.events).isEmpty();
@@ -526,7 +597,7 @@ class ChatReadConcurrencyIntegrationTest {
     @TestConfiguration(proxyBeanMethods = false)
     @Import({UserService.class, ChatReadUpdateService.class, ChatReadStatusService.class, AdminChatService.class,
             ChatMessageService.class, ChatMessageSendService.class, ChatSocketAccessService.class,
-            ChatSocketEventPublisher.class})
+            ChatSocketEventPublisher.class, ChatOutboxTestConfig.class})
     static class TestConfig {
 
         @Bean

@@ -41,6 +41,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     Optional<ChatMessage> findByIdAndRoom_Id(Long id, Long roomId);
 
+    boolean existsByIdAndRoom_IdAndDeletedAtIsNull(Long id, Long roomId);
+
     @Query("""
             select new com.ufo.ufo.domain.chat.dto.response.ChatRoomLastMessage(
                 cm.room.id,

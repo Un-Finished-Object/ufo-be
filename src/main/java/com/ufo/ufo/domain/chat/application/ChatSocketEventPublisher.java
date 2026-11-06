@@ -11,8 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 
 @Component
 @RequiredArgsConstructor
@@ -28,19 +26,6 @@ public class ChatSocketEventPublisher {
 
     void sendReadUpdated(Long roomId, ChatReadUpdatedPayload payload) {
         applicationEventPublisher.publishEvent(new ChatSocketEvent<>(ChatEventType.READ_UPDATED, roomId, payload));
-    }
-
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void sendCommittedEvent(ChatSocketEvent<?> event) {
-        try {
-            messagingTemplate.convertAndSend(roomDestination(event.roomId()), event);
-        } catch (RuntimeException exception) {
-            String clientMessageId = event.payload() instanceof ChatMessageCreatedPayload payload
-                    ? payload.clientMessageId() : null;
-            log.error("채팅 성공 이벤트 전송 실패: roomId={}, eventType={}, clientMessageId={}\n{}",
-                    event.roomId(), event.eventType(), ErrorLogSupport.identifier(clientMessageId),
-                    ErrorLogSupport.stackTrace(exception));
-        }
     }
 
     void sendError(Long roomId, String code, String message, String clientMessageId) {

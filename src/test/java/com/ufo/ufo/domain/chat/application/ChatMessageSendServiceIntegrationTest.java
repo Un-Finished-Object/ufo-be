@@ -21,6 +21,7 @@ import com.ufo.ufo.support.database.DatabaseTestApplication;
 import com.ufo.ufo.support.database.JpaAuditingTestConfig;
 import com.ufo.ufo.support.database.TestDatabaseConfig;
 import com.ufo.ufo.support.fixture.ChatRoomFixture;
+import com.ufo.ufo.support.fixture.ChatOutboxTestConfig;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import jakarta.persistence.EntityManager;
@@ -56,7 +57,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @DataJpaTest(properties = "spring.config.name=application-db-test", showSql = false)
 @ContextConfiguration(classes = DatabaseTestApplication.class)
 @Import({TestDatabaseConfig.class, JpaAuditingTestConfig.class, ChatMessageSendService.class,
-        ChatSocketAccessService.class, ChatSocketEventPublisher.class})
+        ChatSocketAccessService.class, ChatSocketEventPublisher.class, ChatOutboxTestConfig.class})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @Tag("integration")
