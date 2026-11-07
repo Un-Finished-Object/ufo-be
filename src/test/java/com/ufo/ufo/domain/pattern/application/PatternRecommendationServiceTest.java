@@ -39,7 +39,7 @@ class PatternRecommendationServiceTest {
     private PatternRecommendationService recommendationService;
 
     @Test
-    @DisplayName("비로그인 사용자는 기본 추천 목록을 조회한다")
+    @DisplayName("비로그인 사용자는 기본 추천 목록을 조회해야 한다")
     void getRecommendedPatterns_AnonymousUser_ReturnsDefaultRecommend() {
         Pattern pattern = pattern(10L);
         PatternListItemResponse item = item(pattern);
@@ -53,7 +53,7 @@ class PatternRecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("관심사가 없으면 기본 추천 목록을 조회한다")
+    @DisplayName("관심사가 없으면 기본 추천 목록을 조회해야 한다")
     void getRecommendedPatterns_NoInterests_ReturnsDefaultRecommend() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = pattern(11L);
@@ -68,7 +68,7 @@ class PatternRecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("일반 관심사는 관심사 번호 조회를 사용한다")
+    @DisplayName("일반 관심사는 관심사 번호 조회를 사용해야 한다")
     void getRecommendedPatterns_GeneralInterest_UsesInterestQuery() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = pattern(12L);
@@ -83,7 +83,7 @@ class PatternRecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("핏 관심사는 핏 조건이 포함된 조회를 사용한다")
+    @DisplayName("핏 관심사는 핏 조건이 포함된 조회를 사용해야 한다")
     void getRecommendedPatterns_FitInterest_UsesFitQuery() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = pattern(13L);
@@ -102,7 +102,7 @@ class PatternRecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("관심사 매칭 결과가 없으면 기본 추천 목록을 반환한다")
+    @DisplayName("관심사 매칭 결과가 없으면 기본 추천 목록을 반환해야 한다")
     void getRecommendedPatterns_NoMatch_FallsBackToDefault() {
         User user = UserFixture.createUserWithId(1L);
         Pattern fallback = pattern(14L);
@@ -120,7 +120,7 @@ class PatternRecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("핏 관심사 매칭 결과가 없으면 기본 추천 목록을 반환한다")
+    @DisplayName("핏 관심사 매칭 결과가 없으면 기본 추천 목록을 반환해야 한다")
     void getRecommendedPatterns_FitNoMatch_FallsBackToDefault() {
         User user = UserFixture.createUserWithId(1L);
         Pattern fallback = pattern(15L);

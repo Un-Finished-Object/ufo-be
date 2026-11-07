@@ -29,7 +29,7 @@ class PatternListItemResponseFactoryTest {
     private PatternListItemResponseFactory responseFactory;
 
     @Test
-    @DisplayName("로그인 사용자의 찜 여부와 이미지 URL을 반영한다")
+    @DisplayName("로그인 사용자의 찜 여부와 이미지 URL을 반영해야 한다")
     void create_LoggedInUser_ReflectsScrapAndImageUrl() {
         var user = UserFixture.createUserWithId(1L);
         var pattern = PatternFixture.createPatternWithId(10L);
@@ -44,7 +44,7 @@ class PatternListItemResponseFactoryTest {
     }
 
     @Test
-    @DisplayName("비로그인 사용자의 찜 여부는 false이고 찜 조회를 하지 않는다")
+    @DisplayName("비로그인 사용자의 찜 여부는 false이고 찜 조회를 하지 않아야 한다")
     void create_AnonymousUser_ReturnsUnscrapped() {
         var pattern = PatternFixture.createPatternWithId(10L);
         when(imageService.buildImageUrl(pattern.getThumbnailUrl())).thenReturn("https://cdn.example.com/pattern.png");
@@ -57,7 +57,7 @@ class PatternListItemResponseFactoryTest {
     }
 
     @Test
-    @DisplayName("ID가 없는 사용자의 찜 여부는 false이고 찜 조회를 하지 않는다")
+    @DisplayName("ID가 없는 사용자의 찜 여부는 false이고 찜 조회를 하지 않아야 한다")
     void create_UserWithoutId_ReturnsUnscrapped() {
         var pattern = PatternFixture.createPatternWithId(10L);
 
