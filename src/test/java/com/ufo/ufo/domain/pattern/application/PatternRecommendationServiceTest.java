@@ -39,12 +39,12 @@ class PatternRecommendationServiceTest {
     private PatternRecommendationService recommendationService;
 
     @Test
-    @DisplayName("비로그인 사용자는 기본 추천 목록을 조회한다")
+    @DisplayName("비로그인 사용자는 기본 추천 목록을 조회해야 한다")
     void getRecommendedPatterns_AnonymousUser_ReturnsDefaultRecommend() {
         Pattern pattern = pattern(10L);
         PatternListItemResponse item = item(pattern);
         when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
-        when(responseFactory.create(pattern, null)).thenReturn(item);
+        when(responseFactory.createAll(List.of(pattern), null)).thenReturn(List.of(item));
 
         PatternItemsResponse response = recommendationService.getRecommendedPatterns(null);
 
@@ -53,13 +53,13 @@ class PatternRecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("관심사가 없으면 기본 추천 목록을 조회한다")
+    @DisplayName("관심사가 없으면 기본 추천 목록을 조회해야 한다")
     void getRecommendedPatterns_NoInterests_ReturnsDefaultRecommend() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = pattern(11L);
         when(userInterestRepository.findAllByUser_Id(1L)).thenReturn(List.of());
         when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
-        when(responseFactory.create(pattern, user)).thenReturn(item(pattern));
+        when(responseFactory.createAll(List.of(pattern), user)).thenReturn(List.of(item(pattern)));
 
         PatternItemsResponse response = recommendationService.getRecommendedPatterns(user);
 
@@ -68,14 +68,14 @@ class PatternRecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("일반 관심사는 관심사 번호 조회를 사용한다")
+    @DisplayName("일반 관심사는 관심사 번호 조회를 사용해야 한다")
     void getRecommendedPatterns_GeneralInterest_UsesInterestQuery() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = pattern(12L);
         when(userInterestRepository.findAllByUser_Id(1L))
                 .thenReturn(List.of(UserInterestFixture.createUserInterest(user, "빈티지")));
         when(patternRepository.findRecommendedByInterestNumbers(List.of(1))).thenReturn(List.of(pattern));
-        when(responseFactory.create(pattern, user)).thenReturn(item(pattern));
+        when(responseFactory.createAll(List.of(pattern), user)).thenReturn(List.of(item(pattern)));
 
         recommendationService.getRecommendedPatterns(user);
 
@@ -83,7 +83,7 @@ class PatternRecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("핏 관심사는 핏 조건이 포함된 조회를 사용한다")
+    @DisplayName("핏 관심사는 핏 조건이 포함된 조회를 사용해야 한다")
     void getRecommendedPatterns_FitInterest_UsesFitQuery() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = pattern(13L);
@@ -94,7 +94,7 @@ class PatternRecommendationServiceTest {
                 ));
         when(patternRepository.findRecommendedByInterestNumbersWithFit(List.of(1, 6), List.of(6)))
                 .thenReturn(List.of(pattern));
-        when(responseFactory.create(pattern, user)).thenReturn(item(pattern));
+        when(responseFactory.createAll(List.of(pattern), user)).thenReturn(List.of(item(pattern)));
 
         recommendationService.getRecommendedPatterns(user);
 
@@ -102,7 +102,7 @@ class PatternRecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("관심사 매칭 결과가 없으면 기본 추천 목록을 반환한다")
+    @DisplayName("관심사 매칭 결과가 없으면 기본 추천 목록을 반환해야 한다")
     void getRecommendedPatterns_NoMatch_FallsBackToDefault() {
         User user = UserFixture.createUserWithId(1L);
         Pattern fallback = pattern(14L);
@@ -111,7 +111,7 @@ class PatternRecommendationServiceTest {
                 .thenReturn(List.of(UserInterestFixture.createUserInterest(user, "빈티지")));
         when(patternRepository.findRecommendedByInterestNumbers(List.of(1))).thenReturn(List.of());
         when(patternRepository.findRecommended()).thenReturn(List.of(fallback));
-        when(responseFactory.create(fallback, user)).thenReturn(fallbackItem);
+        when(responseFactory.createAll(List.of(fallback), user)).thenReturn(List.of(fallbackItem));
 
         PatternItemsResponse response = recommendationService.getRecommendedPatterns(user);
 
@@ -120,7 +120,7 @@ class PatternRecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("핏 관심사 매칭 결과가 없으면 기본 추천 목록을 반환한다")
+    @DisplayName("핏 관심사 매칭 결과가 없으면 기본 추천 목록을 반환해야 한다")
     void getRecommendedPatterns_FitNoMatch_FallsBackToDefault() {
         User user = UserFixture.createUserWithId(1L);
         Pattern fallback = pattern(15L);
@@ -130,7 +130,7 @@ class PatternRecommendationServiceTest {
         when(patternRepository.findRecommendedByInterestNumbersWithFit(List.of(5), List.of(5)))
                 .thenReturn(List.of());
         when(patternRepository.findRecommended()).thenReturn(List.of(fallback));
-        when(responseFactory.create(fallback, user)).thenReturn(fallbackItem);
+        when(responseFactory.createAll(List.of(fallback), user)).thenReturn(List.of(fallbackItem));
 
         PatternItemsResponse response = recommendationService.getRecommendedPatterns(user);
 

@@ -63,14 +63,14 @@ class PatternQueryServiceTest {
     private PatternQueryService patternQueryService;
 
     @Test
-    @DisplayName("도안 목록과 페이지 정보를 반환한다")
+    @DisplayName("도안 목록과 페이지 정보를 반환해야 한다")
     void getPatterns_ReturnsItemsAndPage() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(10L);
         PatternListItemResponse item = PatternListItemResponse.from(pattern, true, "thumbnail");
         when(patternRepository.findAllByCategory(any(), any(), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(pattern)));
-        when(responseFactory.create(pattern, user)).thenReturn(item);
+        when(responseFactory.createAll(List.of(pattern), user)).thenReturn(List.of(item));
 
         PatternListResponse response = patternQueryService.getPatterns(user, "all", null, "news", 1);
 
@@ -80,7 +80,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("category가 all이면 카테고리 조건 없이 조회한다")
+    @DisplayName("category가 all이면 카테고리 조건 없이 조회해야 한다")
     void getPatterns_AllCategory_UsesNullFilter() {
         when(patternRepository.findAllByCategory(any(), any(), any(PageRequest.class))).thenReturn(Page.empty());
 
@@ -90,7 +90,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("subCategory가 all이면 하위 카테고리 조건 없이 조회한다")
+    @DisplayName("subCategory가 all이면 하위 카테고리 조건 없이 조회해야 한다")
     void getPatterns_AllSubCategory_UsesNullFilter() {
         when(patternRepository.findAllByCategory(any(), any(), any(PageRequest.class))).thenReturn(Page.empty());
 
@@ -100,7 +100,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("scraps 정렬은 찜 개수 기준 조회를 사용한다")
+    @DisplayName("scraps 정렬은 찜 개수 기준 조회를 사용해야 한다")
     void getPatterns_ScrapsSort_UsesPopularityQuery() {
         when(patternRepository.findAllByCategoryOrderByPopularity(any(), any(), any(PageRequest.class)))
                 .thenReturn(Page.empty());
@@ -112,7 +112,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("views 정렬은 조회수 내림차순을 사용한다")
+    @DisplayName("views 정렬은 조회수 내림차순을 사용해야 한다")
     void getPatterns_ViewsSort_UsesViewCountDescending() {
         when(patternRepository.findAllByCategory(any(), any(), any(PageRequest.class))).thenReturn(Page.empty());
 
@@ -125,7 +125,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("의류가 아닌 카테고리에 subCategory가 있으면 예외가 발생한다")
+    @DisplayName("의류가 아닌 카테고리에 subCategory가 있으면 예외가 발생해야 한다")
     void getPatterns_SubCategoryForNonApparel_ThrowsException() {
         assertThatThrownBy(() -> patternQueryService.getPatterns(null, "bags", "all", "news", 1))
                 .isInstanceOf(PatternSubCategoryNotAllowedException.class);
@@ -133,7 +133,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("검색어가 null이면 빈 문자열로 검색한다")
+    @DisplayName("검색어가 null이면 빈 문자열로 검색해야 한다")
     void searchPatterns_NullKeyword_UsesEmptyKeyword() {
         when(patternRepository.search(eq(""), any(PageRequest.class))).thenReturn(Page.empty());
 
@@ -144,7 +144,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("검색 결과의 남은 페이지 수는 최대 5로 제한한다")
+    @DisplayName("검색 결과의 남은 페이지 수는 최대 5로 제한해야 한다")
     void searchPatterns_ManyPages_LimitsNextPageToFive() {
         Page<Pattern> page = new PageImpl<>(List.of(), PageRequest.of(0, 20), 200);
         when(patternRepository.search(eq("니트"), any(PageRequest.class))).thenReturn(page);
@@ -155,7 +155,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("상세 조회는 로그인 사용자의 찜 여부를 반환한다")
+    @DisplayName("상세 조회는 로그인 사용자의 찜 여부를 반환해야 한다")
     void getPatternDetail_LoggedInUser_ReturnsScrapStatus() {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = PatternFixture.createPatternWithId(2L);
@@ -170,7 +170,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("상세 이미지가 없으면 썸네일을 사용한다")
+    @DisplayName("상세 이미지가 없으면 썸네일을 사용해야 한다")
     void getPatternDetail_NoImages_UsesThumbnail() {
         Pattern pattern = PatternFixture.createPattern("pattern", "artist", "apparel", "vest", "patterns/t.png");
         PatternFixture.setId(pattern, 2L);
@@ -184,7 +184,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("상세 이미지가 있으면 썸네일 대신 이미지 목록을 사용한다")
+    @DisplayName("상세 이미지가 있으면 썸네일 대신 이미지 목록을 사용해야 한다")
     void getPatternDetail_WithImages_UsesImageList() {
         Pattern pattern = PatternFixture.createPatternWithId(2L);
         PatternImage first = PatternImage.builder().pattern(pattern).imageUrl("patterns/first.png").imageOrder(1).build();
@@ -202,7 +202,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("상세 조회는 원작 실 세트를 포함한다")
+    @DisplayName("상세 조회는 원작 실 세트를 포함해야 한다")
     void getPatternDetail_WithOriginalYarns_ReturnsYarnSets() {
         Pattern pattern = PatternFixture.createPatternWithId(2L);
         Yarn main = YarnFixture.createYarnWithId(10L);
@@ -223,7 +223,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("비로그인 상세 조회는 찜 여부를 false로 반환한다")
+    @DisplayName("비로그인 상세 조회는 찜 여부를 false로 반환해야 한다")
     void getPatternDetail_AnonymousUser_ReturnsUnscrapped() {
         Pattern pattern = PatternFixture.createPatternWithId(2L);
         when(patternRepository.findDetailById(2L)).thenReturn(Optional.of(pattern));
@@ -237,7 +237,7 @@ class PatternQueryServiceTest {
     }
 
     @Test
-    @DisplayName("존재하지 않는 도안 상세 조회는 예외가 발생한다")
+    @DisplayName("존재하지 않는 도안 상세 조회는 예외가 발생해야 한다")
     void getPatternDetail_NotFound_ThrowsException() {
         when(patternRepository.findDetailById(99L)).thenReturn(Optional.empty());
 

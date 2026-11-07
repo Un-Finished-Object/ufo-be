@@ -5,6 +5,8 @@ import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListItemResponse;
 import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
 import com.ufo.ufo.domain.user.domain.User;
+import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,16 +17,21 @@ public class PatternListItemResponseFactory {
     private final ScrapRepository scrapRepository;
     private final ImageService imageService;
 
-    public PatternListItemResponse create(Pattern pattern, User user) {
-        boolean scrapped = isScrapped(user, pattern.getId());
-        String thumbnailUrl = imageService.buildImageUrl(pattern.getThumbnailUrl());
-        return PatternListItemResponse.from(pattern, scrapped, thumbnailUrl);
+    public List<PatternListItemResponse> createAll(List<Pattern> patterns, User user) {
+        Set<Long> scrappedIds = findScrappedPatternIds(patterns, user);
+        return patterns.stream()
+                .map(pattern -> PatternListItemResponse.from(
+                        pattern,
+                        scrappedIds.contains(pattern.getId()),
+                        imageService.buildImageUrl(pattern.getThumbnailUrl())))
+                .toList();
     }
 
-    private boolean isScrapped(User user, Long patternId) {
-        if (user == null || user.getId() == null) {
-            return false;
+    private Set<Long> findScrappedPatternIds(List<Pattern> patterns, User user) {
+        if (patterns.isEmpty() || user == null || user.getId() == null) {
+            return Set.of();
         }
-        return scrapRepository.existsByUser_IdAndPattern_Id(user.getId(), patternId);
+        List<Long> patternIds = patterns.stream().map(Pattern::getId).toList();
+        return scrapRepository.findScrappedPatternIds(user.getId(), patternIds);
     }
 }

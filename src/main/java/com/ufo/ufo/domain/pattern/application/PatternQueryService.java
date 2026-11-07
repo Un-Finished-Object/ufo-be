@@ -47,7 +47,7 @@ public class PatternQueryService {
 
         int nextPage = resolveNextPage(pageNumber, result.getTotalPages());
         return PatternListResponse.from(
-                result.stream().map(pattern -> responseFactory.create(pattern, user)).toList(),
+                responseFactory.createAll(result.getContent(), user),
                 pageNumber,
                 nextPage
         );
@@ -59,7 +59,7 @@ public class PatternQueryService {
         Page<Pattern> result = patternRepository.search(keyword == null ? "" : keyword, pageRequest);
         int nextPage = resolveNextPage(pageNumber, result.getTotalPages());
         return PatternListResponse.from(
-                result.stream().map(pattern -> responseFactory.create(pattern, user)).toList(),
+                responseFactory.createAll(result.getContent(), user),
                 pageNumber,
                 nextPage
         );
