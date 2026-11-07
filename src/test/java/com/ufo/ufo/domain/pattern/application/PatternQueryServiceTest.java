@@ -70,7 +70,7 @@ class PatternQueryServiceTest {
         PatternListItemResponse item = PatternListItemResponse.from(pattern, true, "thumbnail");
         when(patternRepository.findAllByCategory(any(), any(), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(pattern)));
-        when(responseFactory.create(pattern, user)).thenReturn(item);
+        when(responseFactory.createAll(List.of(pattern), user)).thenReturn(List.of(item));
 
         PatternListResponse response = patternQueryService.getPatterns(user, "all", null, "news", 1);
 

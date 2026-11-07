@@ -44,7 +44,7 @@ class PatternRecommendationServiceTest {
         Pattern pattern = pattern(10L);
         PatternListItemResponse item = item(pattern);
         when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
-        when(responseFactory.create(pattern, null)).thenReturn(item);
+        when(responseFactory.createAll(List.of(pattern), null)).thenReturn(List.of(item));
 
         PatternItemsResponse response = recommendationService.getRecommendedPatterns(null);
 
@@ -59,7 +59,7 @@ class PatternRecommendationServiceTest {
         Pattern pattern = pattern(11L);
         when(userInterestRepository.findAllByUser_Id(1L)).thenReturn(List.of());
         when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
-        when(responseFactory.create(pattern, user)).thenReturn(item(pattern));
+        when(responseFactory.createAll(List.of(pattern), user)).thenReturn(List.of(item(pattern)));
 
         PatternItemsResponse response = recommendationService.getRecommendedPatterns(user);
 
@@ -75,7 +75,7 @@ class PatternRecommendationServiceTest {
         when(userInterestRepository.findAllByUser_Id(1L))
                 .thenReturn(List.of(UserInterestFixture.createUserInterest(user, "빈티지")));
         when(patternRepository.findRecommendedByInterestNumbers(List.of(1))).thenReturn(List.of(pattern));
-        when(responseFactory.create(pattern, user)).thenReturn(item(pattern));
+        when(responseFactory.createAll(List.of(pattern), user)).thenReturn(List.of(item(pattern)));
 
         recommendationService.getRecommendedPatterns(user);
 
@@ -94,7 +94,7 @@ class PatternRecommendationServiceTest {
                 ));
         when(patternRepository.findRecommendedByInterestNumbersWithFit(List.of(1, 6), List.of(6)))
                 .thenReturn(List.of(pattern));
-        when(responseFactory.create(pattern, user)).thenReturn(item(pattern));
+        when(responseFactory.createAll(List.of(pattern), user)).thenReturn(List.of(item(pattern)));
 
         recommendationService.getRecommendedPatterns(user);
 
@@ -111,7 +111,7 @@ class PatternRecommendationServiceTest {
                 .thenReturn(List.of(UserInterestFixture.createUserInterest(user, "빈티지")));
         when(patternRepository.findRecommendedByInterestNumbers(List.of(1))).thenReturn(List.of());
         when(patternRepository.findRecommended()).thenReturn(List.of(fallback));
-        when(responseFactory.create(fallback, user)).thenReturn(fallbackItem);
+        when(responseFactory.createAll(List.of(fallback), user)).thenReturn(List.of(fallbackItem));
 
         PatternItemsResponse response = recommendationService.getRecommendedPatterns(user);
 
@@ -130,7 +130,7 @@ class PatternRecommendationServiceTest {
         when(patternRepository.findRecommendedByInterestNumbersWithFit(List.of(5), List.of(5)))
                 .thenReturn(List.of());
         when(patternRepository.findRecommended()).thenReturn(List.of(fallback));
-        when(responseFactory.create(fallback, user)).thenReturn(fallbackItem);
+        when(responseFactory.createAll(List.of(fallback), user)).thenReturn(List.of(fallbackItem));
 
         PatternItemsResponse response = recommendationService.getRecommendedPatterns(user);
 

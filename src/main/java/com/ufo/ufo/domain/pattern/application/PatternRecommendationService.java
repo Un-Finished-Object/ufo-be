@@ -25,9 +25,7 @@ public class PatternRecommendationService {
 
     public PatternItemsResponse getRecommendedPatterns(User user) {
         List<Pattern> result = findRecommendedPatterns(user);
-        return new PatternItemsResponse(result.stream()
-                .map(pattern -> responseFactory.create(pattern, user))
-                .toList());
+        return new PatternItemsResponse(responseFactory.createAll(result, user));
     }
 
     private List<Pattern> findRecommendedPatterns(User user) {
