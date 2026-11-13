@@ -10,10 +10,14 @@ public final class YarnAlternativeFixture {
     }
 
     public static YarnAlternative create(Yarn originalYarn, Yarn alternativeYarn) {
+        return create(originalYarn, alternativeYarn, 1);
+    }
+
+    public static YarnAlternative create(Yarn originalYarn, Yarn alternativeYarn, int ranking) {
         return YarnAlternative.builder()
                 .originalYarn(originalYarn)
                 .alternativeYarn(alternativeYarn)
-                .ranking(1)
+                .ranking(ranking)
                 .componentScore(100)
                 .lengthScore(90)
                 .gaugeScore(80)
