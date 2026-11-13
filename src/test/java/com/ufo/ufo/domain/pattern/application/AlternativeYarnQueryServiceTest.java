@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("대체 실 조회 서비스 테스트")
@@ -71,8 +72,10 @@ class AlternativeYarnQueryServiceTest {
 
         when(patternOriginalYarnRepository.findActiveSetById(20L)).thenReturn(Optional.of(originalYarnSet));
         when(creditService.isUnlocked(1L, 10L, UnlockType.YARN_INFO)).thenReturn(true);
-        when(yarnAlternativeRepository.findAllByOriginalYarnId(11L)).thenReturn(List.of(mainAlternative));
-        when(yarnAlternativeRepository.findAllByOriginalYarnId(12L)).thenReturn(List.of(secondAlternative));
+        when(yarnAlternativeRepository.findAllByOriginalYarnId(11L, PageRequest.of(0, 15)))
+                .thenReturn(List.of(mainAlternative));
+        when(yarnAlternativeRepository.findAllByOriginalYarnId(12L, PageRequest.of(0, 15)))
+                .thenReturn(List.of(secondAlternative));
 
         YarnAlternativesResponse response = alternativeYarnQueryService.getAlternatives(user, 20L);
 
@@ -81,8 +84,8 @@ class AlternativeYarnQueryServiceTest {
         assertThat(response.secondYarn()).extracting(YarnAlternativesResponse.Item::altId).containsExactly(31L);
         assertThat(response.secondYarn()).extracting(YarnAlternativesResponse.Item::isCalculatedLength).containsExactly(false);
         assertThat(response.subYarn()).isEmpty();
-        verify(yarnAlternativeRepository).findAllByOriginalYarnId(11L);
-        verify(yarnAlternativeRepository).findAllByOriginalYarnId(12L);
-        verify(yarnAlternativeRepository, never()).findAllByOriginalYarnId(null);
+        verify(yarnAlternativeRepository).findAllByOriginalYarnId(11L, PageRequest.of(0, 15));
+        verify(yarnAlternativeRepository).findAllByOriginalYarnId(12L, PageRequest.of(0, 15));
+        verify(yarnAlternativeRepository, never()).findAllByOriginalYarnId(null, PageRequest.of(0, 15));
     }
 }

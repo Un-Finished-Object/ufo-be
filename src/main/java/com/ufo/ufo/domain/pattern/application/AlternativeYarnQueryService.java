@@ -12,6 +12,7 @@ import com.ufo.ufo.domain.pattern.exception.OriginalYarnSetNotFoundException;
 import com.ufo.ufo.domain.user.domain.User;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,8 +44,8 @@ public class AlternativeYarnQueryService {
         if (originalYarn == null) {
             return List.of();
         }
-        return yarnAlternativeRepository.findAllByOriginalYarnId(originalYarn.getYarnId()).stream()
-                .limit(ALTERNATIVE_LIMIT)
+        return yarnAlternativeRepository.findAllByOriginalYarnId(
+                        originalYarn.getYarnId(), PageRequest.of(0, ALTERNATIVE_LIMIT)).stream()
                 .map(YarnAlternativesResponse.Item::from)
                 .toList();
     }
