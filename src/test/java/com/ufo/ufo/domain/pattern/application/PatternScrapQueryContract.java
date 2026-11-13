@@ -27,6 +27,7 @@ import org.hibernate.resource.jdbc.spi.StatementInspector;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -53,6 +54,15 @@ abstract class PatternScrapQueryContract {
     private ImageService imageService;
     @Autowired
     private EntityManager entityManager;
+
+    @Test
+    @DisplayName("추천 도안이 30개를 넘으면 DB에서 필요한 후보만 조회해 최대 30개를 반환해야 한다")
+    void recommendationResponseIsBounded() {
+        savePatterns(31);
+        prepareQuery();
+
+        assertThat(recommendationService.getRecommendedPatterns(null).items()).hasSize(30);
+    }
 
     @BeforeEach
     void setUpImageUrls() {

@@ -1,5 +1,7 @@
 package com.ufo.ufo.domain.pattern.application;
 
+import com.ufo.ufo.domain.pattern.config.PatternRecommendationConfig;
+import com.ufo.ufo.domain.pattern.dao.PatternRecommendationRepository;
 import com.ufo.ufo.support.database.DatabaseTestApplication;
 import com.ufo.ufo.support.database.JpaAuditingTestConfig;
 import org.junit.jupiter.api.DisplayName;
@@ -15,7 +17,8 @@ import org.springframework.test.context.ContextConfiguration;
 }, showSql = false)
 @ContextConfiguration(classes = DatabaseTestApplication.class)
 @Import({JpaAuditingTestConfig.class, PatternQueryService.class, PatternRecommendationService.class,
-        PatternListItemResponseFactory.class, PatternScrapQueryContract.ImageConfig.class})
+        PatternListItemResponseFactory.class, PatternScrapQueryContract.ImageConfig.class,
+        PatternRecommendationRepository.class, PatternRecommendationConfig.class})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @DisplayName("도안 목록과 검색 및 추천의 찜 SQL 조회 테스트")
 class PatternScrapQueryTest extends PatternScrapQueryContract {
