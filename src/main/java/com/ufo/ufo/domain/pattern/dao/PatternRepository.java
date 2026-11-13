@@ -2,7 +2,6 @@ package com.ufo.ufo.domain.pattern.dao;
 
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import jakarta.persistence.LockModeType;
-import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -59,35 +58,4 @@ public interface PatternRepository extends JpaRepository<Pattern, Long>, Pattern
                 or lower(p.designer) like lower(concat('%', :q, '%')))
             """)
     Page<Pattern> search(@Param("q") String q, Pageable pageable);
-
-    @Query("""
-            select p from Pattern p
-            where p.deletedAt is null
-            order by p.scrapsCount desc, p.id desc
-            """)
-    List<Pattern> findRecommended();
-
-    @Query("""
-            select distinct p from Pattern p
-            join p.interestNumbers interestNumber
-            where p.deletedAt is null
-              and interestNumber in :interestNumbers
-            """)
-    List<Pattern> findRecommendedByInterestNumbers(@Param("interestNumbers") List<Integer> interestNumbers);
-
-    @Query("""
-            select distinct p from Pattern p
-            join p.interestNumbers interestNumber
-            where p.deletedAt is null
-              and interestNumber in :interestNumbers
-              and exists (
-                  select 1 from Pattern p2
-                  join p2.interestNumbers fitNumber
-                  where p2 = p and fitNumber in :fitNumbers
-              )
-            """)
-    List<Pattern> findRecommendedByInterestNumbersWithFit(
-            @Param("interestNumbers") List<Integer> interestNumbers,
-            @Param("fitNumbers") List<Integer> fitNumbers
-    );
 }

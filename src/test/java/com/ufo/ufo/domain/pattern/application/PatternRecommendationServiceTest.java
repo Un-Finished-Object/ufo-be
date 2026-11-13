@@ -1,20 +1,26 @@
 package com.ufo.ufo.domain.pattern.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ufo.ufo.domain.image.application.ImageService;
 import com.ufo.ufo.domain.interest.dao.UserInterestRepository;
-import com.ufo.ufo.domain.pattern.dao.PatternRepository;
+import com.ufo.ufo.domain.pattern.dao.PatternRecommendationRepository;
 import com.ufo.ufo.domain.pattern.domain.Pattern;
 import com.ufo.ufo.domain.pattern.dto.response.PatternItemsResponse;
 import com.ufo.ufo.domain.pattern.dto.response.PatternListItemResponse;
+import com.ufo.ufo.domain.scrap.dao.ScrapRepository;
 import com.ufo.ufo.domain.user.domain.User;
 import com.ufo.ufo.support.fixture.PatternFixture;
 import com.ufo.ufo.support.fixture.UserFixture;
 import com.ufo.ufo.support.fixture.UserInterestFixture;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.random.RandomGenerator;
+import java.util.stream.LongStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,7 +33,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class PatternRecommendationServiceTest {
 
     @Mock
-    private PatternRepository patternRepository;
+    private PatternRecommendationRepository recommendationRepository;
+
+    @Mock
+    private RandomGenerator patternRecommendationRandom;
 
     @Mock
     private UserInterestRepository userInterestRepository;
@@ -43,7 +52,7 @@ class PatternRecommendationServiceTest {
     void getRecommendedPatterns_AnonymousUser_ReturnsDefaultRecommend() {
         Pattern pattern = pattern(10L);
         PatternListItemResponse item = item(pattern);
-        when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
+        when(recommendationRepository.findPopular(30)).thenReturn(List.of(pattern));
         when(responseFactory.createAll(List.of(pattern), null)).thenReturn(List.of(item));
 
         PatternItemsResponse response = recommendationService.getRecommendedPatterns(null);
@@ -58,13 +67,13 @@ class PatternRecommendationServiceTest {
         User user = UserFixture.createUserWithId(1L);
         Pattern pattern = pattern(11L);
         when(userInterestRepository.findAllByUser_Id(1L)).thenReturn(List.of());
-        when(patternRepository.findRecommended()).thenReturn(List.of(pattern));
+        when(recommendationRepository.findPopular(30)).thenReturn(List.of(pattern));
         when(responseFactory.createAll(List.of(pattern), user)).thenReturn(List.of(item(pattern)));
 
         PatternItemsResponse response = recommendationService.getRecommendedPatterns(user);
 
         assertThat(response.items()).hasSize(1);
-        verify(patternRepository).findRecommended();
+        verify(recommendationRepository).findPopular(30);
     }
 
     @Test
@@ -74,12 +83,13 @@ class PatternRecommendationServiceTest {
         Pattern pattern = pattern(12L);
         when(userInterestRepository.findAllByUser_Id(1L))
                 .thenReturn(List.of(UserInterestFixture.createUserInterest(user, "빈티지")));
-        when(patternRepository.findRecommendedByInterestNumbers(List.of(1))).thenReturn(List.of(pattern));
+        when(recommendationRepository.countMatching(List.of(1), List.of())).thenReturn(1L);
+        when(recommendationRepository.findMatching(List.of(1), List.of(), 0, 1)).thenReturn(List.of(pattern));
         when(responseFactory.createAll(List.of(pattern), user)).thenReturn(List.of(item(pattern)));
 
         recommendationService.getRecommendedPatterns(user);
 
-        verify(patternRepository).findRecommendedByInterestNumbers(List.of(1));
+        verify(recommendationRepository).findMatching(List.of(1), List.of(), 0, 1);
     }
 
     @Test
@@ -92,13 +102,13 @@ class PatternRecommendationServiceTest {
                         UserInterestFixture.createUserInterest(user, "빈티지"),
                         UserInterestFixture.createUserInterest(user, "슬림핏")
                 ));
-        when(patternRepository.findRecommendedByInterestNumbersWithFit(List.of(1, 6), List.of(6)))
-                .thenReturn(List.of(pattern));
+        when(recommendationRepository.countMatching(List.of(1, 6), List.of(6))).thenReturn(1L);
+        when(recommendationRepository.findMatching(List.of(1, 6), List.of(6), 0, 1)).thenReturn(List.of(pattern));
         when(responseFactory.createAll(List.of(pattern), user)).thenReturn(List.of(item(pattern)));
 
         recommendationService.getRecommendedPatterns(user);
 
-        verify(patternRepository).findRecommendedByInterestNumbersWithFit(List.of(1, 6), List.of(6));
+        verify(recommendationRepository).findMatching(List.of(1, 6), List.of(6), 0, 1);
     }
 
     @Test
@@ -109,14 +119,13 @@ class PatternRecommendationServiceTest {
         PatternListItemResponse fallbackItem = item(fallback);
         when(userInterestRepository.findAllByUser_Id(1L))
                 .thenReturn(List.of(UserInterestFixture.createUserInterest(user, "빈티지")));
-        when(patternRepository.findRecommendedByInterestNumbers(List.of(1))).thenReturn(List.of());
-        when(patternRepository.findRecommended()).thenReturn(List.of(fallback));
+        when(recommendationRepository.findPopular(30)).thenReturn(List.of(fallback));
         when(responseFactory.createAll(List.of(fallback), user)).thenReturn(List.of(fallbackItem));
 
         PatternItemsResponse response = recommendationService.getRecommendedPatterns(user);
 
         assertThat(response.items()).containsExactly(fallbackItem);
-        verify(patternRepository).findRecommended();
+        verify(recommendationRepository).findPopular(30);
     }
 
     @Test
@@ -127,15 +136,38 @@ class PatternRecommendationServiceTest {
         PatternListItemResponse fallbackItem = item(fallback);
         when(userInterestRepository.findAllByUser_Id(1L))
                 .thenReturn(List.of(UserInterestFixture.createUserInterest(user, "오버사이즈")));
-        when(patternRepository.findRecommendedByInterestNumbersWithFit(List.of(5), List.of(5)))
-                .thenReturn(List.of());
-        when(patternRepository.findRecommended()).thenReturn(List.of(fallback));
+        when(recommendationRepository.findPopular(30)).thenReturn(List.of(fallback));
         when(responseFactory.createAll(List.of(fallback), user)).thenReturn(List.of(fallbackItem));
 
         PatternItemsResponse response = recommendationService.getRecommendedPatterns(user);
 
         assertThat(response.items()).containsExactly(fallbackItem);
-        verify(patternRepository).findRecommendedByInterestNumbersWithFit(List.of(5), List.of(5));
+        verify(recommendationRepository).countMatching(List.of(5), List.of(5));
+    }
+
+    @Test
+    @DisplayName("후보 변경으로 앞뒤 조회 구간이 겹쳐도 같은 도안은 한 번만 응답해야 한다")
+    void getRecommendedPatterns_OverlappingWindows_ReturnsUniquePatterns() {
+        User user = UserFixture.createUserWithId(1L);
+        List<Pattern> head = new ArrayList<>(LongStream.rangeClosed(1, 27).mapToObj(this::pattern).toList());
+        head.add(pattern(29L));
+        when(userInterestRepository.findAllByUser_Id(1L))
+                .thenReturn(List.of(UserInterestFixture.createUserInterest(user, "빈티지")));
+        when(recommendationRepository.countMatching(List.of(1), List.of())).thenReturn(31L);
+        when(patternRecommendationRandom.nextInt(31)).thenReturn(29);
+        when(recommendationRepository.findMatching(List.of(1), List.of(), 29, 30))
+                .thenReturn(List.of(pattern(29L), pattern(30L)));
+        when(recommendationRepository.findMatching(List.of(1), List.of(), 0, 28)).thenReturn(head);
+        var factory = new PatternListItemResponseFactory(mock(ScrapRepository.class), mock(ImageService.class));
+        var service = new PatternRecommendationService(
+                recommendationRepository, userInterestRepository, factory, patternRecommendationRandom);
+
+        PatternItemsResponse response = service.getRecommendedPatterns(user);
+
+        assertThat(response.items()).hasSize(29);
+        assertThat(response.items()).extracting(PatternListItemResponse::id)
+                .containsExactlyInAnyOrderElementsOf(
+                        LongStream.rangeClosed(1, 30).filter(id -> id != 28).boxed().toList());
     }
 
     private Pattern pattern(Long id) {
