@@ -69,32 +69,29 @@ abstract class UserProjectQueryContract {
     }
 
     @Test
-    @DisplayName("대체 실 단독, 채팅 단독, 양쪽 구매를 도안별로 합치고 최신 구매일로 정렬해야 한다")
-    void mergesPurchasesAndPreservesResponseFields() {
+    @DisplayName("구매 내역을 도안별로 합치고 대체 실 구매보다 늦은 채팅 참여 시각을 정렬에 반영해야 한다")
+    void mergesPurchasesAndSortsByLaterChatParticipation() {
         Pattern both = savePattern("both");
         Pattern chatOnly = savePattern("chat");
         Pattern yarnOnly = savePattern("yarn");
         saveUnlock(user, both, UnlockType.YARN_INFO, BASE_DATE);
         ChatRoom bothRoom = saveRoom(both);
-        saveChat(user, bothRoom, BASE_DATE.plusDays(1));
+        saveChat(user, bothRoom, BASE_DATE.plusDays(3));
         ChatRoom chatRoom = saveRoom(chatOnly);
         saveChat(user, chatRoom, BASE_DATE.plusDays(2));
-        saveUnlock(user, yarnOnly, UnlockType.YARN_INFO, BASE_DATE.plusDays(3));
+        saveUnlock(user, yarnOnly, UnlockType.YARN_INFO, BASE_DATE.plusDays(4));
         prepareQuery();
 
         PurchasedProjectsResponse response = service.getPurchasedProjects(user, 1);
 
-        assertThat(response.projects()).extracting(Project::patternId)
-                .containsExactly(yarnOnly.getId(), chatOnly.getId(), both.getId());
-        assertThat(response.projects().getFirst()).isEqualTo(new Project(
-                yarnOnly.getId(), "yarn", "artist", "https://cdn.example.com/patterns/yarn.png",
-                true, BASE_DATE.plusDays(3), false, null, null));
-        assertThat(response.projects().get(1)).isEqualTo(new Project(
-                chatOnly.getId(), "chat", "artist", "https://cdn.example.com/patterns/chat.png",
-                false, null, true, chatRoom.getId(), BASE_DATE.plusDays(2)));
-        assertThat(response.projects().get(2)).isEqualTo(new Project(
-                both.getId(), "both", "artist", "https://cdn.example.com/patterns/both.png",
-                true, BASE_DATE, true, bothRoom.getId(), BASE_DATE.plusDays(1)));
+        assertThat(response.projects()).containsExactly(
+                new Project(yarnOnly.getId(), "yarn", "artist", "https://cdn.example.com/patterns/yarn.png",
+                        true, BASE_DATE.plusDays(4), false, null, null),
+                new Project(both.getId(), "both", "artist", "https://cdn.example.com/patterns/both.png",
+                        true, BASE_DATE, true, bothRoom.getId(), BASE_DATE.plusDays(3)),
+                new Project(chatOnly.getId(), "chat", "artist", "https://cdn.example.com/patterns/chat.png",
+                        false, null, true, chatRoom.getId(), BASE_DATE.plusDays(2))
+        );
         assertThat(response.nextPage()).isZero();
     }
 
