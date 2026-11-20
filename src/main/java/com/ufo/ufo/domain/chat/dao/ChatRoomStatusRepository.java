@@ -25,9 +25,6 @@ public interface ChatRoomStatusRepository extends JpaRepository<ChatRoomStatus, 
     boolean existsByUser_IdAndRoom_Pattern_Id(Long userId, Long patternId);
 
     @EntityGraph(attributePaths = {"room", "room.pattern"})
-    List<ChatRoomStatus> findAllByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(Long userId);
-
-    @EntityGraph(attributePaths = {"room", "room.pattern"})
     Page<ChatRoomStatus> findByUser_IdAndRoom_Pattern_DeletedAtIsNullOrderByCreatedAtDescIdDesc(
             Long userId,
             Pageable pageable
